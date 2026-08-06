@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Table</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink: #14171B;
+    --ink-soft: #1C2027;
+    --ink-line: #2A2F38;
+    --parchment: #EFE7D6;
+    --parchment-line: #D9CBA8;
+    --text-light: #E9E4D8;
+    --text-dim: #9AA0A8;
+    --text-dark: #241F18;
+    --brass: #B9975B;
+    --brass-bright: #D8BA83;
+    --ember: #A34B36;
+    --ember-bright: #C1604A;
+    --sage: #7C9070;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: var(--ink);
+    color: var(--text-light);
+    font-family: 'Inter', sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  #app{max-width:1100px;margin:0 auto;padding:28px 20px 60px;}
+  .hidden{display:none !important;}
+  a{color:var(--brass-bright);}
+
+  h1,h2,h3{font-family:'Fraunces', serif; font-weight:600; margin:0;}
+
+  /* ---------- Landing ---------- */
+  #screen-landing{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    min-height:80vh; text-align:center;
+  }
+  .brand-eyebrow{
+    font-family:'IBM Plex Mono', monospace; font-size:12px; letter-spacing:.18em;
+    text-transform:uppercase; color:var(--brass); margin-bottom:10px;
+  }
+  #screen-landing h1{font-size:clamp(36px,6vw,56px); font-weight:700; letter-spacing:-.01em;}
+  #screen-landing p.sub{color:var(--text-dim); max-width:480px; margin:14px 0 36px; line-height:1.55; font-size:15px;}
+  .landing-cards{display:flex; gap:18px; flex-wrap:wrap; justify-content:center; width:100%; max-width:640px;}
+  .landing-card{
+    flex:1; min-width:260px; background:var(--ink-soft); border:1px solid var(--ink-line);
+    border-radius:10px; padding:26px 24px; text-align:left;
+  }
+  .landing-card h3{font-size:19px; margin-bottom:6px;}
+  .landing-card p{color:var(--text-dim); font-size:13.5px; line-height:1.5; margin:0 0 18px;}
+  .landing-card input{
+    width:100%; margin-bottom:12px; padding:11px 12px; border-radius:6px;
+    border:1px solid var(--ink-line); background:#10131700; background:var(--ink);
+    color:var(--text-light); font-family:'IBM Plex Mono', monospace; font-size:14px;
+    letter-spacing:.05em;
+  }
+  .landing-card input::placeholder{color:var(--text-dim); font-family:'Inter',sans-serif; letter-spacing:0;}
+  .landing-card input:focus, button:focus-visible, textarea:focus{outline:2px solid var(--brass-bright); outline-offset:1px;}
+
+  button{
+    font-family:'Inter',sans-serif; font-weight:600; font-size:14px; cursor:pointer;
+    border:none; border-radius:6px; padding:11px 16px; transition:transform .1s ease, background .15s ease;
+  }
+  button:active{transform:scale(.98);}
+  .btn-brass{background:var(--brass); color:#221A0E;}
+  .btn-brass:hover{background:var(--brass-bright);}
+  .btn-ghost{background:transparent; color:var(--text-light); border:1px solid var(--ink-line);}
+  .btn-ghost:hover{border-color:var(--brass);}
+  .btn-ember{background:var(--ember); color:#fff;}
+  .btn-ember:hover{background:var(--ember-bright);}
+  .btn-block{width:100%;}
+  .btn-small{padding:7px 11px; font-size:12.5px;}
+
+  #landing-error, #banner-error{
+    color:#F0BBAE; background:rgba(163,75,54,.15); border:1px solid rgba(163,75,54,.4);
+    padding:9px 13px; border-radius:6px; font-size:13px; margin-top:6px;
+  }
+
+  /* ---------- Table screen ---------- */
+  #screen-table{display:flex; flex-direction:column; gap:20px;}
+  .table-header{
+    display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+    border-bottom:1px solid var(--ink-line); padding-bottom:16px;
+  }
+  .seal{
+    display:inline-flex; align-items:center; gap:10px; background:var(--ink-soft);
+    border:1.5px solid var(--brass); border-radius:999px; padding:6px 8px 6px 16px;
+  }
+  .seal .code{font-family:'IBM Plex Mono', monospace; font-size:17px; letter-spacing:.12em; color:var(--brass-bright);}
+  .seal button{padding:6px 12px; font-size:11.5px;}
+  .who{font-size:13px; color:var(--text-dim);}
+  .who b{color:var(--text-light); font-weight:600;}
+  .header-actions{display:flex; align-items:center; gap:10px;}
+
+  .table-grid{display:grid; grid-template-columns: 1.15fr .85fr; gap:22px;}
+  @media(max-width:860px){ .table-grid{grid-template-columns: 1fr;} }
+
+  .panel{background:var(--ink-soft); border:1px solid var(--ink-line); border-radius:10px; padding:20px;}
+  .panel h2{font-size:15px; text-transform:uppercase; letter-spacing:.08em; font-weight:600; color:var(--text-dim); margin-bottom:14px;}
+
+  /* Ledger */
+  #ledger{max-height:520px; overflow-y:auto; padding-right:4px; display:flex; flex-direction:column-reverse;}
+  .log-entry{
+    font-family:'IBM Plex Mono', monospace; font-size:13px; line-height:1.6;
+    padding:9px 0; border-bottom:1px dashed var(--ink-line); display:flex; gap:10px;
+    animation: settle .25s ease;
+  }
+  @keyframes settle{ from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;} }
+  .log-entry .time{color:var(--text-dim); flex-shrink:0;}
+  .log-entry .name{color:var(--brass-bright); font-weight:500; flex-shrink:0;}
+  .log-entry.roll .stamp{
+    display:inline-block; border:1px solid var(--brass); color:var(--brass-bright);
+    border-radius:4px; padding:0 6px; margin-left:4px; font-size:12px;
+  }
+  .log-entry.system{color:var(--text-dim); font-style:italic;}
+  .log-empty{color:var(--text-dim); font-size:13px; padding:6px 0;}
+  .log-entry.chat .name{color:var(--text-light);}
+  .chat-row{display:flex; gap:8px; margin-top:12px;}
+  .chat-row input{
+    flex:1; padding:9px 11px; border-radius:6px; border:1px solid var(--ink-line);
+    background:var(--ink); color:var(--text-light); font-family:'Inter',sans-serif; font-size:13.5px;
+  }
+
+  /* Combat panel */
+  .counter-row{display:flex; gap:16px; margin-bottom:6px;}
+  .counter{flex:1; background:var(--ink); border:1px solid var(--ink-line); border-radius:8px; padding:10px 14px;}
+  .counter-label{display:block; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-dim);}
+  .counter-value{font-family:'IBM Plex Mono', monospace; font-size:18px; color:var(--brass-bright);}
+  #target-range{display:flex; flex-wrap:wrap; gap:8px;}
+  .target-chip{
+    background:var(--ink); border:1px solid var(--ink-line); border-radius:6px; padding:7px 12px;
+    font-size:12.5px; cursor:pointer; color:var(--text-light);
+  }
+  .target-chip.selected{border-color:var(--brass); color:var(--brass-bright); background:rgba(185,151,91,.1);}
+  .target-chip.defeated{opacity:.4; text-decoration:line-through; cursor:default;}
+  #enemy-build-picker{
+    padding:9px 10px; border-radius:6px; border:1px solid var(--ink-line);
+    background:var(--ink); color:var(--text-light); font-family:'Inter',sans-serif; font-size:13px;
+  }
+  .action-row{display:flex; gap:8px; margin-top:16px;}
+  .btn-action{
+    flex:1; background:var(--ink); border:1px solid var(--brass); color:var(--brass-bright);
+    font-family:'Inter',sans-serif; font-weight:600; font-size:13px; padding:12px 0; border-radius:6px; cursor:pointer;
+  }
+  .btn-action:hover{background:rgba(185,151,91,.1);}
+  .action-menu{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; padding:12px; background:var(--ink); border-radius:8px; border:1px solid var(--ink-line);}
+  .toggle-row{display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-light); width:100%;}
+  .btn-ghost.toggled{border-color:var(--brass); color:var(--brass-bright); background:rgba(185,151,91,.15);}
+  .commit-row{display:flex; gap:8px; margin-top:12px;}
+  .commit-row button{flex:1;}
+
+  /* Sequencer */
+  .seq-wrap{position:relative; padding-top:30px;}
+  .seq-counter-badge{
+    position:absolute; top:0; left:50%; transform:translateX(-50%);
+    background:var(--ink); border:1px solid var(--brass); color:var(--brass-bright);
+    font-family:'IBM Plex Mono', monospace; font-size:13px; padding:3px 10px; border-radius:6px;
+  }
+  .seq-line-row{position:relative; height:24px; margin-top:8px;}
+  .seq-line{position:absolute; left:0; right:0; top:50%; height:1px; background:var(--ink-line);}
+  .seq-tick{position:absolute; top:50%; width:1px; height:6px; background:var(--ink-line); transform:translate(-50%,-50%);}
+  .seq-tick.major{height:10px; background:var(--text-dim);}
+  .seq-tick-label{position:absolute; top:100%; transform:translateX(-50%); font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--text-dim); margin-top:2px;}
+  .seq-lane-label{font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-dim); margin-top:18px; margin-bottom:6px;}
+  .seq-lane{position:relative; height:54px;}
+  .seq-lane.enemy{border:1px dashed var(--ink-line); border-radius:8px;}
+  .seq-marker{position:absolute; top:2px; transform:translateX(-50%); display:flex; flex-direction:column; gap:2px; align-items:center;}
+  .seq-marker-box{
+    background:var(--ink); border:1px solid var(--brass); color:var(--brass-bright);
+    font-family:'IBM Plex Mono', monospace; font-size:11px; padding:3px 6px; border-radius:4px; white-space:nowrap;
+  }
+  .seq-marker-box.action{border-color:var(--ink-line); color:var(--text-light);}
+  .seq-entry-tick{position:absolute; top:50%; width:2px; height:14px; background:var(--sage); transform:translate(-50%,-50%);}
+  .seq-entry-tick.dm{background:var(--ember);}
+  .seq-entry-label{position:absolute; bottom:100%; transform:translateX(-50%); font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--sage); margin-bottom:2px; white-space:nowrap;}
+  .seq-entry-label.dm{color:var(--ember-bright);}
+
+  /* Roster */
+  .roster-item{display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--ink-line);}
+  .roster-item:last-child{border-bottom:none;}
+  .roster-item .avatar{
+    width:30px; height:30px; border-radius:50%; background:var(--brass); color:#221A0E;
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex-shrink:0;
+  }
+  .roster-info{flex:1; min-width:0;}
+  .roster-info .r-name{font-size:13.5px; font-weight:600;}
+  .roster-info .r-arch{font-size:12px; color:var(--text-dim);}
+  .hp-bar-wrap{width:70px; height:6px; background:var(--ink); border-radius:99px; overflow:hidden; flex-shrink:0;}
+  .hp-bar{height:100%; background:var(--sage);}
+  .hp-bar.low{background:var(--ember);}
+  .hp-text{font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--text-dim); width:44px; text-align:right; flex-shrink:0;}
+  .ap-text{font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--brass-bright); width:44px; text-align:right; flex-shrink:0;}
+
+  /* Character sheet (parchment) */
+  .sheet{background:var(--parchment); color:var(--text-dark); border-radius:8px; padding:20px;}
+  .sheet h2{color:#5B4B2E; border-bottom:1px solid var(--parchment-line); padding-bottom:10px; margin-bottom:14px;}
+  .field{margin-bottom:12px;}
+  .field label{display:block; font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:#7A6A47; margin-bottom:5px; font-weight:600;}
+  .field input, .field textarea, .field select{
+    width:100%; border:1px solid var(--parchment-line); background:#F8F3E7; color:var(--text-dark);
+    border-radius:5px; padding:9px 10px; font-family:'Inter',sans-serif; font-size:13.5px; resize:vertical;
+  }
+  .field textarea{min-height:70px; line-height:1.5;}
+  .hp-fields{display:flex; gap:10px; align-items:center;}
+  .hp-fields input{width:64px; text-align:center;}
+  .hp-fields span{color:#7A6A47;}
+  .stat-grid{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:12px;}
+  .stat-header{font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#7A6A47; font-weight:700; margin:14px 0 8px; padding-top:8px; border-top:1px solid var(--parchment-line);}
+  .save-hint{font-size:11px; color:#8A7A57; margin-top:2px;}
+
+  .footnote{font-size:12px; color:var(--text-dim); line-height:1.6; padding-top:4px;}
+  .loading-row{font-family:'IBM Plex Mono', monospace; font-size:13px; color:var(--text-dim); padding:30px 0; text-align:center;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- LANDING -->
+  <div id="screen-landing">
+    <div class="brand-eyebrow">Browser Tabletop &mdash; Prototype</div>
+    <h1>The Table</h1>
+    <p class="sub">Create a table, share the code, and everyone rolls together &mdash; character sheets, dice, and a shared log, live in the browser.</p>
+
+    <div class="landing-cards">
+      <div class="landing-card">
+        <h3>Start a table</h3>
+        <p>Generates a code for others to join.</p>
+        <input id="create-name" placeholder="Your name" maxlength="24" />
+        <button class="btn-brass btn-block" onclick="handleCreate()">Create table</button>
+      </div>
+      <div class="landing-card">
+        <h3>Join a table</h3>
+        <p>Enter the code someone shared with you.</p>
+        <input id="join-code" placeholder="Table code" maxlength="6" style="text-transform:uppercase;" />
+        <input id="join-name" placeholder="Your name" maxlength="24" />
+        <button class="btn-ghost btn-block" onclick="handleJoin()">Join table</button>
+      </div>
+    </div>
+    <div id="landing-error" class="hidden"></div>
+  </div>
+
+  <!-- TABLE -->
+  <div id="screen-table" class="hidden">
+    <div class="table-header">
+      <div class="seal">
+        <span class="code" id="table-code-display">------</span>
+        <button class="btn-ghost" onclick="copyCode()">Copy</button>
+      </div>
+      <div class="who">You are <b id="who-name">&mdash;</b></div>
+      <div class="header-actions">
+        <span id="sync-indicator" class="footnote">syncing&hellip;</span>
+        <button class="btn-ember btn-small" onclick="leaveTable()">Leave table</button>
+      </div>
+    </div>
+    <div id="banner-error" class="hidden"></div>
+
+    <div class="table-grid">
+      <div>
+        <div class="panel" style="margin-bottom:22px;">
+          <h2>The Ledger</h2>
+          <div id="ledger"><div class="log-empty">Nothing recorded yet.</div></div>
+          <div class="chat-row">
+            <input id="chat-input" placeholder="Say something to the table…" maxlength="240" onkeydown="if(event.key==='Enter'){sendMessage();}" />
+            <button class="btn-brass btn-small" onclick="sendMessage()">Send</button>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Party</h2>
+          <div id="roster"></div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:22px;">
+        <div class="panel">
+          <h2>Combat</h2>
+          <div class="counter-row">
+            <div class="counter"><span class="counter-label">Wounds</span><span id="cb-wounds-display" class="counter-value">&mdash;</span></div>
+            <div class="counter"><span class="counter-label">AP (committed / total)</span><span id="cb-ap-display" class="counter-value">&mdash;</span></div>
+          </div>
+
+          <div class="field" style="margin-top:14px;">
+            <label>Target range</label>
+            <div id="target-range"><div class="log-empty">No enemies in the encounter.</div></div>
+          </div>
+
+          <div class="action-row">
+            <button class="btn-action" onclick="toggleMenu('attack')">Attack</button>
+            <button class="btn-action" onclick="toggleMenu('block')">Block</button>
+            <button class="btn-action hidden" id="essence-btn" onclick="toggleMenu('essence')">Essence</button>
+          </div>
+
+          <div class="action-menu hidden" id="menu-attack">
+            <button class="btn-ghost btn-small" id="attack-fast-btn" onclick="selectAttackKind('fast')">Fast &mdash; 5 AP</button>
+            <button class="btn-ghost btn-small" id="attack-strong-btn" onclick="selectAttackKind('strong')">Strong &mdash; 10 AP</button>
+          </div>
+
+          <div class="action-menu hidden" id="menu-block">
+            <label class="toggle-row"><input type="checkbox" id="block-base" checked /> Block (+5 AP)</label>
+            <label class="toggle-row"><input type="checkbox" id="block-maintain" /> Maintain (+5 AP)</label>
+            <label class="toggle-row"><input type="checkbox" id="block-counter" /> Counter (+5 AP)</label>
+          </div>
+
+          <div class="action-menu hidden" id="menu-essence">
+            <button class="btn-ghost btn-small hidden" id="cast-lightning" onclick="selectEssenceSchool('Lightning')">Lightning &mdash; 8 AP</button>
+            <button class="btn-ghost btn-small hidden" id="cast-lava" onclick="selectEssenceSchool('Lava')">Lava &mdash; 8 AP</button>
+          </div>
+
+          <div class="commit-row">
+            <button class="btn-brass btn-small" onclick="commitAction()">Commit</button>
+            <button class="btn-ghost btn-small" onclick="undoAction()">Undo</button>
+          </div>
+
+          <button class="btn-ghost btn-small" style="margin-top:14px;" onclick="resetAP()">Discard round (no resolve)</button>
+        </div>
+
+        <div class="panel">
+          <h2>Dungeon Master</h2>
+          <div class="field">
+            <label>Spawn enemy</label>
+            <div class="chat-row">
+              <select id="dm-enemy-build-picker">
+                <option value="enemy-swift">Enemy &mdash; Swift</option>
+                <option value="enemy-heavy">Enemy &mdash; Heavy</option>
+                <option value="enemy-sorcerer">Enemy &mdash; Sorcerer</option>
+              </select>
+              <button class="btn-ghost btn-small" onclick="addEnemy()">+ Add enemy</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Acting as</label>
+            <div id="dm-enemy-picker"><div class="log-empty">No enemies to control yet.</div></div>
+          </div>
+
+          <div class="counter-row">
+            <div class="counter"><span class="counter-label">Wounds</span><span id="dm-wounds-display" class="counter-value">&mdash;</span></div>
+            <div class="counter"><span class="counter-label">AP (committed / total)</span><span id="dm-ap-display" class="counter-value">&mdash;</span></div>
+          </div>
+
+          <div class="field" style="margin-top:14px;">
+            <label>Target (players)</label>
+            <div id="dm-target-range"><div class="log-empty">No players to target.</div></div>
+          </div>
+
+          <div class="action-row">
+            <button class="btn-action" onclick="dmToggleMenu('attack')">Attack</button>
+            <button class="btn-action" onclick="dmToggleMenu('block')">Block</button>
+            <button class="btn-action hidden" id="dm-essence-btn" onclick="dmToggleMenu('essence')">Essence</button>
+          </div>
+
+          <div class="action-menu hidden" id="dm-menu-attack">
+            <button class="btn-ghost btn-small" id="dm-attack-fast-btn" onclick="dmSelectAttackKind('fast')">Fast &mdash; 5 AP</button>
+            <button class="btn-ghost btn-small" id="dm-attack-strong-btn" onclick="dmSelectAttackKind('strong')">Strong &mdash; 10 AP</button>
+          </div>
+
+          <div class="action-menu hidden" id="dm-menu-block">
+            <label class="toggle-row"><input type="checkbox" id="dm-block-base" checked /> Block (+5 AP)</label>
+            <label class="toggle-row"><input type="checkbox" id="dm-block-maintain" /> Maintain (+5 AP)</label>
+            <label class="toggle-row"><input type="checkbox" id="dm-block-counter" /> Counter (+5 AP)</label>
+          </div>
+
+          <div class="action-menu hidden" id="dm-menu-essence">
+            <button class="btn-ghost btn-small hidden" id="dm-cast-lightning" onclick="dmSelectEssenceSchool('Lightning')">Lightning &mdash; 8 AP</button>
+            <button class="btn-ghost btn-small hidden" id="dm-cast-lava" onclick="dmSelectEssenceSchool('Lava')">Lava &mdash; 8 AP</button>
+          </div>
+
+          <div class="commit-row">
+            <button class="btn-brass btn-small" onclick="dmCommitAction()">Commit</button>
+            <button class="btn-ghost btn-small" onclick="dmUndoAction()">Undo</button>
+          </div>
+
+          <button class="btn-ghost btn-small" style="margin-top:14px;" onclick="clearDead()">Clear the dead</button>
+        </div>
+
+        <div class="panel">
+          <h2>Sequencer</h2>
+          <div id="sequencer"></div>
+          <button class="btn-brass btn-block" style="margin-top:14px;" onclick="resolveRound()">Resolve round</button>
+        </div>
+
+        <div class="sheet">
+          <h2>Character Sheet</h2>
+          <div class="field">
+            <label>Load a build</label>
+            <select id="ch-build-loader" onchange="loadBuild(this.value)">
+              <option value="">&mdash; pick a template &mdash;</option>
+              <optgroup label="Player">
+                <option value="player-swift">Player &mdash; Swift</option>
+                <option value="player-heavy">Player &mdash; Heavy</option>
+                <option value="player-parry">Player &mdash; Parry</option>
+              </optgroup>
+              <optgroup label="Enemy">
+                <option value="enemy-swift">Enemy &mdash; Swift</option>
+                <option value="enemy-heavy">Enemy &mdash; Heavy</option>
+                <option value="enemy-sorcerer">Enemy &mdash; Sorcerer</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="field">
+            <label>Name</label>
+            <input id="ch-name" oninput="scheduleSave()" />
+          </div>
+          <div class="field">
+            <label>Role</label>
+            <input id="ch-archetype" oninput="scheduleSave()" placeholder="e.g. Wandering blade-for-hire" />
+          </div>
+          <div class="field">
+            <label>Wounds</label>
+            <div class="hp-fields">
+              <input id="ch-wounds" type="number" oninput="scheduleSave()" /> <span>/</span>
+              <input id="ch-woundsmax" type="number" oninput="scheduleSave()" />
+            </div>
+          </div>
+          <div class="field">
+            <label>AP</label>
+            <input id="ch-ap" type="number" oninput="scheduleSave()" />
+          </div>
+          <div class="stat-header">Form</div>
+          <div class="stat-grid">
+            <div class="field"><label>Power</label><input id="ch-power" type="number" oninput="scheduleSave()" /></div>
+            <div class="field"><label>Quickness</label><input id="ch-quickness" type="number" oninput="scheduleSave()" /></div>
+            <div class="field"><label>Range</label><input id="ch-range" type="number" oninput="scheduleSave()" /></div>
+          </div>
+          <div class="stat-header">Essence</div>
+          <div class="stat-grid">
+            <div class="field"><label>Lightning</label><input id="ch-lightning" type="number" oninput="scheduleSave()" /></div>
+            <div class="field"><label>Lava</label><input id="ch-lava" type="number" oninput="scheduleSave()" /></div>
+            <div class="field"><label>Focus</label><input id="ch-focus" type="number" oninput="scheduleSave()" /></div>
+          </div>
+          <div class="save-hint" id="save-hint">Saved</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footnote">Anyone with this table's code can join and see/edit this session &mdash; treat the code like a shared invite, not a secret.</div>
+  </div>
+
+  <div id="loading" class="loading-row hidden">Loading&hellip;</div>
+</div>
+
+<script>
+let currentCode = null;
+let playerId = null;
+let pollTimer = null;
+let lastSnapshot = null;
+let saveDebounce = null;
+let selectedTargetId = null;
+let lastTable = null;
+let pendingType = null;
+let pendingAttackKind = null;
+let pendingEssenceSchool = null;
+let actingEnemyId = null;
+let dmSelectedTargetId = null;
+let dmPendingType = null;
+let dmPendingAttackKind = null;
+let dmPendingEssenceSchool = null;
+
+function showLoading(v){ document.getElementById('loading').classList.toggle('hidden', !v); }
+function showLandingError(msg){
+  const el = document.getElementById('landing-error');
+  el.textContent = msg; el.classList.remove('hidden');
+}
+function clearLandingError(){ document.getElementById('landing-error').classList.add('hidden'); }
+function showBannerError(msg){
+  const el = document.getElementById('banner-error');
+  el.textContent = msg; el.classList.remove('hidden');
+  setTimeout(()=>el.classList.add('hidden'), 5000);
+}
+
+function genCode(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous chars
+  let s = '';
+  for(let i=0;i<5;i++) s += chars[Math.floor(Math.random()*chars.length)];
+  return s;
+}
+function genId(){ return 'p_' + Math.random().toString(36).slice(2,10); }
+function timeNow(){
+  const d = new Date();
+  return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+}
+
+async function loadTable(code){
+  try{
+    const res = await window.storage.get('table:' + code, true);
+    return res ? JSON.parse(res.value) : null;
+  }catch(e){
+    return null;
+  }
+}
+async function saveTable(code, data){
+  try{
+    const res = await window.storage.set('table:' + code, JSON.stringify(data), true);
+    return !!res;
+  }catch(e){
+    showBannerError("Couldn't save to the table. Will retry shortly.");
+    return false;
+  }
+}
+async function rememberMe(code, name){
+  try{ await window.storage.set('my-active-table', JSON.stringify({code, playerId, name}), false); }catch(e){}
+}
+async function forgetMe(){
+  try{ await window.storage.delete('my-active-table', false); }catch(e){}
+}
+async function recallMe(){
+  try{
+    const res = await window.storage.get('my-active-table', false);
+    return res ? JSON.parse(res.value) : null;
+  }catch(e){ return null; }
+}
+
+async function handleCreate(){
+  clearLandingError();
+  const name = document.getElementById('create-name').value.trim();
+  if(!name){ showLandingError('Enter a name first.'); return; }
+  const code = genCode();
+  playerId = genId();
+  const table = {
+    code, createdAt: Date.now(),
+    log: [{type:'system', text: name + ' created the table', time: timeNow()}],
+    players: {}
+  };
+  table.players[playerId] = blankCharacter(name);
+  showLoading(true);
+  const ok = await saveTable(code, table);
+  showLoading(false);
+  if(!ok){ showLandingError("Couldn't create the table. Try again."); return; }
+  await rememberMe(code, name);
+  enterTable(code, table);
+}
+
+async function handleJoin(){
+  clearLandingError();
+  const code = document.getElementById('join-code').value.trim().toUpperCase();
+  const name = document.getElementById('join-name').value.trim();
+  if(!code || !name){ showLandingError('Enter both a table code and your name.'); return; }
+  showLoading(true);
+  const table = await loadTable(code);
+  showLoading(false);
+  if(!table){ showLandingError('No table found with that code.'); return; }
+  playerId = genId();
+  table.players[playerId] = blankCharacter(name);
+  table.log.push({type:'system', text: name + ' joined the table', time: timeNow()});
+  await saveTable(code, table);
+  await rememberMe(code, name);
+  enterTable(code, table);
+}
+
+function blankCharacter(name){
+  return { name, archetype:'', wounds:7, woundsMax:7, ap:10, power:1, quickness:5, range:3, lightning:0, lava:0, focus:0, apSpent:0 };
+}
+
+const BUILDS = {
+  'player-swift':   { archetype:'Blade-quick duelist', wounds:7,  woundsMax:7,  ap:20, power:2, quickness:9, range:3, lightning:0, lava:0, focus:0 },
+  'player-heavy':   { archetype:'Armored bruiser',      wounds:7,  woundsMax:7,  ap:20, power:2, quickness:4, range:3, lightning:0, lava:0, focus:0 },
+  'player-parry':   { archetype:'Counter-fighter',      wounds:7,  woundsMax:7,  ap:20, power:2, quickness:6, range:9, lightning:0, lava:0, focus:0 },
+  'enemy-swift':    { archetype:'Basic Cultist',        wounds:3,  woundsMax:3,  ap:10, power:1, quickness:8, range:2, lightning:0, lava:0, focus:0 },
+  'enemy-heavy':    { archetype:'Cultist brute',        wounds:5,  woundsMax:5,  ap:10, power:1, quickness:3, range:2, lightning:0, lava:0, focus:0 },
+  'enemy-sorcerer': { archetype:'Cultist Sorcerer',     wounds:12, woundsMax:12, ap:50, power:2, quickness:5, range:3, lightning:0, lava:6, focus:6 }
+};
+
+function loadBuild(key){
+  if(!key || !BUILDS[key]) return;
+  const b = BUILDS[key];
+  document.getElementById('ch-archetype').value = b.archetype;
+  document.getElementById('ch-wounds').value = b.wounds;
+  document.getElementById('ch-woundsmax').value = b.woundsMax;
+  document.getElementById('ch-ap').value = b.ap;
+  document.getElementById('ch-power').value = b.power;
+  document.getElementById('ch-quickness').value = b.quickness;
+  document.getElementById('ch-range').value = b.range;
+  document.getElementById('ch-lightning').value = b.lightning;
+  document.getElementById('ch-lava').value = b.lava;
+  document.getElementById('ch-focus').value = b.focus;
+  scheduleSave();
+}
+
+function enterTable(code, table){
+  currentCode = code;
+  document.getElementById('screen-landing').classList.add('hidden');
+  document.getElementById('screen-table').classList.remove('hidden');
+  document.getElementById('table-code-display').textContent = code;
+  renderAll(table);
+  startPolling();
+}
+
+async function addEnemy(){
+  const key = document.getElementById('dm-enemy-build-picker').value;
+  const b = BUILDS[key];
+  if(!b) return;
+  const table = await loadTable(currentCode);
+  if(!table){ showBannerError('Lost connection to the table.'); return; }
+  if(!table.enemies) table.enemies = {};
+  const id = 'e_' + Math.random().toString(36).slice(2,8);
+  const count = Object.values(table.enemies).filter(function(e){ return e.archetype === b.archetype; }).length + 1;
+  table.enemies[id] = {
+    archetype: b.archetype, name: b.archetype + ' #' + count, num: count,
+    wounds: b.wounds, woundsMax: b.woundsMax, ap: b.ap, power: b.power,
+    quickness: b.quickness, range: b.range, lightning: b.lightning, lava: b.lava, focus: b.focus,
+    apSpent: 0, sequence: []
+  };
+  table.log.push({type:'system', text: 'An enemy joined the fight: ' + table.enemies[id].name, time: timeNow()});
+  await saveTable(currentCode, table);
+  renderAll(table);
+  lastSnapshot = JSON.stringify(table);
+}
+
+function renderTargetRange(enemies){
+  const el = document.getElementById('target-range');
+  const list = Object.entries(enemies || {});
+  if(!list.length){ el.innerHTML = '<div class="log-empty">No enemies in the encounter.</div>'; return; }
+  el.innerHTML = list.map(function(pair){
+    const id = pair[0], e = pair[1];
+    const defeated = e.wounds <= 0;
+    let cls = 'target-chip';
+    if(id === selectedTargetId) cls += ' selected';
+    if(defeated) cls += ' defeated';
+    const onclick = defeated ? '' : ("selectTarget('" + id + "')");
+    return '<div class="' + cls + '" onclick="' + onclick + '">' + escapeHtml(e.name) + ' &mdash; ' + Math.max(0, e.wounds) + '/' + e.woundsMax + '</div>';
+  }).join('');
+}
+
+function selectTarget(id){
+  const enemy = lastTable && lastTable.enemies && lastTable.enemies[id];
+  if(!enemy || enemy.wounds <= 0) return;
+  selectedTargetId = id;
+  renderTargetRange(lastTable.enemies);
+}
+
+function toggleMenu(name){
+  ['attack','block','essence'].forEach(function(m){
+    const el = document.getElementById('menu-' + m);
+    if(!el) return;
+    if(m === name){ el.classList.toggle('hidden'); }
+    else{ el.classList.add('hidden'); }
+  });
+}
+
+function dmToggleMenu(name){
+  ['attack','block','essence'].forEach(function(m){
+    const el = document.getElementById('dm-menu-' + m);
+    if(!el) return;
+    if(m === name){ el.classList.toggle('hidden'); }
+    else{ el.classList.add('hidden'); }
+  });
+}
+
+function renderAll(table){
+  lastTable = table;
+  const me = table.players[playerId];
+  if(me){
+    document.getElementById('who-name').textContent = me.name;
+    if(document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA'){
+      document.getElementById('ch-name').value = me.name || '';
+      document.getElementById('ch-archetype').value = me.archetype || '';
+      document.getElementById('ch-wounds').value = me.wounds ?? 7;
+      document.getElementById('ch-woundsmax').value = me.woundsMax ?? 7;
+      document.getElementById('ch-ap').value = me.ap ?? 10;
+      document.getElementById('ch-power').value = me.power ?? 1;
+      document.getElementById('ch-quickness').value = me.quickness ?? 5;
+      document.getElementById('ch-range').value = me.range ?? 3;
+      document.getElementById('ch-lightning').value = me.lightning ?? 0;
+      document.getElementById('ch-lava').value = me.lava ?? 0;
+      document.getElementById('ch-focus').value = me.focus ?? 0;
+    }
+    document.getElementById('cb-wounds-display').textContent = (me.wounds ?? 0) + '/' + (me.woundsMax ?? 0);
+    document.getElementById('cb-ap-display').textContent = (me.apSpent || 0) + '/' + (me.ap ?? 0);
+    const hasEssence = (me.lightning > 0) || (me.lava > 0);
+    document.getElementById('essence-btn').classList.toggle('hidden', !hasEssence);
+    document.getElementById('cast-lightning').classList.toggle('hidden', !(me.lightning > 0));
+    document.getElementById('cast-lava').classList.toggle('hidden', !(me.lava > 0));
+  }
+  renderTargetRange(table.enemies || {});
+  renderDMEnemyPicker(table.enemies || {});
+  renderDMCounters(actingEnemyId ? (table.enemies || {})[actingEnemyId] : null);
+  renderDMTargetRange(table.players || {});
+  dmRenderToggleStates();
+  renderSequencer(table);
+  renderToggleStates();
+  renderLedger(table.log || []);
+  renderRoster(table.players || {});
+}
+
+function renderLedger(log){
+  const el = document.getElementById('ledger');
+  if(!log.length){ el.innerHTML = '<div class="log-empty">Nothing recorded yet.</div>'; return; }
+  const recent = log.slice(-100);
+  el.innerHTML = recent.map(entry=>{
+    if(entry.type === 'roll'){
+      return `<div class="log-entry roll">
+        <span class="time">${entry.time}</span>
+        <span class="name">${escapeHtml(entry.name)}</span>
+        <span>rolled d${entry.sides}${entry.modifier ? (entry.modifier>0?'+':'') + entry.modifier : ''} &rarr;
+        <span class="stamp">${entry.total}</span></span>
+      </div>`;
+    }
+    if(entry.type === 'chat'){
+      return `<div class="log-entry chat">
+        <span class="time">${entry.time}</span>
+        <span class="name">${escapeHtml(entry.name)}:</span>
+        <span>${escapeHtml(entry.text)}</span>
+      </div>`;
+    }
+    return `<div class="log-entry system"><span class="time">${entry.time}</span><span>${escapeHtml(entry.text)}</span></div>`;
+  }).join('');
+}
+
+async function sendMessage(){
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if(!text) return;
+  const table = await loadTable(currentCode);
+  if(!table){ showBannerError('Lost connection to the table.'); return; }
+  const me = table.players[playerId] || blankCharacter('Someone');
+  table.log.push({ type:'chat', name: me.name || 'Someone', text, time: timeNow() });
+  await saveTable(currentCode, table);
+  input.value = '';
+  renderAll(table);
+  lastSnapshot = JSON.stringify(table);
+}
+
+function renderRoster(players){
+  const el = document.getElementById('roster');
+  const list = Object.values(players);
+  if(!list.length){ el.innerHTML = '<div class="log-empty">No one here yet.</div>'; return; }
+  el.innerHTML = list.map(p=>{
+    const wounds = p.wounds ?? 0, woundsMax = p.woundsMax || 1;
+    const pct = Math.max(0, Math.min(100, Math.round((wounds/woundsMax)*100)));
+    const low = pct <= 30;
+    const initial = (p.name || '?').trim().charAt(0).toUpperCase() || '?';
+    return `<div class="roster-item">
+      <div class="avatar">${initial}</div>
+      <div class="roster-info">
+        <div class="r-name">${escapeHtml(p.name || 'Unnamed')}</div>
+        <div class="r-arch">${escapeHtml(p.archetype || 'No archetype set')}</div>
+      </div>
+      <div class="hp-bar-wrap"><div class="hp-bar ${low?'low':''}" style="width:${pct}%"></div></div>
+      <div class="hp-text">${wounds}/${woundsMax}</div>
+      <div class="ap-text">${p.ap ?? 0} AP</div>
+    </div>`;
+  }).join('');
+}
+
+function escapeHtml(s){
+  return String(s ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function selectAttackKind(kind){
+  pendingType = 'attack';
+  pendingAttackKind = kind;
+  renderToggleStates();
+}
+
+function selectEssenceSchool(school){
+  pendingType = 'essence';
+  pendingEssenceSchool = school;
+  renderToggleStates();
+}
+
+function renderToggleStates(){
+  const fastBtn = document.getElementById('attack-fast-btn');
+  const strongBtn = document.getElementById('attack-strong-btn');
+  if(fastBtn) fastBtn.classList.toggle('toggled', pendingType === 'attack' && pendingAttackKind === 'fast');
+  if(strongBtn) strongBtn.classList.toggle('toggled', pendingType === 'attack' && pendingAttackKind === 'strong');
+  const ltBtn = document.getElementById('cast-lightning');
+  const lvBtn = document.getElementById('cast-lava');
+  if(ltBtn) ltBtn.classList.toggle('toggled', pendingType === 'essence' && pendingEssenceSchool === 'Lightning');
+  if(lvBtn) lvBtn.classList.toggle('toggled', pendingType === 'essence' && pendingEssenceSchool === 'Lava');
+}
+
+function dmSelectAttackKind(kind){
+  dmPendingType = 'attack';
+  dmPendingAttackKind = kind;
+  dmRenderToggleStates();
+}
+
+function dmSelectEssenceSchool(school){
+  dmPendingType = 'essence';
+  dmPendingEssenceSchool = school;
+  dmRenderToggleStates();
+}
+
+function dmRenderToggleStates(){
+  const fastBtn = document.getElementById('dm-attack-fast-btn');
+  const strongBtn = document.getElementById('dm-attack-strong-btn');
+  if(fastBtn) fastBtn.classList.toggle('toggled', dmPendingType === 'attack' && dmPendingAttackKind === 'fast');
+  if(strongBtn) strongBtn.classList.toggle('toggled', dmPendingType === 'attack' && dmPendingAttackKind === 'strong');
+  const ltBtn = document.getElementById('dm-cast-lightning');
+  const lvBtn = document.getElementById('dm-cast-lava');
+  if(ltBtn) ltBtn.classList.toggle('toggled', dmPendingType === 'essence' && dmPendingEssenceSchool === 'Lightning');
+  if(lvBtn) lvBtn.classList.toggle('toggled', dmPendingType === 'essence' && dmPendingEssenceSchool === 'Lava');
+}
+
+function initials(name){
+  return (name || '').split(' ').filter(Boolean).map(function(w){ return w[0]; }).join('').toUpperCase();
+}
+function targetShorthand(enemy){
+  return initials(enemy.archetype) + (enemy.num || '');
+}
+function playerShorthand(player){
+  return initials(player.name || 'P') || 'P';
+}
+
+function renderDMEnemyPicker(enemies){
+  const el = document.getElementById('dm-enemy-picker');
+  if(!el) return;
+  const list = Object.entries(enemies || {});
+  if(actingEnemyId && !enemies[actingEnemyId]) actingEnemyId = null;
+  if(!list.length){ el.innerHTML = '<div class="log-empty">No enemies to control yet.</div>'; return; }
+  el.innerHTML = list.map(function(pair){
+    const id = pair[0], e = pair[1];
+    const defeated = e.wounds <= 0;
+    let cls = 'target-chip';
+    if(id === actingEnemyId) cls += ' selected';
+    if(defeated) cls += ' defeated';
+    const onclick = defeated ? '' : ("selectActingEnemy('" + id + "')");
+    return '<div class="' + cls + '" onclick="' + onclick + '">' + escapeHtml(e.name) + ' &mdash; ' + Math.max(0, e.wounds) + '/' + e.woundsMax + '</div>';
+  }).join('');
+}
+
+function selectActingEnemy(id){
+  const enemy = lastTable && lastTable.enemies && lastTable.enemies[id];
+  if(!enemy || enemy.wounds <= 0) return;
+  actingEnemyId = id;
+  renderDMEnemyPicker(lastTable.enemies);
+  renderDMCounters(enemy);
+  renderSequencer(lastTable);
+}
+
+function renderDMCounters(enemy){
+  const wEl = document.getElementById('dm-wounds-display');
+  const aEl = document.getElementById('dm-ap-display');
+  if(!wEl || !aEl) return;
+  if(!enemy){ wEl.textContent = '\u2014'; aEl.textContent = '\u2014'; }
+  else{
+    wEl.textContent = (enemy.wounds ?? 0) + '/' + (enemy.woundsMax ?? 0);
+    aEl.textContent = (enemy.apSpent || 0) + '/' + (enemy.ap ?? 0);
+  }
+  const hasEssence = !!(enemy && ((enemy.lightning > 0) || (enemy.lava > 0)));
+  const essBtn = document.getElementById('dm-essence-btn');
+  if(essBtn) essBtn.classList.toggle('hidden', !hasEssence);
+  const lt = document.getElementById('dm-cast-lightning');
+  const lv = document.getElementById('dm-cast-lava');
+  if(lt) lt.classList.toggle('hidden', !(enemy && enemy.lightning > 0));
+  if(lv) lv.classList.toggle('hidden', !(enemy && enemy.lava > 0));
+}
+
+function renderDMTargetRange(players){
+  const el = document.getElementById('dm-target-range');
+  if(!el) return;
+  const list = Object.entries(players || {});
+  if(!list.length){ el.innerHTML = '<div class="log-empty">No players to target.</div>'; return; }
+  el.innerHTML = list.map(function(pair){
+    const id = pair[0], p = pair[1];
+    const defeated = (p.wounds ?? 0) <= 0;
+    let cls = 'target-chip';
+    if(id === dmSelectedTargetId) cls += ' selected';
+    if(defeated) cls += ' defeated';
+    const onclick = defeated ? '' : ("selectDMTarget('" + id + "')");
+    return '<div class="' + cls + '" onclick="' + onclick + '">' + escapeHtml(p.name || 'Player') + ' &mdash; ' + Math.max(0, p.wounds ?? 0) + '/' + (p.woundsMax ?? 0) + '</div>';
+  }).join('');
+}
+
+function selectDMTarget(id){
+  if(!lastTable || !lastTable.players || !lastTable.players[id]) return;
+  if((lastTable.players[id].wounds ?? 0) <= 0) return;
+  dmSelectedTargetId = id;
+  renderDMTargetRange(lastTable.players);
+}
+
+async function commitAction(){
+  const table = await loadTable(currentCode);
+  if(!table){ showBannerError('Lost connection to the table.'); return; }
+  const me = table.players[playerId];
+  if(!me) return;
+  const spent = me.apSpent || 0;
+  let entry = null;
+
+  if(pendingType === 'attack'){
+    if(!pendingAttackKind){ showBannerError('Choose Fast or Strong first.'); return; }
+    if(!selectedTargetId || !table.enemies || !table.enemies[selectedTargetId]){ showBannerError('Pick a target first.'); return; }
+    const cost = pendingAttackKind === 'strong' ? 10 : 5;
+    if(spent + cost > (me.ap || 0)){ showBannerError('Not enough AP left this round.'); return; }
+    const target = table.enemies[selectedTargetId];
+    entry = { apCost: cost, actionLabel: pendingAttackKind === 'strong' ? 'SA' : 'FA', targetLabel: targetShorthand(target), kind:'attack', attackKind: pendingAttackKind, targetId: selectedTargetId };
+  } else if(pendingType === 'block'){
+    const base = document.getElementById('block-base').checked;
+    const maintain = document.getElementById('block-maintain').checked;
+    const counter = document.getElementById('block-counter').checked;
+    const cost = (base ? 5 : 0) + (maintain ? 5 : 0) + (counter ? 5 : 0);
+    if(cost === 0){ showBannerError('Check at least Block.'); return; }
+    if(spent + cost > (me.ap || 0)){ showBannerError('Not enough AP left this round.'); return; }
+    entry = { apCost: cost, actionLabel: (base ? 'B' : '') + (maintain ? 'M' : '') + (counter ? 'C' : ''), targetLabel: '', kind:'block', maintain, counter };
+  } else if(pendingType === 'essence'){
+    if(!pendingEssenceSchool){ showBannerError('Choose Lightning or Lava first.'); return; }
+    if(!selectedTargetId || !table.enemies || !table.enemies[selectedTargetId]){ showBannerError('Pick a target first.'); return; }
+    const cost = 8;
+    if(spent + cost > (me.ap || 0)){ showBannerError('Not enough AP left this round.'); return; }
+    const target = table.enemies[selectedTargetId];
+    entry = { apCost: cost, actionLabel: pendingEssenceSchool === 'Lava' ? 'LV' : 'LN', targetLabel: targetShorthand(target), kind:'essence', school: pendingEssenceSchool, targetId: selectedTargetId };
+  } else {
+    showBannerError('Open Attack, Block, or Essence and choose something first.');
+    return;
+  }
+
+  if(!me.sequence) me.sequence = [];
+  me.sequence.push(entry);
+  me.apSpent = spent + entry.apCost;
+  table.log.push({type:'system', text: me.name + ' stages ' + entry.actionLabel + (entry.targetLabel ? (' on ' + entry.targetLabel) : ''), time: timeNow()});
+  await saveTable(currentCode, table);
+  renderAll(table);
+  lastSnapshot = JSON.stringify(table);
+}
+
+async function undoAction(){
+  const table = await loadTable(currentCode);
+  if(!table) return;
+  const me = table.players[playerId];
+  if(!me || !me.sequence || !me.sequence.length) return;
+  const removed = me.sequence.pop();
+  me.apSpent = Math.max(0, (me.apSpent || 0) - removed.apCost);
+  table.log.push({type:'system', text: me.name + ' undoes ' + removed.actionLabel + (removed.targetLabel ? (' on ' + removed.targetLabel) : ''), time: timeNow()});
+  await saveTable(currentCode, table);
+  renderAll(table);
+  lastSnapshot = JSON.stringify(table);
+}
+
+async function dmCommitAction(){
+  if(!actingEnemyId){ showBannerError('Pick an enemy to act as first.'); return; }
+  const table = await loadTable(currentCode);
+  if(!table){ showBannerError('Lost connection to the table.'); return; }
+  const actor = table.enemies && table.enemies[actingEnemyId];
+  if(!actor){ showBannerError('That enemy is gone.'); return; }
+  const spent = actor.apSpent || 0;
+  let entry = null;
+
+  if(dmPendingType === 'attack'){
+    if(!dmPendingAttackKind){ showBannerError('Choose Fast or Strong first.'); return; }
+    if(!dmSelectedTargetId || !table.players || !table.players[dmSelectedTargetId]){ showBannerError('Pick a target first.'); return; }
+    const cost = dmPendingAttackKind === 'strong' ? 10 : 5;
+    if(spent + cost > (actor.ap || 0)){ showBannerError('Not enough AP left this round.'); return; }
+    const target = table.players[dmSelectedTargetId];
+    entry = { apCost: cost, actionLabel: dmPendingAttackKind === 'strong' ? 'SA' : 'FA', targetLabel: playerShorthand(target), kind:'attack', attackKind: dmPendingAttackKind, targetId: dmSelectedTargetId };
+  } else if(dmPendingType === 'block'){
+    const base = document.getElementById('dm-block-base').checked;
+    const maintain = document.getElementById('dm-block-maintain').checked;
+    const counter = document.getElementById('dm-block-counter').checked;
+    const cost = (base ? 5 : 0) + (maintain ? 5 : 0) + (counter ? 5 : 0);
+    if(cost === 0){ showBannerError('Check at least Block.'); return; }
+    if(spent + cost > (actor.ap || 0)){ showBannerError('Not enough AP left this round.'); return; }
+    entry = { apCost: cost, actionLabel: (base ? 'B' : '') + (maintain ? 'M' : '') + (counter ? 'C' : ''), targetLabel: '', kind:'block', maintain, counter };
+  } else if(dmPendingType === 'essence'){
+    if(!dmPendingEssenceSchool){ showBannerError('Choose Lightning or Lava first.'); return; }
+    if(!dmSelectedTargetId || !table.players || !table.players[dmSelectedTargetId]){ showBannerError('Pick a target first.'); return; }
+    const cost = 8;
+    if(spent + cost > (actor.ap || 0)){ showBannerError('Not enough AP left this round.'); return; }
+    const target = table.players[dmSelectedTargetId];
+    entry = { apCost: cost, actionLabel: dmPendingEssenceSchool === 'Lava' ? 'LV' : 'LN', targetLabel: playerShorthand(target), kind:'essence', school: dmPendingEssenceSchool, targetId: dmSelectedTargetId };
+  } else {
+    showBannerError('Open Attack, Block, or Essence and choose something first.');
+    return;
+  }
+
+  if(!actor.sequence) actor.sequence = [];
+  actor.sequence.push(entry);
+  actor.apSpent = spent + entry.apCost;
+  table.log.push({type:'system', text: actor.name + ' stages ' + entry.actionLabel + (entry.targetLabel ? (' on ' + entry.targetLabel) : ''), time: timeNow()});
+  await saveTable(currentCode, table);
+  renderAll(table);
+  lastSnapshot = JSON.stringify(table);
+}
+
+async function dmUndoAction(){
+  if(!actingEnemyId) return;
+  const table = await loadTable(currentCode);
+  if(!table) return;
+  const actor = table.enemies && table.enemies[actingEnemyId];
+  if(!actor || !actor.sequence || !actor.sequence.length) return;
+  const removed = actor.sequence.pop();
+  actor.apSpent = Math.max(0, (actor.apSpent || 0) - removed.apCost);
+  table.log.push({type:'system', text: actor.name + ' undoes ' + removed.actionLabel + (removed.targetLabel ? (' on ' + removed.targetLabel) : ''), time: timeNow()});
+  await saveTable(currentCode, table);
+  renderAll(table);
+  lastSnapshot = JSON.stringify(table);
+}
+
+async function clearDead(){
+  const table = await loadTable(currentCode);
+  if(!table || !table.enemies) return;
+  let removedCount = 0;
+  Object.keys(table.enemies).forEach(function(id){
+    if(table.enemies[id].wounds <= 0){
+      if(id === actingEnemyId) actingEnemyId = null;
+      if(id === selectedTargetId) selectedTargetId = null;
+      delete table.enemies[id];
+      removedCount++;
+    }
+  });
+  if(!removedCount){ showBannerError('Nothing to clear.'); return; }
+  table.log.push({type:'system', text: 'Cleared ' + removedCount + ' defeated ' + (removedCount === 1 ? 'enemy' : 'enemies') + ' from the field', time: timeNow()});
+  await saveTable(currentCode, table);
+  renderAll(table);
+  lastSnapshot = JSON.stringify(table);
+}
+
+function computeEntryTick(quickness, counterMax){
+  const delay = Math.max(0, 10 - (quickness || 0));
+  return Math.max(0, counterMax - delay);
+}
+
+function computeCounterMax(table){
+  const playerAp = Object.values(table.players || {}).map(function(p){ return p.ap || 0; });
+  const enemyAp = Object.values(table.enemies || {}).map(function(e){ return e.ap || 0; });
+  return Math.max(1, Math.max(0, ...playerAp), Math.max(0, ...enemyAp));
+}
+
+async function resolveRound(){
+  const table = await loadTable(currentCode);
+  if(!table){ showBannerError('Lost connection to the table.'); return; }
+
+  const counterMax = computeCounterMax(table);
+  let allEntries = [];
+
+  Object.entries(table.players || {}).forEach(function(pair){
+    const actor = pair[1];
+    const entryTick = computeEntryTick(actor.quickness, counterMax);
+    let runningCost = 0;
+    (actor.sequence || []).forEach(function(entry){
+      runningCost += entry.apCost;
+      allEntries.push({ actorType:'player', actor: actor, entry: entry, resolveTick: Math.max(0, entryTick - runningCost) });
+    });
+  });
+  Object.entries(table.enemies || {}).forEach(function(pair){
+    const actor = pair[1];
+    const entryTick = computeEntryTick(actor.quickness, counterMax);
+    let runningCost = 0;
+    (actor.sequence || []).forEach(function(entry){
+      runningCost += entry.apCost;
+      allEntries.push({ actorType:'enemy', actor: actor, entry: entry, resolveTick: Math.max(0, entryTick - runningCost) });
+    });
+  });
+
+  if(!allEntries.length){ showBannerError('Nothing staged to resolve.'); return; }
+
+  allEntries.sort(function(a, b){ return b.resolveTick - a.resolveTick; });
+
+  table.log.push({type:'system', text: '\u2014 resolving the round \u2014', time: timeNow()});
+
+  allEntries.forEach(function(item){
+    const actor = item.actor, entry = item.entry;
+    const actorName = actor.name || 'Someone';
+    if(entry.kind === 'attack' || entry.kind === 'essence'){
+      const targetCollection = item.actorType === 'player' ? table.enemies : table.players;
+      const target = targetCollection && targetCollection[entry.targetId];
+      if(target && target.wounds > 0){
+        const dmg = entry.kind === 'attack'
+          ? (actor.power || 1) + (entry.attackKind === 'strong' ? 1 : 0)
+          : (actor.focus || 1);
+        target.wounds = Math.max(0, target.wounds - dmg);
+        let text = actorName + '\u2019s ' + entry.actionLabel + ' resolves on ' + entry.targetLabel + ' for ' + dmg + (dmg === 1 ? ' wound' : ' wounds');
+        if(target.wounds <= 0) text += ' \u2014 ' + (target.name || 'target') + ' is down!';
+        table.log.push({type:'system', text: text, time: timeNow()});
+      } else {
+        table.log.push({type:'system', text: actorName + '\u2019s ' + entry.actionLabel + ' finds no target \u2014 already down', time: timeNow()});
+      }
+    } else if(entry.kind === 'block'){
+      table.log.push({type:'system', text: actorName + '\u2019s ' + entry.actionLabel + ' holds \u2014 doesn\u2019t reduce damage yet, that check is still the next piece', time: timeNow()});
+    }
+  });
+
+  Object.values(table.players || {}).forEach(function(p){ p.sequence = []; p.apSpent = 0; });
+  Object.values(table.enemies || {}).forEach(function(e){ e.sequence = []; e.apSpent = 0; });
+
+  pendingType = null; pendingAttackKind = null; pendingEssenceSchool = null;
+  dmPendingType = null; dmPendingAttackKind = null; dmPendingEssenceSchool = null;
+
+  await saveTable(currentCode, table);
+  renderAll(table);
+  lastSnapshot = JSON.stringify(table);
+}
+
+function renderSequencer(table){
+  const el = document.getElementById('sequencer');
+  if(!el) return;
+  const me = table.players[playerId];
+
+  const counterMax = computeCounterMax(table);
+
+  function leftPct(tick){
+    return Math.max(0, Math.min(100, ((counterMax - tick) / counterMax) * 100));
+  }
+
+  let ticksHtml = '';
+  for(let t = 0; t <= counterMax; t++){
+    const isMajor = (t % 5 === 0) || (t === counterMax);
+    if(!isMajor && counterMax > 30 && t % 2 !== 0) continue;
+    const pct = leftPct(t);
+    ticksHtml += '<div class="seq-tick' + (isMajor ? ' major' : '') + '" style="left:' + pct + '%;"></div>';
+    if(isMajor){
+      ticksHtml += '<div class="seq-tick-label" style="left:' + pct + '%;">' + t + '</div>';
+    }
+  }
+
+  let entryHtml = '';
+  if(me){
+    const meEntryTick = computeEntryTick(me.quickness, counterMax);
+    const pct = leftPct(meEntryTick);
+    entryHtml += '<div class="seq-entry-tick" style="left:' + pct + '%;"></div>' +
+      '<div class="seq-entry-label" style="left:' + pct + '%;">You start</div>';
+  }
+  if(actingEnemyId && table.enemies && table.enemies[actingEnemyId]){
+    const ae = table.enemies[actingEnemyId];
+    const aeEntryTick = computeEntryTick(ae.quickness, counterMax);
+    const pct = leftPct(aeEntryTick);
+    entryHtml += '<div class="seq-entry-tick dm" style="left:' + pct + '%;"></div>' +
+      '<div class="seq-entry-label dm" style="left:' + pct + '%;">' + escapeHtml(ae.name) + ' starts</div>';
+  }
+
+  function buildMarkers(actor){
+    if(!actor) return '';
+    const entryTick = computeEntryTick(actor.quickness, counterMax);
+    let runningCost = 0;
+    let html = '';
+    (actor.sequence || []).forEach(function(entry){
+      runningCost += entry.apCost;
+      const resolveTick = Math.max(0, entryTick - runningCost);
+      const pct = leftPct(resolveTick);
+      html += '<div class="seq-marker" style="left:' + pct + '%;">' +
+        '<div class="seq-marker-box">' + escapeHtml(entry.targetLabel || '\u2014') + '</div>' +
+        '<div class="seq-marker-box action">' + escapeHtml(entry.actionLabel) + '</div>' +
+      '</div>';
+    });
+    return html;
+  }
+
+  const myMarkers = buildMarkers(me);
+  let enemyMarkers = '';
+  Object.values(table.enemies || {}).forEach(function(e){
+    enemyMarkers += buildMarkers(e);
+  });
+
+  el.innerHTML =
+    '<div class="seq-wrap">' +
+      '<div class="seq-counter-badge">' + counterMax + '</div>' +
+      '<div class="seq-line-row"><div class="seq-line"></div>' + ticksHtml + entryHtml + '</div>' +
+      '<div class="seq-lane-label">Your actions</div>' +
+      '<div class="seq-lane">' + (myMarkers || '<div class="log-empty" style="padding-top:16px;">Nothing staged yet.</div>') + '</div>' +
+      '<div class="seq-lane-label">Enemy actions</div>' +
+      '<div class="seq-lane enemy">' + (enemyMarkers || '') + '</div>' +
+    '</div>';
+}
+
+async function resetAP(){
+  const table = await loadTable(currentCode);
+  if(!table) return;
+  const me = table.players[playerId];
+  if(!me) return;
+  me.apSpent = 0;
+  me.sequence = [];
+  pendingType = null;
+  pendingAttackKind = null;
+  pendingEssenceSchool = null;
+  table.log.push({type:'system', text: me.name + ' starts a new round', time: timeNow()});
+  await saveTable(currentCode, table);
+  renderAll(table);
+  lastSnapshot = JSON.stringify(table);
+}
+
+function scheduleSave(){
+  document.getElementById('save-hint').textContent = 'Saving\u2026';
+  clearTimeout(saveDebounce);
+  saveDebounce = setTimeout(saveCharacter, 700);
+}
+
+async function saveCharacter(){
+  const table = await loadTable(currentCode);
+  if(!table) return;
+  const prevApSpent = (table.players[playerId] && table.players[playerId].apSpent) || 0;
+  table.players[playerId] = {
+    name: document.getElementById('ch-name').value.trim() || 'Unnamed',
+    archetype: document.getElementById('ch-archetype').value.trim(),
+    wounds: parseInt(document.getElementById('ch-wounds').value || '0', 10),
+    woundsMax: parseInt(document.getElementById('ch-woundsmax').value || '1', 10),
+    ap: parseInt(document.getElementById('ch-ap').value || '0', 10),
+    power: parseInt(document.getElementById('ch-power').value || '0', 10),
+    quickness: parseInt(document.getElementById('ch-quickness').value || '0', 10),
+    range: parseInt(document.getElementById('ch-range').value || '0', 10),
+    lightning: parseInt(document.getElementById('ch-lightning').value || '0', 10),
+    lava: parseInt(document.getElementById('ch-lava').value || '0', 10),
+    focus: parseInt(document.getElementById('ch-focus').value || '0', 10),
+    apSpent: prevApSpent
+  };
+  const ok = await saveTable(currentCode, table);
+  document.getElementById('save-hint').textContent = ok ? 'Saved' : 'Could not save';
+  document.getElementById('who-name').textContent = table.players[playerId].name;
+  lastSnapshot = JSON.stringify(table);
+  lastTable = table;
+  renderRoster(table.players);
+}
+
+function startPolling(){
+  stopPolling();
+  pollTimer = setInterval(async ()=>{
+    if(document.hidden) return;
+    const table = await loadTable(currentCode);
+    if(!table) return;
+    const snap = JSON.stringify(table);
+    if(snap !== lastSnapshot){
+      lastSnapshot = snap;
+      renderAll(table);
+    }
+  }, 4000);
+}
+function stopPolling(){ if(pollTimer) clearInterval(pollTimer); pollTimer = null; }
+
+async function leaveTable(){
+  const table = await loadTable(currentCode);
+  if(table && table.players[playerId]){
+    delete table.players[playerId];
+    table.log.push({type:'system', text:(document.getElementById('ch-name').value || 'Someone') + ' left the table', time: timeNow()});
+    await saveTable(currentCode, table);
+  }
+  await forgetMe();
+  stopPolling();
+  currentCode = null; playerId = null;
+  document.getElementById('screen-table').classList.add('hidden');
+  document.getElementById('screen-landing').classList.remove('hidden');
+}
+
+function copyCode(){
+  if(!currentCode) return;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(currentCode).catch(()=>{});
+  }
+}
+
+(async function init(){
+  showLoading(true);
+  const remembered = await recallMe();
+  if(remembered){
+    const table = await loadTable(remembered.code);
+    if(table && table.players[remembered.playerId]){
+      playerId = remembered.playerId;
+      lastSnapshot = JSON.stringify(table);
+      showLoading(false);
+      enterTable(remembered.code, table);
+      return;
+    }
+  }
+  showLoading(false);
+})();
+</script>
+</body>
+</html>

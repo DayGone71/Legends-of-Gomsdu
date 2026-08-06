@@ -1,0 +1,45 @@
+<svg width="680" height="850" viewBox="0 0 680 850" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Overview map of the continent of Gomsdu</title>
+<desc>A schematic regional map with the North split into Crystal Mountains, Forest, and Tundra (containing World's End), sitting above West Hills and Human Lands with the city of Bane, and the southern Peninsula with the Pit.</desc>
+<style>
+text{font-family:Georgia,'Times New Roman',serif;}
+.th{font-size:14px;font-weight:700;}
+.ts{font-size:12px;}
+.region{fill:#F4F1EA;stroke:#3C3489;stroke-width:1;}
+.region.green{stroke:#3B6D11;}
+.region.purple{stroke:#3C3489;}
+.region.amber{stroke:#854F0B;}
+.region.blue{stroke:#0C447C;}
+.region.coral{stroke:#993C1D;}
+.region.gray{stroke:#5F5E5A;}
+.region.red{stroke:#A32D2D;}
+.fill-purple{fill:#EEEDFE;}
+.fill-green{fill:#EAF3DE;}
+.fill-amber{fill:#FAEEDA;}
+.fill-blue{fill:#E6F1FB;}
+.fill-coral{fill:#FAECE7;}
+.fill-gray{fill:#F1EFE8;}
+.fill-red{fill:#FCEBEB;}
+.txt-purple{fill:#26215C;}
+.txt-green{fill:#173404;}
+.txt-amber{fill:#412402;}
+.txt-blue{fill:#042C53;}
+.txt-coral{fill:#4A1B0C;}
+.txt-gray{fill:#2C2C2A;}
+.txt-red{fill:#501313;}
+rect{rx:8;}
+</style>
+<rect width="680" height="850" fill="#FFFFFF"/>
+<g><rect x="50" y="60" width="190" height="110" rx="8" class="region purple fill-purple"/><text class="th txt-purple" x="145" y="104" text-anchor="middle" dominant-baseline="central">Crystal mountains</text><text class="ts txt-purple" x="145" y="137" text-anchor="middle" dominant-baseline="central">Living Stone's home</text></g>
+<g><rect x="260" y="60" width="190" height="110" rx="8" class="region green fill-green"/><text class="th txt-green" x="355" y="104" text-anchor="middle" dominant-baseline="central">The forest</text><text class="ts txt-green" x="355" y="137" text-anchor="middle" dominant-baseline="central">Elf city in the west</text></g>
+<g><rect x="470" y="60" width="160" height="190" rx="20" class="region green fill-green"/><text class="th txt-green" x="485" y="82" dominant-baseline="central">Tundra</text><text class="ts txt-green" x="485" y="100" dominant-baseline="central">Fading east</text></g>
+<g><rect x="485" y="118" width="130" height="110" rx="10" class="region gray fill-gray"/><text class="th txt-gray" x="550" y="162" text-anchor="middle" dominant-baseline="central">World's end</text><text class="ts txt-gray" x="550" y="195" text-anchor="middle" dominant-baseline="central">Hobbit-like</text></g>
+<g><rect x="50" y="270" width="190" height="380" rx="20" class="region amber fill-amber"/><text class="th txt-amber" x="65" y="292" dominant-baseline="central">West hills</text><text class="ts txt-amber" x="65" y="310" dominant-baseline="central">Dwarves, orks, nomads</text></g>
+<g><rect x="65" y="328" width="160" height="85" rx="10" class="region gray fill-gray"/><text class="th txt-gray" x="145" y="362" text-anchor="middle" dominant-baseline="central">North hills</text><text class="ts txt-gray" x="145" y="387" text-anchor="middle" dominant-baseline="central">Dwarves here</text></g>
+<g><rect x="65" y="423" width="160" height="85" rx="10" class="region gray fill-gray"/><text class="th txt-gray" x="145" y="457" text-anchor="middle" dominant-baseline="central">The port</text><text class="ts txt-gray" x="145" y="482" text-anchor="middle" dominant-baseline="central">Ork civilization</text></g>
+<g><rect x="65" y="518" width="160" height="105" rx="10" class="region gray fill-gray"/><text class="th txt-gray" x="145" y="560" text-anchor="middle" dominant-baseline="central">Mounds &amp; nomads</text><text class="ts txt-gray" x="145" y="591" text-anchor="middle" dominant-baseline="central">Wandering tribes</text></g>
+<g><rect x="260" y="270" width="370" height="380" rx="20" class="region blue fill-blue"/><text class="th txt-blue" x="275" y="292" dominant-baseline="central">Human lands</text><text class="ts txt-blue" x="275" y="310" dominant-baseline="central">Walled off from the forest</text></g>
+<g><rect x="275" y="400" width="150" height="90" rx="10" class="region coral fill-coral"/><text class="th txt-coral" x="350" y="436" text-anchor="middle" dominant-baseline="central">Bane</text><text class="ts txt-coral" x="350" y="463" text-anchor="middle" dominant-baseline="central">Western coast</text></g>
+<g><rect x="50" y="670" width="190" height="90" rx="8" class="region red fill-red"/><text class="th txt-red" x="145" y="706" text-anchor="middle" dominant-baseline="central">Shared desert</text><text class="ts txt-red" x="145" y="733" text-anchor="middle" dominant-baseline="central">Safe sands, harsh tribes</text></g>
+<g><rect x="260" y="670" width="370" height="140" rx="8" class="region red fill-red"/><text class="th txt-red" x="445" y="726" text-anchor="middle" dominant-baseline="central">The peninsula</text><text class="ts txt-red" x="445" y="768" text-anchor="middle" dominant-baseline="central">Desert, sand monsters, the Pit</text></g>
+</svg>
