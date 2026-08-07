@@ -1,0 +1,56 @@
+#app{max-width:1200px; margin:0 auto; padding:28px 20px 60px;}
+
+/* ---------- Landing ---------- */
+#screen-landing{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  min-height:80vh; text-align:center;
+}
+.brand-eyebrow{
+  font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--brass); margin-bottom:10px;
+}
+#screen-landing h1{font-size:clamp(36px,6vw,56px); font-weight:700; letter-spacing:-.01em;}
+#screen-landing p.sub{color:var(--text-dim); max-width:480px; margin:14px 0 36px; line-height:1.55; font-size:15px;}
+.landing-cards{display:flex; gap:18px; flex-wrap:wrap; justify-content:center; width:100%; max-width:640px;}
+.landing-card{
+  flex:1; min-width:260px; background:var(--ink-soft); border:1px solid var(--ink-line);
+  border-radius:10px; padding:26px 24px; text-align:left;
+}
+.landing-card h3{font-size:19px; margin-bottom:6px;}
+.landing-card p{color:var(--text-dim); font-size:13.5px; line-height:1.5; margin:0 0 18px;}
+.landing-card input{
+  width:100%; margin-bottom:12px; padding:11px 12px; border-radius:6px;
+  border:1px solid var(--ink-line); background:var(--ink); color:var(--text-light);
+  font-family:'IBM Plex Mono',monospace; font-size:14px; letter-spacing:.05em;
+}
+.landing-card input::placeholder{color:var(--text-dim); font-family:'Inter',sans-serif; letter-spacing:0;}
+
+/* ---------- Table shell ---------- */
+#screen-table{display:flex; flex-direction:column; gap:20px;}
+.table-header{
+  display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+  border-bottom:1px solid var(--ink-line); padding-bottom:16px;
+}
+.seal{
+  display:inline-flex; align-items:center; gap:10px; background:var(--ink-soft);
+  border:1.5px solid var(--brass); border-radius:999px; padding:6px 8px 6px 16px;
+}
+.seal .code{font-family:'IBM Plex Mono',monospace; font-size:17px; letter-spacing:.12em; color:var(--brass-bright);}
+.who{font-size:13px; color:var(--text-dim);}
+.who b{color:var(--text-light); font-weight:600;}
+.header-actions{display:flex; align-items:center; gap:10px;}
+
+/* Persistent toolbar for contextual panels */
+.toolbar{display:flex; gap:10px; flex-wrap:wrap;}
+.toolbar button{
+  background:var(--ink-soft); border:1px solid var(--ink-line); color:var(--text-light);
+  padding:10px 16px; border-radius:8px; font-size:13.5px;
+}
+.toolbar button.active{border-color:var(--brass); color:var(--brass-bright);}
+
+/* Persistent area: Ledger + Map, always visible */
+.persistent-grid{display:grid; grid-template-columns:1.1fr .9fr; gap:22px;}
+@media(max-width:860px){ .persistent-grid{grid-template-columns:1fr;} }
+
+.panel-static{background:var(--ink-soft); border:1px solid var(--ink-line); border-radius:10px; padding:20px;}
+.panel-static h2{font-size:15px; text-transform:uppercase; letter-spacing:.08em; font-weight:600; color:var(--text-dim); margin-bottom:14px;}
