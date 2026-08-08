@@ -2,6 +2,7 @@ import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
 import { escapeHtml, timeNow, playerShorthand } from './utils.js';
 import { BUILDS } from './character.js';
+import { getSavedCharacters } from './savedCharacters.js';
 import { updateToolbarAvailability } from './panels.js';
 
 function showBannerError(msg){
@@ -30,17 +31,21 @@ export async function endEncounter(){
 
 export async function addEnemy(){
   const key = document.getElementById('dm-enemy-build-picker').value;
-  const b = BUILDS[key];
+  if(!key) return;
+  const isSaved = key.startsWith('saved:');
+  const b = isSaved ? getSavedCharacters()[key.slice(6)] : BUILDS[key];
   if(!b) return;
+  const displayBase = isSaved ? key.slice(6) : b.archetype;
   await mutateTable(t => {
     if(!t.enemies) t.enemies = {};
     const id = 'e_' + Math.random().toString(36).slice(2, 8);
-    const count = Object.values(t.enemies).filter(e => e.archetype === b.archetype).length + 1;
+    const count = Object.values(t.enemies).filter(e => e.archetype === b.archetype && e.name.indexOf(displayBase) === 0).length + 1;
     t.enemies[id] = {
-      archetype: b.archetype, name: b.archetype + ' #' + count, num: count,
-      wounds: b.wounds, woundsMax: b.woundsMax, ap: b.ap, power: b.power,
+      archetype: b.archetype, name: displayBase + ' #' + count, num: count,
+      wounds: b.wounds, woundsMax: b.woundsMax, ap: b.ap, flow: b.flow, flowMax: b.flowMax, recovery: b.recovery, power: b.power,
       quickness: b.quickness, range: b.range, lightning: b.lightning, lava: b.lava, focus: b.focus,
-      apSpent: 0, sequence: []
+      control: b.control ?? 0, attunement: b.attunement ?? 0,
+      apSpent: 0, focusSpent: 0, sequence: []
     };
     t.log.push({ type: 'system', text: 'An enemy joined the fight: ' + t.enemies[id].name, time: timeNow() });
   });
@@ -79,17 +84,42 @@ export function renderDMCounters(){
   const enemy = AppState.actingEnemyId && AppState.table.enemies[AppState.actingEnemyId];
   const wEl = document.getElementById('dm-wounds-display');
   const aEl = document.getElementById('dm-ap-display');
+  const fEl = document.getElementById('dm-flow-display');
+  const fcEl = document.getElementById('dm-focus-display');
+  const ctrlEl = document.getElementById('dm-control-display');
   if(!wEl || !aEl) return;
-  if(!enemy){ wEl.textContent = '\u2014'; aEl.textContent = '\u2014'; }
-  else{
+  if(!enemy){
+    wEl.textContent = '\u2014'; aEl.textContent = '\u2014';
+    if(fEl) fEl.textContent = '\u2014';
+    if(fcEl) fcEl.textContent = '\u2014';
+    if(ctrlEl) ctrlEl.textContent = '\u2014';
+  }else{
     wEl.textContent = (enemy.wounds ?? 0) + '/' + (enemy.woundsMax ?? 0);
     aEl.textContent = (enemy.apSpent || 0) + '/' + (enemy.ap ?? 0);
+    if(fEl) fEl.textContent = (enemy.flow ?? 0) + '/' + (enemy.flowMax ?? 0);
+    if(fcEl) fcEl.textContent = ((enemy.focus || 0) - (enemy.focusSpent || 0)) + '/' + (enemy.focus ?? 0);
+    if(ctrlEl) ctrlEl.textContent = (enemy.control ?? 0) + (((enemy.control || 0) >= 10) ? ' (1 AP actions active)' : '');
   }
+
+  const fastBtn = document.getElementById('dm-attack-fast-btn');
+  const strongBtn = document.getElementById('dm-attack-strong-btn');
+  const focusBtn = document.getElementById('dm-attack-focus-btn');
+  if(enemy){
+    if(fastBtn) fastBtn.textContent = 'Fast \u2014 ' + applyControl(enemy, 5) + ' AP';
+    if(strongBtn) strongBtn.textContent = 'Strong \u2014 ' + applyControl(enemy, 10) + ' AP';
+    if(focusBtn) focusBtn.textContent = 'Focus Attack \u2014 ' + applyControl(enemy, 10) + ' AP + 1 Focus';
+  }
+  if(focusBtn) focusBtn.classList.toggle('hidden', !(enemy && (enemy.focus || 0) > 0));
+
   const hasEssence = !!(enemy && ((enemy.lightning > 0) || (enemy.lava > 0)));
   const essBtn = document.getElementById('dm-essence-btn');
   if(essBtn) essBtn.classList.toggle('hidden', !hasEssence);
   const lt = document.getElementById('dm-cast-lightning');
   const lv = document.getElementById('dm-cast-lava');
+  if(enemy){
+    if(lt) lt.textContent = 'Lightning \u2014 ' + applyControl(enemy, 8) + ' AP';
+    if(lv) lv.textContent = 'Lava \u2014 ' + applyControl(enemy, 8) + ' AP';
+  }
   if(lt) lt.classList.toggle('hidden', !(enemy && enemy.lightning > 0));
   if(lv) lv.classList.toggle('hidden', !(enemy && enemy.lava > 0));
 }
@@ -147,12 +177,20 @@ export function dmSelectEssenceSchool(school){
 export function dmRenderToggleStates(){
   const fastBtn = document.getElementById('dm-attack-fast-btn');
   const strongBtn = document.getElementById('dm-attack-strong-btn');
+  const focusBtn = document.getElementById('dm-attack-focus-btn');
   if(fastBtn) fastBtn.classList.toggle('toggled', AppState.dmPendingType === 'attack' && AppState.dmPendingAttackKind === 'fast');
   if(strongBtn) strongBtn.classList.toggle('toggled', AppState.dmPendingType === 'attack' && AppState.dmPendingAttackKind === 'strong');
+  if(focusBtn) focusBtn.classList.toggle('toggled', AppState.dmPendingType === 'attack' && AppState.dmPendingAttackKind === 'focus');
   const ltBtn = document.getElementById('dm-cast-lightning');
   const lvBtn = document.getElementById('dm-cast-lava');
   if(ltBtn) ltBtn.classList.toggle('toggled', AppState.dmPendingType === 'essence' && AppState.dmPendingEssenceSchool === 'Lightning');
   if(lvBtn) lvBtn.classList.toggle('toggled', AppState.dmPendingType === 'essence' && AppState.dmPendingEssenceSchool === 'Lava');
+}
+
+const DM_ATTACK_AP_COST = { fast: 5, strong: 10, focus: 10 };
+
+function applyControl(actor, baseCost){
+  return (actor.control || 0) >= 10 ? 1 : baseCost;
 }
 
 export async function dmCommitAction(){
@@ -160,30 +198,36 @@ export async function dmCommitAction(){
   const actor = AppState.table.enemies[AppState.actingEnemyId];
   if(!actor) return;
   const spent = actor.apSpent || 0;
+  const focusSpent = actor.focusSpent || 0;
   let entry = null;
 
   if(AppState.dmPendingType === 'attack'){
-    if(!AppState.dmPendingAttackKind){ showBannerError('Choose Fast or Strong first.'); return; }
+    if(!AppState.dmPendingAttackKind){ showBannerError('Choose Fast, Strong, or Focus first.'); return; }
     const target = AppState.table.players && AppState.table.players[AppState.dmSelectedTargetId];
     if(!target){ showBannerError('Pick a target first.'); return; }
-    const cost = AppState.dmPendingAttackKind === 'strong' ? 10 : 5;
+    const cost = applyControl(actor, DM_ATTACK_AP_COST[AppState.dmPendingAttackKind]);
     if(spent + cost > (actor.ap || 0)){ showBannerError('Not enough AP left this round.'); return; }
-    entry = { apCost: cost, actionLabel: AppState.dmPendingAttackKind === 'strong' ? 'SA' : 'FA', targetLabel: playerShorthand(target), kind: 'attack', attackKind: AppState.dmPendingAttackKind, targetId: AppState.dmSelectedTargetId };
+    if(AppState.dmPendingAttackKind === 'focus' && focusSpent + 1 > (actor.focus || 0)){
+      showBannerError('Not enough Focus left this round.'); return;
+    }
+    const label = AppState.dmPendingAttackKind === 'strong' ? 'SA' : AppState.dmPendingAttackKind === 'focus' ? 'FCA' : 'FA';
+    entry = { apCost: cost, focusCost: AppState.dmPendingAttackKind === 'focus' ? 1 : 0, actionLabel: label, targetLabel: playerShorthand(target), kind: 'attack', attackKind: AppState.dmPendingAttackKind, targetId: AppState.dmSelectedTargetId };
   }else if(AppState.dmPendingType === 'block'){
     const base = document.getElementById('dm-block-base').checked;
     const maintain = document.getElementById('dm-block-maintain').checked;
     const counter = document.getElementById('dm-block-counter').checked;
-    const cost = (base ? 5 : 0) + (maintain ? 5 : 0) + (counter ? 5 : 0);
-    if(cost === 0){ showBannerError('Check at least Block.'); return; }
+    const rawCost = (base ? 5 : 0) + (maintain ? 5 : 0) + (counter ? 5 : 0);
+    if(rawCost === 0){ showBannerError('Check at least Block.'); return; }
+    const cost = applyControl(actor, rawCost);
     if(spent + cost > (actor.ap || 0)){ showBannerError('Not enough AP left this round.'); return; }
-    entry = { apCost: cost, actionLabel: (base ? 'B' : '') + (maintain ? 'M' : '') + (counter ? 'C' : ''), targetLabel: '', kind: 'block', maintain, counter };
+    entry = { apCost: cost, focusCost: 0, actionLabel: (base ? 'B' : '') + (maintain ? 'M' : '') + (counter ? 'C' : ''), targetLabel: '', kind: 'block', maintain, counter };
   }else if(AppState.dmPendingType === 'essence'){
     if(!AppState.dmPendingEssenceSchool){ showBannerError('Choose Lightning or Lava first.'); return; }
     const target = AppState.table.players && AppState.table.players[AppState.dmSelectedTargetId];
     if(!target){ showBannerError('Pick a target first.'); return; }
-    const cost = 8;
+    const cost = applyControl(actor, 8);
     if(spent + cost > (actor.ap || 0)){ showBannerError('Not enough AP left this round.'); return; }
-    entry = { apCost: cost, actionLabel: AppState.dmPendingEssenceSchool === 'Lava' ? 'LV' : 'LN', targetLabel: playerShorthand(target), kind: 'essence', school: AppState.dmPendingEssenceSchool, targetId: AppState.dmSelectedTargetId };
+    entry = { apCost: cost, focusCost: 0, actionLabel: AppState.dmPendingEssenceSchool === 'Lava' ? 'LV' : 'LN', targetLabel: playerShorthand(target), kind: 'essence', school: AppState.dmPendingEssenceSchool, targetId: AppState.dmSelectedTargetId };
   }else{
     showBannerError('Open Attack, Block, or Essence and choose something first.');
     return;
@@ -194,6 +238,7 @@ export async function dmCommitAction(){
     if(!a.sequence) a.sequence = [];
     a.sequence.push(entry);
     a.apSpent = spent + entry.apCost;
+    a.focusSpent = focusSpent + (entry.focusCost || 0);
     t.log.push({ type: 'system', text: a.name + ' stages ' + entry.actionLabel + (entry.targetLabel ? (' on ' + entry.targetLabel) : ''), time: timeNow() });
   });
 }
@@ -206,6 +251,7 @@ export async function dmUndoAction(){
     const a = t.enemies[AppState.actingEnemyId];
     const removed = a.sequence.pop();
     a.apSpent = Math.max(0, (a.apSpent || 0) - removed.apCost);
+    a.focusSpent = Math.max(0, (a.focusSpent || 0) - (removed.focusCost || 0));
     t.log.push({ type: 'system', text: a.name + ' undoes ' + removed.actionLabel + (removed.targetLabel ? (' on ' + removed.targetLabel) : ''), time: timeNow() });
   });
 }

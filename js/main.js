@@ -1,7 +1,7 @@
 import { AppState, rememberMe, forgetMe, recallMe } from './state.js';
 import { connectToSession, createNewSession, mutateTable, disconnect, registerRenderCallback } from './sync.js';
 import { genCode, genId, timeNow } from './utils.js';
-import { blankCharacter, loadBuild, scheduleSave, saveCharacter, renderCharacterSheet } from './character.js';
+import { blankCharacter, loadBuild, scheduleSave, saveCharacter, renderCharacterSheet, saveAsTemplate, populateSavedCharacterDropdowns } from './character.js';
 import { renderLedger, renderRoster, sendMessage } from './ledger.js';
 import { renderTargetRange, toggleMenu, selectAttackKind, selectEssenceSchool, renderToggleStates, commitAction, undoAction, resetAP, resolveRound, renderCombatCounters } from './combat.js';
 import { renderSequencer } from './sequencer.js';
@@ -90,6 +90,7 @@ function enterTable(code){
   document.getElementById('screen-landing').classList.add('hidden');
   document.getElementById('screen-table').classList.remove('hidden');
   document.getElementById('table-code-display').textContent = code;
+  populateSavedCharacterDropdowns();
   renderAll();
 }
 
@@ -139,6 +140,7 @@ function wireEvents(){
 
   // Character sheet
   document.getElementById('ch-build-loader').addEventListener('change', e => loadBuild(e.target.value));
+  document.getElementById('btn-save-template').addEventListener('click', saveAsTemplate);
   ['ch-name', 'ch-archetype', 'ch-wounds', 'ch-woundsmax', 'ch-ap', 'ch-power', 'ch-quickness', 'ch-range', 'ch-lightning', 'ch-lava', 'ch-focus']
     .forEach(id => document.getElementById(id).addEventListener('input', scheduleSave));
 
@@ -148,6 +150,7 @@ function wireEvents(){
   document.getElementById('essence-btn').addEventListener('click', () => toggleMenu('essence'));
   document.getElementById('attack-fast-btn').addEventListener('click', () => selectAttackKind('fast'));
   document.getElementById('attack-strong-btn').addEventListener('click', () => selectAttackKind('strong'));
+  document.getElementById('attack-focus-btn').addEventListener('click', () => selectAttackKind('focus'));
   document.getElementById('cast-lightning').addEventListener('click', () => selectEssenceSchool('Lightning'));
   document.getElementById('cast-lava').addEventListener('click', () => selectEssenceSchool('Lava'));
   document.getElementById('btn-commit').addEventListener('click', commitAction);
@@ -161,6 +164,7 @@ function wireEvents(){
   document.getElementById('btn-end-encounter').addEventListener('click', endEncounter);
   document.getElementById('dm-attack-fast-btn').addEventListener('click', () => dmSelectAttackKind('fast'));
   document.getElementById('dm-attack-strong-btn').addEventListener('click', () => dmSelectAttackKind('strong'));
+  document.getElementById('dm-attack-focus-btn').addEventListener('click', () => dmSelectAttackKind('focus'));
   document.getElementById('dm-cast-lightning').addEventListener('click', () => dmSelectEssenceSchool('Lightning'));
   document.getElementById('dm-cast-lava').addEventListener('click', () => dmSelectEssenceSchool('Lava'));
   document.getElementById('dm-btn-attack-menu').addEventListener('click', () => dmToggleMenu('attack'));

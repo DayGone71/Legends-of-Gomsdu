@@ -4,5 +4,5 @@
 // These are safe to expose in client-side code — the anon key only grants
 // whatever access your Row Level Security policies allow (see supabase-schema.sql).
 
-export const SUPABASE_URL = 'YOUR_SUPABASE_PROJECT_URL';
-export const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+export const SUPABASE_URL = 'https://kolkjyjtkllahzurudtl.supabase.co';
+export const SUPABASE_ANON_KEY = 'sb_publishable_K3ATmkvwZmstn6S3ZFmDQw_IOTicFrw';

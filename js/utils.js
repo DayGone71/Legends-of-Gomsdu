@@ -25,7 +25,11 @@ export function initials(name){
 }
 
 export function targetShorthand(enemy){
-  return initials(enemy.archetype) + (enemy.num || '');
+  // Prefer the enemy's actual name over its Role/archetype text — Role can be an
+  // arbitrary long description ("Temporary Extension of Kulkrow..."), while name
+  // is always short and is what's shown everywhere else (Target range, DM picker).
+  const base = (enemy.name || enemy.archetype || '').replace(/\s*#\d+$/, '');
+  return initials(base) + (enemy.num || '');
 }
 
 export function playerShorthand(player){

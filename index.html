@@ -109,19 +109,30 @@
               <option value="enemy-heavy">Enemy &mdash; Heavy</option>
               <option value="enemy-sorcerer">Enemy &mdash; Sorcerer</option>
             </optgroup>
+            <optgroup label="Saved" id="ch-build-saved-group"></optgroup>
           </select>
         </div>
         <div class="field"><label>Name</label><input id="ch-name" /></div>
         <div class="field"><label>Role</label><input id="ch-archetype" placeholder="e.g. Wandering blade-for-hire" /></div>
         <div class="field">
-          <label>Wounds</label>
+          <label>Flow</label>
           <div class="hp-fields">
-            <input id="ch-wounds" type="number" /> <span>/</span>
-            <input id="ch-woundsmax" type="number" />
+            <input id="ch-flow" type="number" /> <span>/</span>
+            <input id="ch-flowmax" type="number" />
           </div>
         </div>
-        <div class="field"><label>AP</label><input id="ch-ap" type="number" /></div>
         <div class="stat-header">Form</div>
+        <div class="stat-grid">
+          <div class="field">
+            <label>Wounds</label>
+            <div class="hp-fields">
+              <input id="ch-wounds" type="number" /> <span>/</span>
+              <input id="ch-woundsmax" type="number" />
+            </div>
+          </div>
+          <div class="field"><label>AP</label><input id="ch-ap" type="number" /></div>
+          <div class="field"><label>Recovery</label><input id="ch-recovery" type="number" /></div>
+        </div>
         <div class="stat-grid">
           <div class="field"><label>Power</label><input id="ch-power" type="number" /></div>
           <div class="field"><label>Quickness</label><input id="ch-quickness" type="number" /></div>
@@ -133,7 +144,12 @@
           <div class="field"><label>Lava</label><input id="ch-lava" type="number" /></div>
           <div class="field"><label>Focus</label><input id="ch-focus" type="number" /></div>
         </div>
+        <div class="stat-grid">
+          <div class="field"><label>Control</label><input id="ch-control" type="number" /></div>
+          <div class="field"><label>Attunement</label><input id="ch-attunement" type="number" /></div>
+        </div>
         <div class="save-hint" id="save-hint">Saved</div>
+        <button id="btn-save-template" class="btn-ghost btn-small btn-block" style="margin-top:10px;">Save as Template</button>
       </div>
     </div>
 
@@ -145,6 +161,13 @@
       <div class="counter-row">
         <div class="counter"><span class="counter-label">Wounds</span><span id="cb-wounds-display" class="counter-value">&mdash;</span></div>
         <div class="counter"><span class="counter-label">AP (committed / total)</span><span id="cb-ap-display" class="counter-value">&mdash;</span></div>
+      </div>
+      <div class="counter-row" style="margin-top:10px;">
+        <div class="counter"><span class="counter-label">Flow (shield)</span><span id="cb-flow-display" class="counter-value">&mdash;</span></div>
+        <div class="counter"><span class="counter-label">Focus (remaining)</span><span id="cb-focus-display" class="counter-value">&mdash;</span></div>
+      </div>
+      <div class="counter-row" style="margin-top:10px;">
+        <div class="counter"><span class="counter-label">Control (live)</span><span id="cb-control-display" class="counter-value">&mdash;</span></div>
       </div>
       <div class="field" style="margin-top:14px;">
         <label>Target range</label>
@@ -158,6 +181,7 @@
       <div class="action-menu hidden" id="menu-attack">
         <button class="btn-ghost btn-small" id="attack-fast-btn">Fast &mdash; 5 AP</button>
         <button class="btn-ghost btn-small" id="attack-strong-btn">Strong &mdash; 10 AP</button>
+        <button class="btn-ghost btn-small hidden" id="attack-focus-btn">Focus Attack &mdash; 10 AP + 1 Focus</button>
       </div>
       <div class="action-menu hidden" id="menu-block">
         <label class="toggle-row"><input type="checkbox" id="block-base" checked /> Block (+5 AP)</label>
@@ -203,6 +227,7 @@
             <option value="enemy-swift">Enemy &mdash; Swift</option>
             <option value="enemy-heavy">Enemy &mdash; Heavy</option>
             <option value="enemy-sorcerer">Enemy &mdash; Sorcerer</option>
+            <optgroup label="Saved" id="dm-build-saved-group"></optgroup>
           </select>
           <button id="btn-add-enemy" class="btn-ghost btn-small">+ Add enemy</button>
         </div>
@@ -214,6 +239,13 @@
       <div class="counter-row">
         <div class="counter"><span class="counter-label">Wounds</span><span id="dm-wounds-display" class="counter-value">&mdash;</span></div>
         <div class="counter"><span class="counter-label">AP (committed / total)</span><span id="dm-ap-display" class="counter-value">&mdash;</span></div>
+      </div>
+      <div class="counter-row" style="margin-top:10px;">
+        <div class="counter"><span class="counter-label">Flow (shield)</span><span id="dm-flow-display" class="counter-value">&mdash;</span></div>
+        <div class="counter"><span class="counter-label">Focus (remaining)</span><span id="dm-focus-display" class="counter-value">&mdash;</span></div>
+      </div>
+      <div class="counter-row" style="margin-top:10px;">
+        <div class="counter"><span class="counter-label">Control (live)</span><span id="dm-control-display" class="counter-value">&mdash;</span></div>
       </div>
       <div class="field" style="margin-top:14px;">
         <label>Target (players)</label>
@@ -227,6 +259,7 @@
       <div class="action-menu hidden" id="dm-menu-attack">
         <button class="btn-ghost btn-small" id="dm-attack-fast-btn">Fast &mdash; 5 AP</button>
         <button class="btn-ghost btn-small" id="dm-attack-strong-btn">Strong &mdash; 10 AP</button>
+        <button class="btn-ghost btn-small hidden" id="dm-attack-focus-btn">Focus Attack &mdash; 10 AP + 1 Focus</button>
       </div>
       <div class="action-menu hidden" id="dm-menu-block">
         <label class="toggle-row"><input type="checkbox" id="dm-block-base" checked /> Block (+5 AP)</label>

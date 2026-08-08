@@ -17,10 +17,13 @@ export async function loadSession(code){
       .select('state')
       .eq('code', code)
       .maybeSingle();
-    if(error || !data) return null;
-    return data.state;
+    if(error){
+      console.error('loadSession error from Supabase:', error.message, error);
+      return null;
+    }
+    return data ? data.state : null;
   }catch(e){
-    console.error('loadSession failed', e);
+    console.error('loadSession failed (network/client error):', e);
     return null;
   }
 }
@@ -31,9 +34,13 @@ export async function saveSession(code, state){
     const { error } = await getClient()
       .from('sessions')
       .upsert({ code, state }, { onConflict: 'code' });
-    return !error;
+    if(error){
+      console.error('saveSession error from Supabase:', error.message, error);
+      return false;
+    }
+    return true;
   }catch(e){
-    console.error('saveSession failed', e);
+    console.error('saveSession failed (network/client error):', e);
     return false;
   }
 }
@@ -52,7 +59,9 @@ export function subscribeToSession(code, onChange){
         }
       }
     )
-    .subscribe();
+    .subscribe((status, err) => {
+      if(err) console.error('Realtime subscription error:', err);
+    });
 
   return function unsubscribe(){
     getClient().removeChannel(channel);
