@@ -11,6 +11,8 @@ export const AppState = {
   pendingType: null,
   pendingAttackKind: null,
   pendingEssenceSchool: null,
+  pendingBlockKind: null, // 'general' | 'target'
+  pendingCounter: false,
 
   // DM combat staging
   actingEnemyId: null,
@@ -18,6 +20,8 @@ export const AppState = {
   dmPendingType: null,
   dmPendingAttackKind: null,
   dmPendingEssenceSchool: null,
+  dmPendingBlockKind: null,
+  dmPendingCounter: false,
 
   // UI-only, never synced
   activePanel: null,

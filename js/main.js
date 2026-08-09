@@ -3,9 +3,9 @@ import { connectToSession, createNewSession, mutateTable, disconnect, registerRe
 import { genCode, genId, timeNow } from './utils.js';
 import { blankCharacter, loadBuild, scheduleSave, saveCharacter, renderCharacterSheet, saveAsTemplate, populateSavedCharacterDropdowns } from './character.js';
 import { renderLedger, renderRoster, sendMessage } from './ledger.js';
-import { renderTargetRange, toggleMenu, selectAttackKind, selectEssenceSchool, renderToggleStates, commitAction, undoAction, resetAP, resolveRound, renderCombatCounters } from './combat.js';
+import { renderTargetRange, toggleMenu, selectAttackKind, selectEssenceSchool, selectBlockKind, toggleCounter, commitAction, undoAction, resetAP, resolveRound, renderCombatCounters } from './combat.js';
 import { renderSequencer } from './sequencer.js';
-import { addEnemy, startEncounter, endEncounter, renderDMEnemyPicker, renderDMCounters, renderDMTargetRange, dmToggleMenu, dmSelectAttackKind, dmSelectEssenceSchool, dmRenderToggleStates, dmCommitAction, dmUndoAction, clearDead } from './dm.js';
+import { addEnemy, startEncounter, endEncounter, renderDMEnemyPicker, renderDMCounters, renderDMTargetRange, dmToggleMenu, dmSelectAttackKind, dmSelectEssenceSchool, dmSelectBlockKind, dmToggleCounter, dmCommitAction, dmUndoAction, clearDead } from './dm.js';
 import { defaultMap, renderMap, toggleMapEditMode } from './map.js';
 import { openPanel, closePanel, togglePanel, updateToolbarAvailability, initPanelBackdrop } from './panels.js';
 
@@ -24,12 +24,10 @@ function renderAll(){
   renderCharacterSheet();
   renderCombatCounters();
   renderTargetRange();
-  renderToggleStates();
   renderSequencer();
   renderDMEnemyPicker();
   renderDMCounters();
   renderDMTargetRange();
-  dmRenderToggleStates();
   renderLedger();
   renderRoster();
   renderMap();
@@ -147,6 +145,9 @@ function wireEvents(){
   // Combat
   document.getElementById('btn-attack-menu').addEventListener('click', () => toggleMenu('attack'));
   document.getElementById('btn-block-menu').addEventListener('click', () => toggleMenu('block'));
+  document.getElementById('block-general-btn').addEventListener('click', () => selectBlockKind('general'));
+  document.getElementById('block-target-btn').addEventListener('click', () => selectBlockKind('target'));
+  document.getElementById('block-counter-btn').addEventListener('click', toggleCounter);
   document.getElementById('essence-btn').addEventListener('click', () => toggleMenu('essence'));
   document.getElementById('attack-fast-btn').addEventListener('click', () => selectAttackKind('fast'));
   document.getElementById('attack-strong-btn').addEventListener('click', () => selectAttackKind('strong'));
@@ -169,6 +170,9 @@ function wireEvents(){
   document.getElementById('dm-cast-lava').addEventListener('click', () => dmSelectEssenceSchool('Lava'));
   document.getElementById('dm-btn-attack-menu').addEventListener('click', () => dmToggleMenu('attack'));
   document.getElementById('dm-btn-block-menu').addEventListener('click', () => dmToggleMenu('block'));
+  document.getElementById('dm-block-general-btn').addEventListener('click', () => dmSelectBlockKind('general'));
+  document.getElementById('dm-block-target-btn').addEventListener('click', () => dmSelectBlockKind('target'));
+  document.getElementById('dm-block-counter-btn').addEventListener('click', dmToggleCounter);
   document.getElementById('dm-essence-btn').addEventListener('click', () => dmToggleMenu('essence'));
   document.getElementById('dm-btn-commit').addEventListener('click', dmCommitAction);
   document.getElementById('dm-btn-undo').addEventListener('click', dmUndoAction);

@@ -1,6 +1,6 @@
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
-import { escapeHtml, timeNow, playerShorthand } from './utils.js';
+import { escapeHtml, timeNow, playerShorthand, apCostForControl } from './utils.js';
 import { BUILDS } from './character.js';
 import { getSavedCharacters } from './savedCharacters.js';
 import { updateToolbarAvailability } from './panels.js';
@@ -98,16 +98,17 @@ export function renderDMCounters(){
     aEl.textContent = (enemy.apSpent || 0) + '/' + (enemy.ap ?? 0);
     if(fEl) fEl.textContent = (enemy.flow ?? 0) + '/' + (enemy.flowMax ?? 0);
     if(fcEl) fcEl.textContent = ((enemy.focus || 0) - (enemy.focusSpent || 0)) + '/' + (enemy.focus ?? 0);
-    if(ctrlEl) ctrlEl.textContent = (enemy.control ?? 0) + (((enemy.control || 0) >= 10) ? ' (1 AP actions active)' : '');
+    if(ctrlEl) ctrlEl.textContent = (enemy.control ?? 0) + ' (base action: ' + apCostForControl(enemy.control || 0, 1) + ' AP)';
   }
 
   const fastBtn = document.getElementById('dm-attack-fast-btn');
   const strongBtn = document.getElementById('dm-attack-strong-btn');
   const focusBtn = document.getElementById('dm-attack-focus-btn');
+  const control = enemy ? (enemy.control || 0) : 0;
   if(enemy){
-    if(fastBtn) fastBtn.textContent = 'Fast \u2014 ' + applyControl(enemy, 5) + ' AP';
-    if(strongBtn) strongBtn.textContent = 'Strong \u2014 ' + applyControl(enemy, 10) + ' AP';
-    if(focusBtn) focusBtn.textContent = 'Focus Attack \u2014 ' + applyControl(enemy, 10) + ' AP + 1 Focus';
+    if(fastBtn) fastBtn.textContent = 'Fast \u2014 ' + apCostForControl(control, 1) + ' AP';
+    if(strongBtn) strongBtn.textContent = 'Strong \u2014 ' + apCostForControl(control, 2) + ' AP';
+    if(focusBtn) focusBtn.textContent = 'Focus Attack \u2014 ' + apCostForControl(control, 2) + ' AP + 1 Focus';
   }
   if(focusBtn) focusBtn.classList.toggle('hidden', !(enemy && (enemy.focus || 0) > 0));
 
@@ -116,12 +117,12 @@ export function renderDMCounters(){
   if(essBtn) essBtn.classList.toggle('hidden', !hasEssence);
   const lt = document.getElementById('dm-cast-lightning');
   const lv = document.getElementById('dm-cast-lava');
-  if(enemy){
-    if(lt) lt.textContent = 'Lightning \u2014 ' + applyControl(enemy, 8) + ' AP';
-    if(lv) lv.textContent = 'Lava \u2014 ' + applyControl(enemy, 8) + ' AP';
-  }
+  if(lt) lt.textContent = 'Lightning \u2014 8 AP';
+  if(lv) lv.textContent = 'Lava \u2014 8 AP';
   if(lt) lt.classList.toggle('hidden', !(enemy && enemy.lightning > 0));
   if(lv) lv.classList.toggle('hidden', !(enemy && enemy.lava > 0));
+
+  dmRenderToggleStates();
 }
 
 export function renderDMTargetRange(){
@@ -174,7 +175,22 @@ export function dmSelectEssenceSchool(school){
   dmRenderToggleStates();
 }
 
+export function dmSelectBlockKind(kind){
+  AppState.dmPendingType = 'block';
+  AppState.dmPendingBlockKind = (AppState.dmPendingBlockKind === kind) ? null : kind;
+  dmRenderToggleStates();
+}
+
+export function dmToggleCounter(){
+  if(!AppState.dmPendingBlockKind) return;
+  AppState.dmPendingCounter = !AppState.dmPendingCounter;
+  dmRenderToggleStates();
+}
+
 export function dmRenderToggleStates(){
+  const enemy = AppState.actingEnemyId && AppState.table && AppState.table.enemies[AppState.actingEnemyId];
+  const control = enemy ? (enemy.control || 0) : 0;
+
   const fastBtn = document.getElementById('dm-attack-fast-btn');
   const strongBtn = document.getElementById('dm-attack-strong-btn');
   const focusBtn = document.getElementById('dm-attack-focus-btn');
@@ -185,12 +201,25 @@ export function dmRenderToggleStates(){
   const lvBtn = document.getElementById('dm-cast-lava');
   if(ltBtn) ltBtn.classList.toggle('toggled', AppState.dmPendingType === 'essence' && AppState.dmPendingEssenceSchool === 'Lightning');
   if(lvBtn) lvBtn.classList.toggle('toggled', AppState.dmPendingType === 'essence' && AppState.dmPendingEssenceSchool === 'Lava');
-}
 
-const DM_ATTACK_AP_COST = { fast: 5, strong: 10, focus: 10 };
-
-function applyControl(actor, baseCost){
-  return (actor.control || 0) >= 10 ? 1 : baseCost;
+  const generalBtn = document.getElementById('dm-block-general-btn');
+  const targetBtn = document.getElementById('dm-block-target-btn');
+  const counterBtn = document.getElementById('dm-block-counter-btn');
+  const baseCost = apCostForControl(control, 1);
+  if(generalBtn){
+    generalBtn.textContent = 'General Block \u2014 ' + baseCost + ' AP';
+    generalBtn.classList.toggle('toggled', AppState.dmPendingBlockKind === 'general');
+  }
+  if(targetBtn){
+    targetBtn.textContent = 'Target Block \u2014 ' + baseCost + ' AP';
+    targetBtn.classList.toggle('toggled', AppState.dmPendingBlockKind === 'target');
+  }
+  if(counterBtn){
+    counterBtn.textContent = 'Counter \u2014 +' + baseCost + ' AP';
+    counterBtn.classList.toggle('toggled', AppState.dmPendingCounter);
+    counterBtn.disabled = !AppState.dmPendingBlockKind;
+    counterBtn.classList.toggle('disabled', !AppState.dmPendingBlockKind);
+  }
 }
 
 export async function dmCommitAction(){
@@ -201,11 +230,13 @@ export async function dmCommitAction(){
   const focusSpent = actor.focusSpent || 0;
   let entry = null;
 
+  const control = actor.control || 0;
+
   if(AppState.dmPendingType === 'attack'){
     if(!AppState.dmPendingAttackKind){ showBannerError('Choose Fast, Strong, or Focus first.'); return; }
     const target = AppState.table.players && AppState.table.players[AppState.dmSelectedTargetId];
     if(!target){ showBannerError('Pick a target first.'); return; }
-    const cost = applyControl(actor, DM_ATTACK_AP_COST[AppState.dmPendingAttackKind]);
+    const cost = apCostForControl(control, AppState.dmPendingAttackKind === 'fast' ? 1 : 2);
     if(spent + cost > (actor.ap || 0)){ showBannerError('Not enough AP left this round.'); return; }
     if(AppState.dmPendingAttackKind === 'focus' && focusSpent + 1 > (actor.focus || 0)){
       showBannerError('Not enough Focus left this round.'); return;
@@ -213,19 +244,24 @@ export async function dmCommitAction(){
     const label = AppState.dmPendingAttackKind === 'strong' ? 'SA' : AppState.dmPendingAttackKind === 'focus' ? 'FCA' : 'FA';
     entry = { apCost: cost, focusCost: AppState.dmPendingAttackKind === 'focus' ? 1 : 0, actionLabel: label, targetLabel: playerShorthand(target), kind: 'attack', attackKind: AppState.dmPendingAttackKind, targetId: AppState.dmSelectedTargetId };
   }else if(AppState.dmPendingType === 'block'){
-    const base = document.getElementById('dm-block-base').checked;
-    const maintain = document.getElementById('dm-block-maintain').checked;
-    const counter = document.getElementById('dm-block-counter').checked;
-    const rawCost = (base ? 5 : 0) + (maintain ? 5 : 0) + (counter ? 5 : 0);
-    if(rawCost === 0){ showBannerError('Check at least Block.'); return; }
-    const cost = applyControl(actor, rawCost);
+    if(!AppState.dmPendingBlockKind){ showBannerError('Choose General Block or Target Block first.'); return; }
+    let targetId = null, targetLabel = '';
+    if(AppState.dmPendingBlockKind === 'target'){
+      const target = AppState.table.players && AppState.table.players[AppState.dmSelectedTargetId];
+      if(!target){ showBannerError('Pick a target first for Target Block.'); return; }
+      targetId = AppState.dmSelectedTargetId;
+      targetLabel = playerShorthand(target);
+    }
+    const unit = apCostForControl(control, 1);
+    const cost = unit + (AppState.dmPendingCounter ? unit : 0);
     if(spent + cost > (actor.ap || 0)){ showBannerError('Not enough AP left this round.'); return; }
-    entry = { apCost: cost, focusCost: 0, actionLabel: (base ? 'B' : '') + (maintain ? 'M' : '') + (counter ? 'C' : ''), targetLabel: '', kind: 'block', maintain, counter };
+    const label = (AppState.dmPendingBlockKind === 'general' ? 'GB' : 'TB') + (AppState.dmPendingCounter ? '+C' : '');
+    entry = { apCost: cost, focusCost: 0, actionLabel: label, targetLabel, kind: 'block', blockKind: AppState.dmPendingBlockKind, counter: AppState.dmPendingCounter, targetId };
   }else if(AppState.dmPendingType === 'essence'){
     if(!AppState.dmPendingEssenceSchool){ showBannerError('Choose Lightning or Lava first.'); return; }
     const target = AppState.table.players && AppState.table.players[AppState.dmSelectedTargetId];
     if(!target){ showBannerError('Pick a target first.'); return; }
-    const cost = applyControl(actor, 8);
+    const cost = 8;
     if(spent + cost > (actor.ap || 0)){ showBannerError('Not enough AP left this round.'); return; }
     entry = { apCost: cost, focusCost: 0, actionLabel: AppState.dmPendingEssenceSchool === 'Lava' ? 'LV' : 'LN', targetLabel: playerShorthand(target), kind: 'essence', school: AppState.dmPendingEssenceSchool, targetId: AppState.dmSelectedTargetId };
   }else{

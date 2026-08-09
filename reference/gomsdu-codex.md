@@ -408,6 +408,13 @@ Three tiers of the same idea, each buying more certainty at a cost — together 
 
 ---
 
+## Numbers Are Relative, Not Absolute
+A stat is a snapshot of relative positioning within whatever era's own scale is currently in play — never a fixed, cross-era measure of absolute power. This is why Gom and Kulkrow legitimately have "1" in everything at their origin (see Cosmology) despite being the two strongest beings the cosmology ever produces: they aren't weak, they're early. By the end of the Third Era, numbers everywhere are much larger — not because anyone got dramatically more powerful in absolute terms, but because Life itself has gotten more complex, more populated, more contested, and the math scales to match.
+
+The corollary: **the Ledger's narrative text is what keeps the numbers honest**, not the numbers themselves. "1 wound" should read completely differently depending on when and where it lands — a shallow cut in Bane, a chunk torn from a lightning-body in the First War. The math stays small and clean; the fiction carries the actual sense of scale. Two different systems doing two different jobs, rather than one number trying to do both. Worth keeping in mind for every future stat, spell, or encounter — the target isn't a single universal balance point, it's era-appropriate relative weight.
+
+---
+
 ## Open Questions Log
 
 - The other 3 starting locations (candidate regions now exist — see Geography)

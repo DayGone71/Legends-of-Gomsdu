@@ -46,3 +46,11 @@ export function computeCounterMax(table){
   const enemyAp = Object.values(table.enemies || {}).map(e => e.ap || 0);
   return Math.max(1, Math.max(0, ...playerAp), Math.max(0, ...enemyAp));
 }
+
+// The base (1x) AP cost for a given Control value: 11 - Control, clamped so
+// Control <= 1 costs 10 AP and Control >= 10 costs 1 AP. Strong Attack and any
+// other "heavy" action pass multiplier 2 to double it at the same Control.
+export function apCostForControl(control, multiplier = 1){
+  const c = Math.max(1, Math.min(10, control || 0));
+  return (11 - c) * multiplier;
+}
