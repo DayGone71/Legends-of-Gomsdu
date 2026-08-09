@@ -44,7 +44,7 @@ export async function addEnemy(){
       archetype: b.archetype, name: displayBase + ' #' + count, num: count,
       wounds: b.wounds, woundsMax: b.woundsMax, ap: b.ap, flow: b.flow, flowMax: b.flowMax, recovery: b.recovery, power: b.power,
       quickness: b.quickness, range: b.range, lightning: b.lightning, lava: b.lava, focus: b.focus,
-      control: b.control ?? 0, attunement: b.attunement ?? 0,
+      control: b.control ?? 0, attunement: b.attunement ?? 0, life: b.life ?? 1,
       apSpent: 0, focusSpent: 0, sequence: []
     };
     t.log.push({ type: 'system', text: 'An enemy joined the fight: ' + t.enemies[id].name, time: timeNow() });

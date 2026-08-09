@@ -222,6 +222,21 @@ function resolveFocusBypass(actorName, actor, target){
   return text;
 }
 
+// Overwhelm: when a single hit's damage badly outclasses the target's *current*
+// Flow, it can skip the shield entirely and land straight on Wounds. Below 1.2x
+// it never triggers — Flow absorbs the hit as normal. This is a step function
+// on purpose (per design discussion, not a smooth curve) — 1.7x and 2x are
+// hard thresholds. Tune the brackets here as playtesting demands.
+function computeOverwhelmChance(dmg, flow){
+  if(flow <= 0) return 0; // already-depleted Flow is the exposure system's job, below
+  const ratio = dmg / flow;
+  if(ratio >= 2.0) return 100;
+  if(ratio >= 1.7) return 99;
+  if(ratio >= 1.4) return Math.min(99, 1 + Math.max(0, dmg - flow));
+  if(ratio >= 1.2) return 1;
+  return 0;
+}
+
 // Power reduces Flow 1-to-1. The hit that brings Flow down to (or through) 0 never
 // touches Hit% no matter how much it overkills by — overflow simply doesn't carry
 // anywhere. Hit% only exists for hits landing against a target already at 0 Flow
@@ -232,6 +247,13 @@ function applyDamage(actorName, entry, target, targetId, dmg, exposureState){
   let text = actorName + '\u2019s ' + entry.actionLabel + ' resolves on ' + entry.targetLabel;
 
   if(target.flow > 0){
+    const overwhelmChance = computeOverwhelmChance(dmg, target.flow);
+    if(overwhelmChance > 0 && Math.random() * 100 < overwhelmChance){
+      target.wounds = Math.max(0, target.wounds - dmg);
+      text += ' \u2014 Overwhelms Flow entirely! ' + overwhelmChance.toFixed(0) + '% lands, ' + dmg + (dmg === 1 ? ' wound' : ' wounds');
+      if(target.wounds <= 0) text += ' \u2014 ' + (target.name || 'target') + ' is down!';
+      return text;
+    }
     target.flow = Math.max(0, target.flow - dmg);
     text += ' \u2014 Flow drops to ' + target.flow + '/' + target.flowMax;
     return text;

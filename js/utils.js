@@ -54,3 +54,7 @@ export function apCostForControl(control, multiplier = 1){
   const c = Math.max(1, Math.min(10, control || 0));
   return (11 - c) * multiplier;
 }
+
+export function clampInt(value, min, max){
+  return Math.max(min, Math.min(max, value));
+}

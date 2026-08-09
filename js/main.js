@@ -1,7 +1,7 @@
 import { AppState, rememberMe, forgetMe, recallMe } from './state.js';
 import { connectToSession, createNewSession, mutateTable, disconnect, registerRenderCallback } from './sync.js';
 import { genCode, genId, timeNow } from './utils.js';
-import { blankCharacter, loadBuild, scheduleSave, saveCharacter, renderCharacterSheet, saveAsTemplate, populateSavedCharacterDropdowns } from './character.js';
+import { blankCharacter, loadBuild, scheduleSave, saveCharacter, makeActiveCharacter, renderCharacterSheet, saveAsTemplate, populateSavedCharacterDropdowns, syncFieldOnBlur } from './character.js';
 import { renderLedger, renderRoster, sendMessage } from './ledger.js';
 import { renderTargetRange, toggleMenu, selectAttackKind, selectEssenceSchool, selectBlockKind, toggleCounter, commitAction, undoAction, resetAP, resolveRound, renderCombatCounters } from './combat.js';
 import { renderSequencer } from './sequencer.js';
@@ -142,9 +142,14 @@ function wireEvents(){
 
   // Character sheet
   document.getElementById('ch-build-loader').addEventListener('change', e => loadBuild(e.target.value));
+  document.getElementById('btn-make-active').addEventListener('click', makeActiveCharacter);
   document.getElementById('btn-save-template').addEventListener('click', saveAsTemplate);
-  ['ch-name', 'ch-archetype', 'ch-wounds', 'ch-woundsmax', 'ch-ap', 'ch-power', 'ch-quickness', 'ch-range', 'ch-lightning', 'ch-lava', 'ch-focus']
-    .forEach(id => document.getElementById(id).addEventListener('input', scheduleSave));
+  ['ch-name', 'ch-archetype', 'ch-wounds', 'ch-woundsmax', 'ch-ap', 'ch-flow', 'ch-recovery', 'ch-power', 'ch-quickness', 'ch-range', 'ch-lightning', 'ch-lava', 'ch-focus', 'ch-control', 'ch-attunement', 'ch-life']
+    .forEach(id => {
+      const el = document.getElementById(id);
+      el.addEventListener('input', scheduleSave);
+      el.addEventListener('blur', syncFieldOnBlur);
+    });
 
   // Combat
   document.getElementById('btn-attack-menu').addEventListener('click', () => toggleMenu('attack'));

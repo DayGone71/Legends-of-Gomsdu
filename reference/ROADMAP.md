@@ -5,8 +5,13 @@ Legend: **[Ready]** clear enough to build directly. **[Discuss]** flagged as nee
 ---
 
 ## Character Panel
-- **[Resolved, no code needed]** "Save as Template" button text — this was a chat-interface rendering glitch, not a real bug. The button already reads "Save as Template."
-- **[Ready]** Swap Flow and Wounds: Wounds moves out to stand alone (where Flow currently sits), Flow moves into the Form grid alongside AP and Recovery.
+- **[Resolved, no code needed]** "Save as Template" button text/visual glitch — raised twice now (once directly, once via Testing Notes.txt), confirmed both times as a chat-interface rendering artifact, not a real bug in the app.
+- **[Resolved]** Swap Flow and Wounds: Wounds now stands alone (where Flow used to sit), Flow moved into the Form grid alongside AP and Recovery as a single number. The sheet's single Flow field edits the character's rating (flowMax); current mid-combat Flow is preserved separately and just clamped down if the new max is lower.
+- **[Discuss]** Figure out what the auto-save behavior is actually doing (debounced save-on-edit) — flagged as confusing during testing; not yet a defined fix, just needs explaining/deciding. One concrete finding from this pass: `ch-recovery`, `ch-control`, and `ch-attunement` aren't wired to the autosave-on-input listener at all (only affects direct field edits — loading a build or hitting "Make Active Character" still saves those fields correctly), worth folding into whatever this discussion decides.
+- **[Resolved]** Add a Life stat: plain 0/1 field added next to Control/Attunement, defaults to 1 everywhere. The deeper Life mechanics stay **[Discuss, foundational]** in the Stats section below — this was just the field.
+- **[Resolved]** Renamed the "Saved" group in both the sheet's and DM's build pickers to "Custom".
+- **[Resolved]** New "Make Active Character" button, placed above Name and below Load a Build. Loading a build (or a Custom template) now only fills the form for preview — it no longer autosaves — and this button is the explicit commit that makes it the live player.
+- **[Resolved]** Sheet's stat ranges now match reference/gomsdu-stats.odt (AP 0–100, Flow/Power/Recovery/Quickness/Range 0–50, Essence stats 0–10, Life 0–1) — enforced both as HTML min/max and as real clamping on save, not just decorative. Wounds deliberately left unclamped, pending the separate Wounds-model rebuild below.
 
 ## Combat Panel
 - **[Discuss]** Expand the Control/AP-cost logic to actually scale across 0–9, not just the current binary (0 = normal cost, 10 = 1 AP flat). Needs a real formula.
@@ -41,7 +46,7 @@ Legend: **[Ready]** clear enough to build directly. **[Discuss]** flagged as nee
 - **[Discuss]** Formation, Obstruction, Corpse Piles, and how angle/positioning factor into combat outcomes. Entirely open.
 
 ## Stats
-- **[Discuss, foundational]** **Life** — the final stat, and the only true binary (0 or 1). Living Stone = 1, Molten Ones = 0. Disembodied Gom and the Dark Cloud (present-day Kulkrow) are both Life-0 examples — not because they're weak, but because Life measures independent embodied existence, not power. A Life-0 character can still act fully as a **Possessor**, with all their other stats valid — and can also be on the *receiving* end of Possession themselves. One open thread: "characters can have maxed-out Wounds, or sustained Wounds beyond what should be possible" — genuinely unclear to me what this means mechanically yet, worth explaining further before it gets built.
+- **[Discuss, foundational]** **Life** — the final stat, and the only true binary (0 or 1). Living Stone = 1, Molten Ones = 0. Disembodied Gom and the Dark Cloud (present-day Kulkrow) are both Life-0 examples — not because they're weak, but because Life measures independent embodied existence, not power. A Life-0 character can still act fully as a **Possessor**, with all their other stats valid — and can also be on the *receiving* end of Possession themselves. One open thread: "characters can have maxed-out Wounds, or sustained Wounds beyond what should be possible" — genuinely unclear to me what this means mechanically yet, worth explaining further before it gets built. (The field itself — a plain 1/0 on the Character sheet — is built now, see the **[Resolved]** entry under Character Panel; this entry is about the underlying mechanics, which are still entirely open.)
 - **[Discuss, foundational]** **Control-substitution** — a Control-0 character in a player's mini-Party has to be Possessed to act at all, borrowing their Possessor's Control. Possession is described as being "more about the relation between Focus and Control" specifically. A lighter-weight version also exists: spending Control Points to temporarily "boost" or command a Free-Will character for a specific task, short of full Possession.
 
 ## Misc

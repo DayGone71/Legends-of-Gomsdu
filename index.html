@@ -106,48 +106,51 @@
               <option value="player-parry">Player &mdash; Parry</option>
             </optgroup>
             <optgroup label="Enemy">
-              <option value="enemy-swift">Enemy &mdash; Swift</option>
-              <option value="enemy-heavy">Enemy &mdash; Heavy</option>
-              <option value="enemy-sorcerer">Enemy &mdash; Sorcerer</option>
+              <option value="human-adult">Regular Human Adult</option>
+              <option value="human-farmer">Human Farmer</option>
+              <option value="human-bandit">Human Bandit</option>
+              <option value="stray-dog">Stray Dog</option>
+              <option value="empire-recruit">Empire Recruit</option>
+              <option value="cultist">Cultist</option>
+              <option value="empire-soldier">Empire Soldier</option>
+              <option value="cultist-bloodletter">Cultist Bloodletter</option>
+              <option value="woodwhisperer">Elven Woodwhisperer</option>
+              <option value="sandworm">Gigantic Sandworm</option>
             </optgroup>
-            <optgroup label="Saved" id="ch-build-saved-group"></optgroup>
+            <optgroup label="Custom" id="ch-build-saved-group"></optgroup>
           </select>
         </div>
+        <button id="btn-make-active" class="btn-ghost btn-small btn-block" style="margin-bottom:14px;">Make Active Character</button>
         <div class="field"><label>Name</label><input id="ch-name" /></div>
         <div class="field"><label>Role</label><input id="ch-archetype" placeholder="e.g. Wandering blade-for-hire" /></div>
         <div class="field">
-          <label>Flow</label>
+          <label>Wounds</label>
           <div class="hp-fields">
-            <input id="ch-flow" type="number" /> <span>/</span>
-            <input id="ch-flowmax" type="number" />
+            <input id="ch-wounds" type="number" /> <span>/</span>
+            <input id="ch-woundsmax" type="number" />
           </div>
         </div>
         <div class="stat-header">Form</div>
         <div class="stat-grid">
-          <div class="field">
-            <label>Wounds</label>
-            <div class="hp-fields">
-              <input id="ch-wounds" type="number" /> <span>/</span>
-              <input id="ch-woundsmax" type="number" />
-            </div>
-          </div>
-          <div class="field"><label>AP</label><input id="ch-ap" type="number" /></div>
-          <div class="field"><label>Recovery</label><input id="ch-recovery" type="number" /></div>
+          <div class="field"><label>Flow</label><input id="ch-flow" type="number" min="0" max="50" /></div>
+          <div class="field"><label>AP</label><input id="ch-ap" type="number" min="0" max="100" /></div>
+          <div class="field"><label>Recovery</label><input id="ch-recovery" type="number" min="0" max="50" /></div>
         </div>
         <div class="stat-grid">
-          <div class="field"><label>Power</label><input id="ch-power" type="number" /></div>
-          <div class="field"><label>Quickness</label><input id="ch-quickness" type="number" /></div>
-          <div class="field"><label>Range</label><input id="ch-range" type="number" /></div>
+          <div class="field"><label>Power</label><input id="ch-power" type="number" min="0" max="50" /></div>
+          <div class="field"><label>Quickness</label><input id="ch-quickness" type="number" min="0" max="50" /></div>
+          <div class="field"><label>Range</label><input id="ch-range" type="number" min="0" max="50" /></div>
         </div>
         <div class="stat-header">Essence</div>
         <div class="stat-grid">
-          <div class="field"><label>Lightning</label><input id="ch-lightning" type="number" /></div>
-          <div class="field"><label>Lava</label><input id="ch-lava" type="number" /></div>
-          <div class="field"><label>Focus</label><input id="ch-focus" type="number" /></div>
+          <div class="field"><label>Lightning</label><input id="ch-lightning" type="number" min="0" max="10" /></div>
+          <div class="field"><label>Lava</label><input id="ch-lava" type="number" min="0" max="10" /></div>
+          <div class="field"><label>Focus</label><input id="ch-focus" type="number" min="0" max="10" /></div>
         </div>
         <div class="stat-grid">
-          <div class="field"><label>Control</label><input id="ch-control" type="number" /></div>
-          <div class="field"><label>Attunement</label><input id="ch-attunement" type="number" /></div>
+          <div class="field"><label>Control</label><input id="ch-control" type="number" min="0" max="10" /></div>
+          <div class="field"><label>Attunement</label><input id="ch-attunement" type="number" min="0" max="10" /></div>
+          <div class="field"><label>Life</label><input id="ch-life" type="number" min="0" max="1" /></div>
         </div>
         <div class="save-hint" id="save-hint">Saved</div>
         <button id="btn-save-template" class="btn-ghost btn-small btn-block" style="margin-top:10px;">Save as Template</button>
@@ -225,10 +228,17 @@
         <label>Spawn enemy</label>
         <div class="chat-row">
           <select id="dm-enemy-build-picker">
-            <option value="enemy-swift">Enemy &mdash; Swift</option>
-            <option value="enemy-heavy">Enemy &mdash; Heavy</option>
-            <option value="enemy-sorcerer">Enemy &mdash; Sorcerer</option>
-            <optgroup label="Saved" id="dm-build-saved-group"></optgroup>
+            <option value="human-adult">Regular Human Adult</option>
+            <option value="human-farmer">Human Farmer</option>
+            <option value="human-bandit">Human Bandit</option>
+            <option value="stray-dog">Stray Dog</option>
+            <option value="empire-recruit">Empire Recruit</option>
+            <option value="cultist">Cultist</option>
+            <option value="empire-soldier">Empire Soldier</option>
+            <option value="cultist-bloodletter">Cultist Bloodletter</option>
+            <option value="woodwhisperer">Elven Woodwhisperer</option>
+            <option value="sandworm">Gigantic Sandworm</option>
+            <optgroup label="Custom" id="dm-build-saved-group"></optgroup>
           </select>
           <button id="btn-add-enemy" class="btn-ghost btn-small">+ Add enemy</button>
         </div>
