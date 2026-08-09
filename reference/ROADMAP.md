@@ -17,7 +17,6 @@ Legend: **[Ready]** clear enough to build directly. **[Discuss]** flagged as nee
 - **[Discuss]** Expand the Control/AP-cost logic to actually scale across 0–9, not just the current binary (0 = normal cost, 10 = 1 AP flat). Needs a real formula.
 - **[Ready]** Hovering a defeated (crossed-out) enemy chip fades in a small red X; clicking it removes that specific enemy from the panel — a per-enemy version of "clear the dead," not just the DM's bulk action.
 - **[Ready]** Attack/Block/Essence submenus should always start collapsed when the Combat panel opens, rather than remembering whatever state they were left in.
-- **[Ready]** The base Block checkbox should be locked permanently checked, not a real toggle — Maintain and Counter stay optional on top of it.
 - **[Discuss]** Block, Maintain, and Counter all currently display "+5 AP" with no visual distinction between them — worth a pass on clarity.
 - **[Ready]** A real staged-actions list beneath Commit, each entry with its own red X for individual removal — Undo currently only pops the most recent staged action, this allows removing any of them directly.
 - **[Resolved]** Remove the "Discard round" button — confirmed as a leftover from earlier combat playtesting, not something to keep.
