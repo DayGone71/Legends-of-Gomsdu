@@ -8,6 +8,7 @@ import { renderSequencer } from './sequencer.js';
 import { addEnemy, startEncounter, endEncounter, renderDMEnemyPicker, renderDMCounters, renderDMTargetRange, dmToggleMenu, dmSelectAttackKind, dmSelectEssenceSchool, dmSelectBlockKind, dmToggleCounter, dmCommitAction, dmUndoAction, clearDead } from './dm.js';
 import { defaultMap, renderMap, toggleMapEditMode } from './map.js';
 import { openPanel, closePanel, togglePanel, updateToolbarAvailability, initPanelBackdrop } from './panels.js';
+import { renderDMTestPanel, runDMTestRound, runDMTestUntilDefeat } from './dmtest.js';
 
 // ---------- Screen helpers ----------
 function showLoading(v){ document.getElementById('loading').classList.toggle('hidden', !v); }
@@ -28,6 +29,7 @@ function renderAll(){
   renderDMEnemyPicker();
   renderDMCounters();
   renderDMTargetRange();
+  renderDMTestPanel();
   renderLedger();
   renderRoster();
   renderMap();
@@ -131,10 +133,12 @@ function wireEvents(){
   document.getElementById('toolbar-combat').addEventListener('click', () => togglePanel('combat'));
   document.getElementById('toolbar-sequencer').addEventListener('click', () => togglePanel('sequencer'));
   document.getElementById('toolbar-dm').addEventListener('click', () => togglePanel('dm'));
+  document.getElementById('toolbar-dmtest').addEventListener('click', () => togglePanel('dmtest'));
   document.getElementById('panel-close-character').addEventListener('click', closePanel);
   document.getElementById('panel-close-combat').addEventListener('click', closePanel);
   document.getElementById('panel-close-sequencer').addEventListener('click', closePanel);
   document.getElementById('panel-close-dm').addEventListener('click', closePanel);
+  document.getElementById('panel-close-dmtest').addEventListener('click', closePanel);
 
   // Character sheet
   document.getElementById('ch-build-loader').addEventListener('change', e => loadBuild(e.target.value));
@@ -177,6 +181,10 @@ function wireEvents(){
   document.getElementById('dm-btn-commit').addEventListener('click', dmCommitAction);
   document.getElementById('dm-btn-undo').addEventListener('click', dmUndoAction);
   document.getElementById('btn-clear-dead').addEventListener('click', clearDead);
+
+  // DM Test panel
+  document.getElementById('btn-dmtest-round').addEventListener('click', runDMTestRound);
+  document.getElementById('btn-dmtest-until-defeat').addEventListener('click', runDMTestUntilDefeat);
 
   // Map
   document.getElementById('map-edit-toggle').addEventListener('click', toggleMapEditMode);

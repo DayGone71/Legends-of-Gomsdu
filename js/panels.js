@@ -1,6 +1,6 @@
 import { AppState } from './state.js';
 
-const PANEL_IDS = ['character', 'combat', 'sequencer', 'dm'];
+const PANEL_IDS = ['character', 'combat', 'sequencer', 'dm', 'dmtest'];
 
 export function openPanel(name){
   if(!PANEL_IDS.includes(name)) return;

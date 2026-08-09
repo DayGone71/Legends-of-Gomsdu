@@ -25,7 +25,12 @@ export const AppState = {
 
   // UI-only, never synced
   activePanel: null,
-  mapEditMode: false
+  mapEditMode: false,
+
+  // DM Test panel — per-actor auto-battle config and run state, all local/UI-only
+  dmTestConfig: { enemies: {}, players: {} },
+  dmTestRunning: false,
+  dmTestLastResult: null
 };
 
 // This browser's "which table was I in" memory — purely local, not shared game state,

@@ -48,6 +48,7 @@
       </div>
       <div class="who">You are <b id="who-name">&mdash;</b></div>
       <div class="header-actions">
+        <button id="toolbar-dmtest" class="btn-ghost btn-small">DM Test</button>
         <button id="btn-leave" class="btn-ember btn-small">Leave table</button>
       </div>
     </div>
@@ -275,6 +276,24 @@
         <button id="dm-btn-undo" class="btn-ghost btn-small">Undo</button>
       </div>
       <button id="btn-clear-dead" class="btn-ghost btn-small" style="margin-top:14px;">Clear the dead</button>
+    </div>
+
+    <div id="panel-dmtest" class="panel-overlay hidden">
+      <div class="panel-overlay-header">
+        <h2>DM Test Panel</h2>
+        <button id="panel-close-dmtest" class="btn-ghost btn-small">Close</button>
+      </div>
+      <p class="footnote" style="margin-bottom:14px;">Auto-stages a full AP&rsquo;s worth of attacks per side and resolves the round &mdash; for repeated combat testing without the manual click-through.</p>
+      <div id="dmtest-actors"></div>
+      <div class="field" style="margin-top:16px;">
+        <label>Max rounds (for "Run Until Defeat")</label>
+        <input id="dmtest-max-rounds" type="number" min="1" max="100" value="25" />
+      </div>
+      <div class="commit-row">
+        <button id="btn-dmtest-round" class="btn-ghost btn-small dmtest-run-btn">Run 1 Round</button>
+        <button id="btn-dmtest-until-defeat" class="btn-brass btn-small dmtest-run-btn">Run Until Defeat</button>
+      </div>
+      <div id="dmtest-result" class="dmtest-result"></div>
     </div>
   </div>
 </div>

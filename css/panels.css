@@ -106,6 +106,19 @@
 .seq-entry-label{position:absolute; bottom:100%; transform:translateX(-50%); font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--sage); margin-bottom:2px; white-space:nowrap;}
 .seq-entry-label.dm{color:var(--ember-bright);}
 
+/* ---------- DM Test panel ---------- */
+.dmtest-side-label{font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-dim); margin:14px 0 6px;}
+.dmtest-side-label:first-child{margin-top:0;}
+.dmtest-row{display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--ink-line);}
+.dmtest-row:last-child{border-bottom:none;}
+.dmtest-row.defeated{opacity:.45;}
+.dmtest-name{flex:1; font-size:13px; color:var(--text-light); min-width:0;}
+.dmtest-row select{
+  flex:1; padding:6px 8px; border-radius:5px; border:1px solid var(--ink-line);
+  background:var(--ink); color:var(--text-light); font-size:12.5px;
+}
+.dmtest-result{margin-top:14px; font-size:13px; color:var(--brass-bright); min-height:18px;}
+
 /* ---------- Map ---------- */
 #map-grid{display:grid; gap:2px; margin-top:10px;}
 .map-tile{
