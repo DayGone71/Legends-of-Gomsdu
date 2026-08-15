@@ -1,6 +1,6 @@
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
-import { escapeHtml, timeNow, targetShorthand, computeEntryTick, computeCounterMax, apCostForControl } from './utils.js';
+import { escapeHtml, timeNow, targetShorthand, computeEntryTick, computeCounterMax, apCostForControl, describeAction, powerToDamage } from './utils.js';
 
 function showBannerError(msg){
   const el = document.getElementById('banner-error');
@@ -145,28 +145,29 @@ export async function commitAction(){
       showBannerError('Not enough Focus left this round.'); return;
     }
     const label = AppState.pendingAttackKind === 'strong' ? 'SA' : AppState.pendingAttackKind === 'focus' ? 'FCA' : 'FA';
-    entry = { apCost: cost, focusCost: AppState.pendingAttackKind === 'focus' ? 1 : 0, actionLabel: label, targetLabel: targetShorthand(target), kind: 'attack', attackKind: AppState.pendingAttackKind, targetId: AppState.selectedTargetId };
+    entry = { apCost: cost, focusCost: AppState.pendingAttackKind === 'focus' ? 1 : 0, actionLabel: label, targetLabel: targetShorthand(target), targetName: target.name, kind: 'attack', attackKind: AppState.pendingAttackKind, targetId: AppState.selectedTargetId };
   }else if(AppState.pendingType === 'block'){
     if(!AppState.pendingBlockKind){ showBannerError('Choose General Block or Target Block first.'); return; }
-    let targetId = null, targetLabel = '';
+    let targetId = null, targetLabel = '', targetName = '';
     if(AppState.pendingBlockKind === 'target'){
       const target = AppState.table.enemies && AppState.table.enemies[AppState.selectedTargetId];
       if(!target){ showBannerError('Pick a target first for Target Block.'); return; }
       targetId = AppState.selectedTargetId;
       targetLabel = targetShorthand(target);
+      targetName = target.name;
     }
     const unit = apCostForControl(control, 1);
     const cost = unit + (AppState.pendingCounter ? unit : 0);
     if(spent + cost > (me.ap || 0)){ showBannerError('Not enough AP left this round.'); return; }
     const label = (AppState.pendingBlockKind === 'general' ? 'GB' : 'TB') + (AppState.pendingCounter ? '+C' : '');
-    entry = { apCost: cost, focusCost: 0, actionLabel: label, targetLabel, kind: 'block', blockKind: AppState.pendingBlockKind, counter: AppState.pendingCounter, targetId };
+    entry = { apCost: cost, focusCost: 0, actionLabel: label, targetLabel, targetName, kind: 'block', blockKind: AppState.pendingBlockKind, counter: AppState.pendingCounter, targetId };
   }else if(AppState.pendingType === 'essence'){
     if(!AppState.pendingEssenceSchool){ showBannerError('Choose Lightning or Lava first.'); return; }
     const target = AppState.table.enemies && AppState.table.enemies[AppState.selectedTargetId];
     if(!target){ showBannerError('Pick a target first.'); return; }
     const cost = 8; // flat for now — Essence is slated for Attunement, not Control
     if(spent + cost > (me.ap || 0)){ showBannerError('Not enough AP left this round.'); return; }
-    entry = { apCost: cost, focusCost: 0, actionLabel: AppState.pendingEssenceSchool === 'Lava' ? 'LV' : 'LN', targetLabel: targetShorthand(target), kind: 'essence', school: AppState.pendingEssenceSchool, targetId: AppState.selectedTargetId };
+    entry = { apCost: cost, focusCost: 0, actionLabel: AppState.pendingEssenceSchool === 'Lava' ? 'LV' : 'LN', targetLabel: targetShorthand(target), targetName: target.name, kind: 'essence', school: AppState.pendingEssenceSchool, targetId: AppState.selectedTargetId };
   }else{
     showBannerError('Open Attack, Block, or Essence and choose something first.');
     return;
@@ -178,7 +179,7 @@ export async function commitAction(){
     actor.sequence.push(entry);
     actor.apSpent = spent + entry.apCost;
     actor.focusSpent = focusSpent + (entry.focusCost || 0);
-    t.log.push({ type: 'system', text: actor.name + ' stages ' + entry.actionLabel + (entry.targetLabel ? (' on ' + entry.targetLabel) : ''), time: timeNow() });
+    t.log.push({ type: 'system', text: actor.name + ' stages ' + describeAction(entry) + (entry.targetName ? (' on ' + entry.targetName) : ''), time: timeNow() });
   });
 }
 
@@ -190,7 +191,7 @@ export async function undoAction(){
     const removed = actor.sequence.pop();
     actor.apSpent = Math.max(0, (actor.apSpent || 0) - removed.apCost);
     actor.focusSpent = Math.max(0, (actor.focusSpent || 0) - (removed.focusCost || 0));
-    t.log.push({ type: 'system', text: actor.name + ' undoes ' + removed.actionLabel + (removed.targetLabel ? (' on ' + removed.targetLabel) : ''), time: timeNow() });
+    t.log.push({ type: 'system', text: actor.name + ' undoes ' + describeAction(removed) + (removed.targetName ? (' on ' + removed.targetName) : ''), time: timeNow() });
   });
 }
 
@@ -209,17 +210,24 @@ export async function resetAP(){
   AppState.pendingCounter = false;
 }
 
-function resolveFocusBypass(actorName, actor, target){
+// "N Wounds (XX% Dmg)" \u2014 the percentage is against the target's max pool, so a
+// hit's real weight reads at a glance instead of needing the max looked up.
+function woundLine(woundDmg, target){
+  const pct = target.woundsMax ? Math.round((woundDmg / target.woundsMax) * 100) : 0;
+  return woundDmg + (woundDmg === 1 ? ' Wound' : ' Wounds') + ' (' + pct + '% Dmg)';
+}
+
+function resolveFocusBypass(actor, target){
   const defenderRemaining = (target.focus || 0) - (target.focusSpent || 0);
   if(defenderRemaining >= 1){
     target.focusSpent = (target.focusSpent || 0) + 1;
-    return actorName + '\u2019s Focus Attack is blocked \u2014 ' + (target.name || 'target') + ' spends a Focus point to hold';
+    return (target.name || 'target') + ' spends a Focus point \u2014 Blocked, no wound';
   }
-  const dmg = actor.power || 1;
-  target.wounds = Math.max(0, target.wounds - dmg);
-  let text = actorName + '\u2019s Focus Attack bypasses everything \u2014 ' + dmg + (dmg === 1 ? ' wound' : ' wounds') + ' straight through';
-  if(target.wounds <= 0) text += ' \u2014 ' + (target.name || 'target') + ' is down!';
-  return text;
+  const woundDmg = powerToDamage(actor.power);
+  target.wounds = Math.max(0, target.wounds - woundDmg);
+  let result = 'Bypasses everything \u2014 ' + woundLine(woundDmg, target);
+  if(target.wounds <= 0) result += ' \u2014 Down!';
+  return result;
 }
 
 // Overwhelm: when a single hit's damage badly outclasses the target's *current*
@@ -243,34 +251,84 @@ function computeOverwhelmChance(dmg, flow){
 // *before* that specific hit: the first such hit is a flat 1%, and every hit after
 // that (landed or not) escalates the running Hit% by its own damage amount, capping
 // out at 100% once the running total crosses 99.
-function applyDamage(actorName, entry, target, targetId, dmg, exposureState){
-  let text = actorName + '\u2019s ' + entry.actionLabel + ' resolves on ' + entry.targetLabel;
-
+// hitPercent lives on the target record itself (not a per-resolve local), so it
+// persists round to round now \u2014 applyRecoveryTick below is the only way it comes
+// back down. flowDmg (raw Power, uncapped) only ever touches Flow; woundDmg (the
+// bracketed Power\u2192Damage value) is the only thing that ever touches Wounds or
+// escalates Hit% \u2014 keeping a 0-50 stat from one-shotting a 3-8 Wounds pool.
+function applyDamage(target, flowDmg, woundDmg){
   if(target.flow > 0){
-    const overwhelmChance = computeOverwhelmChance(dmg, target.flow);
+    const overwhelmChance = computeOverwhelmChance(flowDmg, target.flow);
     if(overwhelmChance > 0 && Math.random() * 100 < overwhelmChance){
-      target.wounds = Math.max(0, target.wounds - dmg);
-      text += ' \u2014 Overwhelms Flow entirely! ' + overwhelmChance.toFixed(0) + '% lands, ' + dmg + (dmg === 1 ? ' wound' : ' wounds');
-      if(target.wounds <= 0) text += ' \u2014 ' + (target.name || 'target') + ' is down!';
-      return text;
+      target.wounds = Math.max(0, target.wounds - woundDmg);
+      let result = 'Overwhelms Flow entirely! ' + overwhelmChance.toFixed(0) + '% chance to hit \u2014 Lands \u2014 ' + woundLine(woundDmg, target);
+      if(target.wounds <= 0) result += ' \u2014 Down!';
+      return result;
     }
-    target.flow = Math.max(0, target.flow - dmg);
-    text += ' \u2014 Flow drops to ' + target.flow + '/' + target.flowMax;
-    return text;
+    target.flow = Math.max(0, target.flow - flowDmg);
+    return 'Flow drops to ' + target.flow + '/' + target.flowMax;
   }
 
-  const current = exposureState[targetId] ? exposureState[targetId].hitPercent : 1;
+  const current = target.hitPercent ?? 1;
   const roll = Math.random() * 100;
   const wounded = roll < current;
+  let result;
   if(wounded){
-    target.wounds = Math.max(0, target.wounds - dmg);
-    text += ' \u2014 ' + current.toFixed(0) + '% lands, ' + dmg + (dmg === 1 ? ' wound' : ' wounds');
-    if(target.wounds <= 0) text += ' \u2014 ' + (target.name || 'target') + ' is down!';
+    target.wounds = Math.max(0, target.wounds - woundDmg);
+    result = current.toFixed(0) + '% chance to hit \u2014 Lands \u2014 ' + woundLine(woundDmg, target);
+    if(target.wounds <= 0) result += ' \u2014 Down!';
   }else{
-    text += ' \u2014 ' + current.toFixed(0) + '% chance, holds \u2014 no wound';
+    result = current.toFixed(0) + '% chance to hit \u2014 Holds \u2014 no wound';
   }
-  exposureState[targetId] = { hitPercent: Math.min(100, current + dmg) };
-  return text;
+  target.hitPercent = Math.min(100, current + woundDmg);
+  return result;
+}
+
+// How much an actor's end-of-round Recovery tick is worth this round: 1x by
+// default, scaling up to 2x the more of this round's AP they committed to a
+// 'rest' entry instead of acting (see stageRest). Reads the sequence, so must
+// run before the end-of-round cleanup clears it.
+function computeRestMultiplier(actor){
+  const restAP = (actor.sequence || []).filter(e => e.kind === 'rest').reduce((s, e) => s + (e.apCost || 0), 0);
+  const totalAP = actor.ap || 0;
+  if(totalAP <= 0 || restAP <= 0) return 1;
+  return 1 + Math.min(1, restAP / totalAP);
+}
+
+// Recovery does one of two things at end of round, never both: if hitPercent is
+// already back at the 1% floor (Flow-broken but composed), it rebuilds Flow like
+// before. Otherwise the target is still actively exposed, and Recovery instead
+// claws hitPercent back down (at double rate) \u2014 Flow itself stays at 0 and
+// can't start rebuilding until hitPercent finishes bottoming out.
+function applyRecoveryTick(actor){
+  const recovery = (actor.recovery || 0) * computeRestMultiplier(actor);
+  const hitPercent = actor.hitPercent ?? 1;
+  if(hitPercent <= 1){
+    actor.flow = Math.min(actor.flowMax ?? actor.flow, (actor.flow || 0) + recovery);
+  }else{
+    actor.hitPercent = Math.max(1, hitPercent - recovery * 2);
+  }
+}
+
+// Commits some or all of this round's remaining AP to resting instead of acting.
+// The AP spent here only matters as an end-of-round multiplier (see
+// computeRestMultiplier) \u2014 resting doesn't do anything on its own mid-round.
+export async function stageRest(){
+  const me = AppState.table.players[AppState.playerId];
+  if(!me) return;
+  const spent = me.apSpent || 0;
+  const remaining = Math.max(0, (me.ap || 0) - spent);
+  const input = document.getElementById('rest-ap-input');
+  const amount = Math.max(0, Math.min(remaining, parseInt(input && input.value, 10) || 0));
+  if(amount <= 0){ showBannerError('Enter how much AP to spend resting first.'); return; }
+
+  await mutateTable(t => {
+    const actor = t.players[AppState.playerId];
+    if(!actor.sequence) actor.sequence = [];
+    actor.sequence.push({ apCost: amount, focusCost: 0, actionLabel: 'Rest', targetLabel: '', kind: 'rest' });
+    actor.apSpent = spent + amount;
+    t.log.push({ type: 'system', text: actor.name + ' commits ' + amount + ' AP to resting', time: timeNow() });
+  });
 }
 
 // Finds an unconsumed Block belonging to (ownerType, ownerId) that would intercept
@@ -329,8 +387,6 @@ export async function resolveRound(){
     }
   });
 
-  const exposureState = {};
-
   await mutateTable(t => {
     t.log.push({ type: 'system', text: '\u2014 resolving the round \u2014', time: timeNow() });
 
@@ -341,14 +397,19 @@ export async function resolveRound(){
 
     actionEntries.forEach(item => {
       const actor = item.actor, entry = item.entry, actorName = actor.name || 'Someone';
+      const action = describeAction(entry);
+      const logCombat = (defenderName, result) => t.log.push({
+        type: 'combat', time: timeNow(), tick: item.resolveTick,
+        attacker: actorName, defender: defenderName, action, result
+      });
 
       if(entry.kind === 'attack' && entry.attackKind === 'focus'){
         const targetCollection = item.actorType === 'player' ? t.enemies : t.players;
         const target = targetCollection && targetCollection[entry.targetId];
         if(target && target.wounds > 0){
-          t.log.push({ type: 'system', text: resolveFocusBypass(actorName, actor, target), time: timeNow() });
+          logCombat(target.name || 'target', resolveFocusBypass(actor, target));
         }else{
-          t.log.push({ type: 'system', text: actorName + '\u2019s Focus Attack finds no target \u2014 already down', time: timeNow() });
+          logCombat('(no target)', 'No target \u2014 already down');
         }
         return;
       }
@@ -357,7 +418,7 @@ export async function resolveRound(){
         const targetCollection = item.actorType === 'player' ? t.enemies : t.players;
         const target = targetCollection && targetCollection[entry.targetId];
         if(!target || target.wounds <= 0){
-          t.log.push({ type: 'system', text: actorName + '\u2019s ' + entry.actionLabel + ' finds no target \u2014 already down', time: timeNow() });
+          logCombat((target && target.name) || '(no target)', 'No target \u2014 already down');
           return;
         }
 
@@ -365,34 +426,33 @@ export async function resolveRound(){
         const blocked = findAndConsumeBlock(blockRegistry, targetOwnerType, entry.targetId, item.actorId, item.resolveTick);
         if(blocked){
           const blockLabel = blocked.kind === 'general' ? 'General Block' : 'Target Block';
-          t.log.push({ type: 'system', text: actorName + '\u2019s ' + entry.actionLabel + ' is stopped by ' + (target.name || 'target') + '\u2019s ' + blockLabel, time: timeNow() });
+          let result = 'Stopped by ' + (target.name || 'target') + '\u2019s ' + blockLabel;
           if(blocked.counter){
             const counterDmg = blocked.owner.power || 1;
             actor.flow = Math.max(0, (actor.flow || 0) - counterDmg);
-            t.log.push({ type: 'system', text: (target.name || 'target') + ' counters \u2014 ' + actorName + '\u2019s Flow drops to ' + actor.flow + '/' + (actor.flowMax || 0), time: timeNow() });
+            result += ' \u2014 Countered, ' + actorName + '\u2019s Flow drops to ' + actor.flow + '/' + (actor.flowMax || 0);
           }
+          logCombat(target.name || 'target', result);
           return;
         }
 
-        const dmg = entry.kind === 'attack'
+        const isAttack = entry.kind === 'attack';
+        const flowDmg = isAttack
           ? (actor.power || 1) + (entry.attackKind === 'strong' ? 1 : 0)
           : (actor.focus || 1);
-        t.log.push({ type: 'system', text: applyDamage(actorName, entry, target, entry.targetId, dmg, exposureState), time: timeNow() });
+        const woundDmg = isAttack
+          ? powerToDamage(actor.power) + (entry.attackKind === 'strong' ? 1 : 0)
+          : (actor.focus || 1);
+        logCombat(target.name || 'target', applyDamage(target, flowDmg, woundDmg));
       }
     });
 
-    Object.values(t.players || {}).forEach(p => {
-      p.sequence = []; p.apSpent = 0; p.focusSpent = 0;
-      if(p.wounds > 0){
-        p.flow = Math.min(p.flowMax ?? p.flow, (p.flow || 0) + (p.recovery || 0));
-      }
-    });
-    Object.values(t.enemies || {}).forEach(e => {
-      e.sequence = []; e.apSpent = 0; e.focusSpent = 0;
-      if(e.wounds > 0){
-        e.flow = Math.min(e.flowMax ?? e.flow, (e.flow || 0) + (e.recovery || 0));
-      }
-    });
+    // Rest multiplier reads each actor's sequence, so this has to run before it's cleared.
+    Object.values(t.players || {}).forEach(p => { if(p.wounds > 0) applyRecoveryTick(p); });
+    Object.values(t.enemies || {}).forEach(e => { if(e.wounds > 0) applyRecoveryTick(e); });
+
+    Object.values(t.players || {}).forEach(p => { p.sequence = []; p.apSpent = 0; p.focusSpent = 0; });
+    Object.values(t.enemies || {}).forEach(e => { e.sequence = []; e.apSpent = 0; e.focusSpent = 0; });
   });
 
   AppState.pendingType = null; AppState.pendingAttackKind = null; AppState.pendingEssenceSchool = null;
@@ -408,11 +468,13 @@ export function renderCombatCounters(){
   const fEl = document.getElementById('cb-flow-display');
   const fcEl = document.getElementById('cb-focus-display');
   const ctrlEl = document.getElementById('cb-control-display');
+  const hpEl = document.getElementById('cb-hitpercent-display');
   if(!me || !wEl || !aEl) return;
   wEl.textContent = (me.wounds ?? 0) + '/' + (me.woundsMax ?? 0);
   aEl.textContent = (me.apSpent || 0) + '/' + (me.ap ?? 0);
   if(fEl) fEl.textContent = (me.flow ?? 0) + '/' + (me.flowMax ?? 0);
   if(fcEl) fcEl.textContent = ((me.focus || 0) - (me.focusSpent || 0)) + '/' + (me.focus ?? 0);
+  if(hpEl) hpEl.textContent = (me.flow > 0) ? '—' : (me.hitPercent ?? 1).toFixed(0) + '%';
   if(ctrlEl) ctrlEl.textContent = (me.control ?? 0) + ' (base action: ' + apCostForControl(me.control || 0, 1) + ' AP)';
 
   const focusBtn = document.getElementById('attack-focus-btn');

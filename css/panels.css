@@ -25,6 +25,12 @@
 }
 .log-entry.system{color:var(--text-dim); font-style:italic;}
 .log-entry.chat .name{color:var(--text-light);}
+.log-entry.combat{display:block;}
+.log-entry.combat .log-meta{display:flex; gap:8px; align-items:baseline; margin-bottom:2px;}
+.log-entry.combat .tick{color:var(--text-dim); font-size:11px;}
+.log-entry.combat .log-header{color:var(--brass-bright); font-weight:500;}
+.log-entry.combat .log-action{color:var(--text-dim); font-style:italic;}
+.log-entry.combat .log-result{color:var(--text-light);}
 .chat-row{display:flex; gap:8px; margin-top:12px;}
 .chat-row input{
   flex:1; padding:9px 11px; border-radius:6px; border:1px solid var(--ink-line);

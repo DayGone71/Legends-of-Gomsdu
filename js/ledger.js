@@ -23,9 +23,36 @@ export function renderLedger(){
         '<span class="name">' + escapeHtml(entry.name) + ':</span>' +
         '<span>' + escapeHtml(entry.text) + '</span></div>';
     }
+    // Combat resolution entries get a tiered, spelled-out layout instead of one
+    // flat line — attacker/defender, then the action, then what happened —
+    // since a single dense sentence per hit is what made the Ledger hard to
+    // read as a human during a real fight.
+    if(entry.type === 'combat'){
+      return '<div class="log-entry combat">' +
+        '<div class="log-meta"><span class="time">' + entry.time + '</span>' +
+          (entry.tick != null ? '<span class="tick">Tick ' + entry.tick + '</span>' : '') +
+        '</div>' +
+        '<div class="log-header">' + escapeHtml(entry.attacker) + ' &rarr; ' + escapeHtml(entry.defender) + '</div>' +
+        '<div class="log-action">' + escapeHtml(entry.action) + '</div>' +
+        '<div class="log-result">' + escapeHtml(entry.result) + '</div>' +
+      '</div>';
+    }
+    if(entry.type === 'character-active'){
+      const header = entry.prevName ? (entry.prevName + ' → ' + entry.name) : entry.name;
+      const sub = 'Active character' + (entry.archetype ? ' — ' + entry.archetype : '');
+      return '<div class="log-entry combat">' +
+        '<div class="log-meta"><span class="time">' + entry.time + '</span></div>' +
+        '<div class="log-header">' + escapeHtml(header) + '</div>' +
+        '<div class="log-result">' + escapeHtml(sub) + '</div>' +
+      '</div>';
+    }
     return '<div class="log-entry system"><span class="time">' + entry.time + '</span><span>' +
       escapeHtml(entry.text) + '</span></div>';
   }).join('');
+  // #ledger is flex-direction:column-reverse (newest renders at top), which also
+  // reverses what scrollTop:0 means — manual scrollTop math fights the browser.
+  // scrollIntoView on the newest entry resolves correctly regardless of axis.
+  if(el.lastElementChild) el.lastElementChild.scrollIntoView({ block: 'end' });
 }
 
 export async function sendMessage(){

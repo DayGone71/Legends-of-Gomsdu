@@ -1,7 +1,7 @@
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
 import { getSavedCharacters, saveCharacterTemplate } from './savedCharacters.js';
-import { clampInt } from './utils.js';
+import { clampInt, timeNow } from './utils.js';
 
 // Control and Attunement default to 0 on every existing build — meaning nothing
 // about current AP costs changes for them. Only a character explicitly set to
@@ -138,7 +138,7 @@ export function syncFieldOnBlur(){
 
 // hintText lets callers (like "Make Active Character") show a distinct
 // confirmation from the ambient autosave's plain "Saved".
-export async function saveCharacter(hintText){
+export async function saveCharacter(hintText, announce){
   const me = AppState.table.players[AppState.playerId] || {};
   const prevApSpent = me.apSpent || 0;
   const prevFocusSpent = me.focusSpent || 0;
@@ -156,7 +156,22 @@ export async function saveCharacter(hintText){
     focusSpent: prevFocusSpent,
     sequence: prevSequence
   };
-  const ok = await mutateTable(t => { t.players[AppState.playerId] = updated; });
+  const prevName = me.name;
+  const ok = await mutateTable(t => {
+    t.players[AppState.playerId] = updated;
+    // Only the explicit "Make Active Character" commit announces itself — the
+    // ambient autosave-on-edit would otherwise spam the Ledger on every keystroke.
+    // Structured (not flat text) so the Ledger can render it as a tiered block —
+    // a flat "X became the active character" line gives no sign of *what* X
+    // became (archetype, rename), reading identically to a plain join/leave.
+    if(announce){
+      t.log.push({
+        type: 'character-active', time: timeNow(),
+        name: updated.name || 'Someone', archetype: updated.archetype || '',
+        prevName: (prevName && prevName !== updated.name) ? prevName : null
+      });
+    }
+  });
   const hint = document.getElementById('save-hint');
   if(hint) hint.textContent = ok ? (hintText || 'Saved') : 'Could not save';
   // Don't wait on the realtime round-trip to show the (possibly clamped) value
@@ -170,7 +185,7 @@ export async function saveCharacter(hintText){
 // (skipping the debounce) so loading/editing a build only becomes your live
 // character when you deliberately say so.
 export async function makeActiveCharacter(){
-  await saveCharacter('Made the active character');
+  await saveCharacter('Made the active character', true);
 }
 
 // Populates the sheet's fields from live state. Whichever single field the user

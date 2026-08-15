@@ -3,7 +3,7 @@ import { connectToSession, createNewSession, mutateTable, disconnect, registerRe
 import { genCode, genId, timeNow } from './utils.js';
 import { blankCharacter, loadBuild, scheduleSave, saveCharacter, makeActiveCharacter, renderCharacterSheet, saveAsTemplate, populateSavedCharacterDropdowns, syncFieldOnBlur } from './character.js';
 import { renderLedger, renderRoster, sendMessage } from './ledger.js';
-import { renderTargetRange, toggleMenu, selectAttackKind, selectEssenceSchool, selectBlockKind, toggleCounter, commitAction, undoAction, resetAP, resolveRound, renderCombatCounters } from './combat.js';
+import { renderTargetRange, toggleMenu, selectAttackKind, selectEssenceSchool, selectBlockKind, toggleCounter, commitAction, undoAction, resetAP, resolveRound, renderCombatCounters, stageRest } from './combat.js';
 import { renderSequencer } from './sequencer.js';
 import { addEnemy, startEncounter, endEncounter, renderDMEnemyPicker, renderDMCounters, renderDMTargetRange, dmToggleMenu, dmSelectAttackKind, dmSelectEssenceSchool, dmSelectBlockKind, dmToggleCounter, dmCommitAction, dmUndoAction, clearDead } from './dm.js';
 import { defaultMap, renderMap, toggleMapEditMode } from './map.js';
@@ -22,6 +22,10 @@ function clearLandingError(){ document.getElementById('landing-error').classList
 // ---------- Central render ----------
 function renderAll(){
   if(!AppState.table) return;
+  if(AppState.playerId && !AppState.table.players[AppState.playerId]){
+    handleRemovedFromTable();
+    return;
+  }
   renderCharacterSheet();
   renderCombatCounters();
   renderTargetRange();
@@ -92,6 +96,17 @@ function enterTable(code){
   document.getElementById('table-code-display').textContent = code;
   populateSavedCharacterDropdowns();
   renderAll();
+}
+
+// Fires when this tab's own player record is gone from the synced table — left
+// from another tab/window, or removed by the DM. Without this, a stale tab keeps
+// showing "You are X" and will keep posting chat/actions under a ghost identity.
+function handleRemovedFromTable(){
+  forgetMe();
+  disconnect();
+  document.getElementById('screen-table').classList.add('hidden');
+  document.getElementById('screen-landing').classList.remove('hidden');
+  showLandingError('This session ended — you left (or were removed) from another tab or window.');
 }
 
 async function leaveTable(){
@@ -167,6 +182,7 @@ function wireEvents(){
   document.getElementById('btn-undo').addEventListener('click', undoAction);
   document.getElementById('btn-discard-round').addEventListener('click', resetAP);
   document.getElementById('btn-resolve').addEventListener('click', resolveRound);
+  document.getElementById('btn-rest').addEventListener('click', stageRest);
 
   // DM
   document.getElementById('btn-add-enemy').addEventListener('click', addEnemy);

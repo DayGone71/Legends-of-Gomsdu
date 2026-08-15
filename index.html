@@ -172,6 +172,7 @@
       </div>
       <div class="counter-row" style="margin-top:10px;">
         <div class="counter"><span class="counter-label">Control (live)</span><span id="cb-control-display" class="counter-value">&mdash;</span></div>
+        <div class="counter"><span class="counter-label">Hit% (exposure)</span><span id="cb-hitpercent-display" class="counter-value">&mdash;</span></div>
       </div>
       <div class="field" style="margin-top:14px;">
         <label>Target range</label>
@@ -199,6 +200,13 @@
       <div class="commit-row">
         <button id="btn-commit" class="btn-brass btn-small">Commit</button>
         <button id="btn-undo" class="btn-ghost btn-small">Undo</button>
+      </div>
+      <div class="field" style="margin-top:14px;">
+        <label>Rest (spend AP to recover Flow or shed Hit% instead of acting)</label>
+        <div class="action-row">
+          <input type="number" id="rest-ap-input" min="0" step="1" placeholder="AP to commit" style="width:110px;">
+          <button id="btn-rest" class="btn-ghost btn-small">Rest</button>
+        </div>
       </div>
       <button id="btn-discard-round" class="btn-ghost btn-small" style="margin-top:14px;">Discard round (no resolve)</button>
     </div>
@@ -257,6 +265,7 @@
       </div>
       <div class="counter-row" style="margin-top:10px;">
         <div class="counter"><span class="counter-label">Control (live)</span><span id="dm-control-display" class="counter-value">&mdash;</span></div>
+        <div class="counter"><span class="counter-label">Hit% (exposure)</span><span id="dm-hitpercent-display" class="counter-value">&mdash;</span></div>
       </div>
       <div class="field" style="margin-top:14px;">
         <label>Target (players)</label>

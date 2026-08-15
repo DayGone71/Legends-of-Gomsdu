@@ -58,3 +58,28 @@ export function apCostForControl(control, multiplier = 1){
 export function clampInt(value, min, max){
   return Math.max(min, Math.min(max, value));
 }
+
+// Full, unabbreviated action name for Ledger display — the sequence entry's own
+// actionLabel ('FA', 'GB', etc.) stays short for the Sequencer ruler, which needs
+// the room; the Ledger reads better spelled out.
+export function describeAction(entry){
+  if(!entry) return 'Action';
+  if(entry.kind === 'attack'){
+    return entry.attackKind === 'strong' ? 'Strong Attack' : entry.attackKind === 'focus' ? 'Focus Attack' : 'Fast Attack';
+  }
+  if(entry.kind === 'block'){
+    return (entry.blockKind === 'general' ? 'General Block' : 'Target Block') + (entry.counter ? ' + Counter' : '');
+  }
+  if(entry.kind === 'essence') return entry.school === 'Lava' ? 'Lava' : 'Lightning';
+  if(entry.kind === 'rest') return 'Rest';
+  return entry.actionLabel || 'Action';
+}
+
+// Power buckets into a small Damage value once it's actually inflicting Wounds —
+// dumping a raw 0-50 Power stat straight into a 3-8 Wounds pool one/two-shots
+// everything, which is the opposite of what a Hit%-based exposure system is for.
+// ~10 Power per Damage tier; exact bracket width is a tuning knob, not fixed lore.
+// Power vs Flow is unaffected by this — that interaction stays on raw Power.
+export function powerToDamage(power){
+  return Math.max(0, Math.ceil((power || 0) / 10));
+}

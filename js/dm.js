@@ -1,6 +1,6 @@
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
-import { escapeHtml, timeNow, playerShorthand, apCostForControl } from './utils.js';
+import { escapeHtml, timeNow, playerShorthand, apCostForControl, describeAction } from './utils.js';
 import { BUILDS } from './character.js';
 import { getSavedCharacters } from './savedCharacters.js';
 import { updateToolbarAvailability } from './panels.js';
@@ -87,18 +87,21 @@ export function renderDMCounters(){
   const fEl = document.getElementById('dm-flow-display');
   const fcEl = document.getElementById('dm-focus-display');
   const ctrlEl = document.getElementById('dm-control-display');
+  const hpEl = document.getElementById('dm-hitpercent-display');
   if(!wEl || !aEl) return;
   if(!enemy){
     wEl.textContent = '\u2014'; aEl.textContent = '\u2014';
     if(fEl) fEl.textContent = '\u2014';
     if(fcEl) fcEl.textContent = '\u2014';
     if(ctrlEl) ctrlEl.textContent = '\u2014';
+    if(hpEl) hpEl.textContent = '\u2014';
   }else{
     wEl.textContent = (enemy.wounds ?? 0) + '/' + (enemy.woundsMax ?? 0);
     aEl.textContent = (enemy.apSpent || 0) + '/' + (enemy.ap ?? 0);
     if(fEl) fEl.textContent = (enemy.flow ?? 0) + '/' + (enemy.flowMax ?? 0);
     if(fcEl) fcEl.textContent = ((enemy.focus || 0) - (enemy.focusSpent || 0)) + '/' + (enemy.focus ?? 0);
     if(ctrlEl) ctrlEl.textContent = (enemy.control ?? 0) + ' (base action: ' + apCostForControl(enemy.control || 0, 1) + ' AP)';
+    if(hpEl) hpEl.textContent = (enemy.flow > 0) ? '\u2014' : (enemy.hitPercent ?? 1).toFixed(0) + '%';
   }
 
   const fastBtn = document.getElementById('dm-attack-fast-btn');
@@ -242,28 +245,29 @@ export async function dmCommitAction(){
       showBannerError('Not enough Focus left this round.'); return;
     }
     const label = AppState.dmPendingAttackKind === 'strong' ? 'SA' : AppState.dmPendingAttackKind === 'focus' ? 'FCA' : 'FA';
-    entry = { apCost: cost, focusCost: AppState.dmPendingAttackKind === 'focus' ? 1 : 0, actionLabel: label, targetLabel: playerShorthand(target), kind: 'attack', attackKind: AppState.dmPendingAttackKind, targetId: AppState.dmSelectedTargetId };
+    entry = { apCost: cost, focusCost: AppState.dmPendingAttackKind === 'focus' ? 1 : 0, actionLabel: label, targetLabel: playerShorthand(target), targetName: target.name, kind: 'attack', attackKind: AppState.dmPendingAttackKind, targetId: AppState.dmSelectedTargetId };
   }else if(AppState.dmPendingType === 'block'){
     if(!AppState.dmPendingBlockKind){ showBannerError('Choose General Block or Target Block first.'); return; }
-    let targetId = null, targetLabel = '';
+    let targetId = null, targetLabel = '', targetName = '';
     if(AppState.dmPendingBlockKind === 'target'){
       const target = AppState.table.players && AppState.table.players[AppState.dmSelectedTargetId];
       if(!target){ showBannerError('Pick a target first for Target Block.'); return; }
       targetId = AppState.dmSelectedTargetId;
       targetLabel = playerShorthand(target);
+      targetName = target.name;
     }
     const unit = apCostForControl(control, 1);
     const cost = unit + (AppState.dmPendingCounter ? unit : 0);
     if(spent + cost > (actor.ap || 0)){ showBannerError('Not enough AP left this round.'); return; }
     const label = (AppState.dmPendingBlockKind === 'general' ? 'GB' : 'TB') + (AppState.dmPendingCounter ? '+C' : '');
-    entry = { apCost: cost, focusCost: 0, actionLabel: label, targetLabel, kind: 'block', blockKind: AppState.dmPendingBlockKind, counter: AppState.dmPendingCounter, targetId };
+    entry = { apCost: cost, focusCost: 0, actionLabel: label, targetLabel, targetName, kind: 'block', blockKind: AppState.dmPendingBlockKind, counter: AppState.dmPendingCounter, targetId };
   }else if(AppState.dmPendingType === 'essence'){
     if(!AppState.dmPendingEssenceSchool){ showBannerError('Choose Lightning or Lava first.'); return; }
     const target = AppState.table.players && AppState.table.players[AppState.dmSelectedTargetId];
     if(!target){ showBannerError('Pick a target first.'); return; }
     const cost = 8;
     if(spent + cost > (actor.ap || 0)){ showBannerError('Not enough AP left this round.'); return; }
-    entry = { apCost: cost, focusCost: 0, actionLabel: AppState.dmPendingEssenceSchool === 'Lava' ? 'LV' : 'LN', targetLabel: playerShorthand(target), kind: 'essence', school: AppState.dmPendingEssenceSchool, targetId: AppState.dmSelectedTargetId };
+    entry = { apCost: cost, focusCost: 0, actionLabel: AppState.dmPendingEssenceSchool === 'Lava' ? 'LV' : 'LN', targetLabel: playerShorthand(target), targetName: target.name, kind: 'essence', school: AppState.dmPendingEssenceSchool, targetId: AppState.dmSelectedTargetId };
   }else{
     showBannerError('Open Attack, Block, or Essence and choose something first.');
     return;
@@ -275,7 +279,7 @@ export async function dmCommitAction(){
     a.sequence.push(entry);
     a.apSpent = spent + entry.apCost;
     a.focusSpent = focusSpent + (entry.focusCost || 0);
-    t.log.push({ type: 'system', text: a.name + ' stages ' + entry.actionLabel + (entry.targetLabel ? (' on ' + entry.targetLabel) : ''), time: timeNow() });
+    t.log.push({ type: 'system', text: a.name + ' stages ' + describeAction(entry) + (entry.targetName ? (' on ' + entry.targetName) : ''), time: timeNow() });
   });
 }
 
@@ -288,7 +292,7 @@ export async function dmUndoAction(){
     const removed = a.sequence.pop();
     a.apSpent = Math.max(0, (a.apSpent || 0) - removed.apCost);
     a.focusSpent = Math.max(0, (a.focusSpent || 0) - (removed.focusCost || 0));
-    t.log.push({ type: 'system', text: a.name + ' undoes ' + removed.actionLabel + (removed.targetLabel ? (' on ' + removed.targetLabel) : ''), time: timeNow() });
+    t.log.push({ type: 'system', text: a.name + ' undoes ' + describeAction(removed) + (removed.targetName ? (' on ' + removed.targetName) : ''), time: timeNow() });
   });
 }
 

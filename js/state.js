@@ -33,23 +33,27 @@ export const AppState = {
   dmTestLastResult: null
 };
 
-// This browser's "which table was I in" memory — purely local, not shared game state,
-// so localStorage is the right tool here (unlike the old Claude-artifact prototype).
+// This tab's "which table was I in" memory. Deliberately sessionStorage, not
+// localStorage: localStorage is shared by every tab in the browser profile, so
+// two tabs open to the same table would constantly stomp each other's
+// remembered identity — exactly the "everyone keeps turning into everyone else"
+// bug this app hit repeatedly during multi-tab testing. sessionStorage is scoped
+// per tab, which is what "which browser window am I" actually needs.
 const REMEMBER_KEY = 'gomsdu-active-session';
 
 export function rememberMe(code, playerId, name){
   try{
-    localStorage.setItem(REMEMBER_KEY, JSON.stringify({ code, playerId, name }));
+    sessionStorage.setItem(REMEMBER_KEY, JSON.stringify({ code, playerId, name }));
   }catch(e){ /* ignore */ }
 }
 
 export function forgetMe(){
-  try{ localStorage.removeItem(REMEMBER_KEY); }catch(e){ /* ignore */ }
+  try{ sessionStorage.removeItem(REMEMBER_KEY); }catch(e){ /* ignore */ }
 }
 
 export function recallMe(){
   try{
-    const raw = localStorage.getItem(REMEMBER_KEY);
+    const raw = sessionStorage.getItem(REMEMBER_KEY);
     return raw ? JSON.parse(raw) : null;
   }catch(e){ return null; }
 }
