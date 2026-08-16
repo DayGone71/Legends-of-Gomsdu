@@ -2,13 +2,14 @@ import { AppState, rememberMe, forgetMe, recallMe } from './state.js';
 import { connectToSession, createNewSession, mutateTable, disconnect, registerRenderCallback } from './sync.js';
 import { genCode, genId, timeNow } from './utils.js';
 import { blankCharacter, loadBuild, scheduleSave, saveCharacter, makeActiveCharacter, renderCharacterSheet, saveAsTemplate, populateSavedCharacterDropdowns, syncFieldOnBlur } from './character.js';
-import { renderLedger, renderRoster, sendMessage } from './ledger.js';
-import { renderTargetRange, toggleMenu, selectAttackKind, selectEssenceSchool, selectBlockKind, toggleCounter, commitAction, undoAction, resetAP, resolveRound, renderCombatCounters, stageRest } from './combat.js';
+import { renderLedger, renderRoster, sendMessage, initAddPartyMemberUI } from './ledger.js';
+import { renderTargetRange, toggleMenu, selectAttackKind, selectEssenceSchool, selectBlockKind, toggleCounter, commitAction, undoAction, resolveRound, renderCombatCounters, renderStagedActions, stageRest } from './combat.js';
 import { renderSequencer } from './sequencer.js';
-import { addEnemy, startEncounter, endEncounter, renderDMEnemyPicker, renderDMCounters, renderDMTargetRange, dmToggleMenu, dmSelectAttackKind, dmSelectEssenceSchool, dmSelectBlockKind, dmToggleCounter, dmCommitAction, dmUndoAction, clearDead } from './dm.js';
+import { addEnemy, startEncounter, endEncounter, renderDMEnemyPicker, renderDMCounters, renderDMTargetRange, dmToggleMenu, dmSelectAttackKind, dmSelectEssenceSchool, dmSelectBlockKind, dmToggleCounter, dmCommitAction, dmUndoAction, renderDMStagedActions, clearDead, populateSavedEncounterDropdown, saveEncounterAsTemplate, loadEncounterTemplate } from './dm.js';
 import { defaultMap, renderMap, toggleMapEditMode } from './map.js';
 import { openPanel, closePanel, togglePanel, updateToolbarAvailability, initPanelBackdrop } from './panels.js';
 import { renderDMTestPanel, runDMTestRound, runDMTestUntilDefeat } from './dmtest.js';
+import { initTechniquesUI } from './techniques.js';
 
 // ---------- Screen helpers ----------
 function showLoading(v){ document.getElementById('loading').classList.toggle('hidden', !v); }
@@ -29,10 +30,12 @@ function renderAll(){
   renderCharacterSheet();
   renderCombatCounters();
   renderTargetRange();
+  renderStagedActions();
   renderSequencer();
   renderDMEnemyPicker();
   renderDMCounters();
   renderDMTargetRange();
+  renderDMStagedActions();
   renderDMTestPanel();
   renderLedger();
   renderRoster();
@@ -83,7 +86,9 @@ async function handleJoin(){
   await mutateTable(t => {
     t.players[AppState.playerId] = blankCharacter(name);
     if(!t.positions) t.positions = {};
-    t.positions[AppState.playerId] = { x: 0, y: 0 };
+    // Each new Player starts one Tile down from the previous one, same column.
+    const y = Math.min(Object.keys(t.players).length - 1, (t.map.height || 1) - 1);
+    t.positions[AppState.playerId] = { x: 0, y };
     t.log.push({ type: 'system', text: name + ' joined the table', time: timeNow() });
   });
   rememberMe(code, AppState.playerId, name);
@@ -95,6 +100,7 @@ function enterTable(code){
   document.getElementById('screen-table').classList.remove('hidden');
   document.getElementById('table-code-display').textContent = code;
   populateSavedCharacterDropdowns();
+  populateSavedEncounterDropdown();
   renderAll();
 }
 
@@ -149,11 +155,19 @@ function wireEvents(){
   document.getElementById('toolbar-sequencer').addEventListener('click', () => togglePanel('sequencer'));
   document.getElementById('toolbar-dm').addEventListener('click', () => togglePanel('dm'));
   document.getElementById('toolbar-dmtest').addEventListener('click', () => togglePanel('dmtest'));
+  document.getElementById('toolbar-stats').addEventListener('click', () => togglePanel('stats'));
+  document.getElementById('toolbar-techniques').addEventListener('click', () => togglePanel('techniques'));
+  document.getElementById('toolbar-party').addEventListener('click', () => togglePanel('party'));
   document.getElementById('panel-close-character').addEventListener('click', closePanel);
   document.getElementById('panel-close-combat').addEventListener('click', closePanel);
   document.getElementById('panel-close-sequencer').addEventListener('click', closePanel);
   document.getElementById('panel-close-dm').addEventListener('click', closePanel);
   document.getElementById('panel-close-dmtest').addEventListener('click', closePanel);
+  document.getElementById('panel-close-character-view').addEventListener('click', closePanel);
+  document.getElementById('panel-close-stats').addEventListener('click', closePanel);
+  document.getElementById('panel-close-techniques').addEventListener('click', closePanel);
+  document.getElementById('panel-close-party').addEventListener('click', closePanel);
+  document.getElementById('panel-close-technique-use').addEventListener('click', closePanel);
 
   // Character sheet
   document.getElementById('ch-build-loader').addEventListener('change', e => loadBuild(e.target.value));
@@ -180,11 +194,12 @@ function wireEvents(){
   document.getElementById('cast-lava').addEventListener('click', () => selectEssenceSchool('Lava'));
   document.getElementById('btn-commit').addEventListener('click', commitAction);
   document.getElementById('btn-undo').addEventListener('click', undoAction);
-  document.getElementById('btn-discard-round').addEventListener('click', resetAP);
   document.getElementById('btn-resolve').addEventListener('click', resolveRound);
   document.getElementById('btn-rest').addEventListener('click', stageRest);
 
   // DM
+  document.getElementById('dm-encounter-loader').addEventListener('change', loadEncounterTemplate);
+  document.getElementById('btn-save-encounter').addEventListener('click', saveEncounterAsTemplate);
   document.getElementById('btn-add-enemy').addEventListener('click', addEnemy);
   document.getElementById('btn-start-encounter').addEventListener('click', startEncounter);
   document.getElementById('btn-end-encounter').addEventListener('click', endEncounter);
@@ -209,6 +224,13 @@ function wireEvents(){
 
   // Map
   document.getElementById('map-edit-toggle').addEventListener('click', toggleMapEditMode);
+
+  // Party: Add AI Party Member (Possessor / Mini-Party Character) — see the
+  // "sandwich" model in reference/ROADMAP.md, Party System item C. Per-player
+  // trigger buttons are wired inside renderRoster itself (they're recreated
+  // every render); this just wires the shared one-instance form parts.
+  initAddPartyMemberUI();
+  initTechniquesUI();
 
   initPanelBackdrop();
 }

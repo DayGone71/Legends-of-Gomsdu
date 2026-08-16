@@ -1,8 +1,9 @@
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
-import { escapeHtml, timeNow, playerShorthand, apCostForControl, describeAction } from './utils.js';
+import { escapeHtml, timeNow, playerShorthand, apCostForControl, describeAction, flashHint } from './utils.js';
 import { BUILDS } from './character.js';
 import { getSavedCharacters } from './savedCharacters.js';
+import { getSavedEncounters, saveEncounterTemplate } from './savedEncounters.js';
 import { updateToolbarAvailability } from './panels.js';
 
 function showBannerError(msg){
@@ -11,6 +12,17 @@ function showBannerError(msg){
   el.textContent = msg;
   el.classList.remove('hidden');
   setTimeout(() => el.classList.add('hidden'), 5000);
+}
+
+// Spawned enemies stack on the upper-right-most Tile until there are 5, then
+// additional ones spawn on the Tile below that — straight down the rightmost
+// column, never sideways. Based on how many enemies are currently present
+// (not a lifetime count), so clearing the dead frees the top tile back up.
+function nextEnemyPosition(t){
+  const map = t.map;
+  const count = Object.keys(t.enemies || {}).length;
+  const row = Math.min(Math.floor(count / 5), (map.height || 1) - 1);
+  return { x: (map.width || 1) - 1, y: row };
 }
 
 export async function startEncounter(){
@@ -38,17 +50,89 @@ export async function addEnemy(){
   const displayBase = isSaved ? key.slice(6) : b.archetype;
   await mutateTable(t => {
     if(!t.enemies) t.enemies = {};
+    if(!t.positions) t.positions = {};
     const id = 'e_' + Math.random().toString(36).slice(2, 8);
     const count = Object.values(t.enemies).filter(e => e.archetype === b.archetype && e.name.indexOf(displayBase) === 0).length + 1;
+    const pos = nextEnemyPosition(t);
     t.enemies[id] = {
       archetype: b.archetype, name: displayBase + ' #' + count, num: count,
       wounds: b.wounds, woundsMax: b.woundsMax, ap: b.ap, flow: b.flow, flowMax: b.flowMax, recovery: b.recovery, power: b.power,
       quickness: b.quickness, range: b.range, lightning: b.lightning, lava: b.lava, focus: b.focus,
       control: b.control ?? 0, attunement: b.attunement ?? 0, life: b.life ?? 1,
-      apSpent: 0, focusSpent: 0, sequence: []
+      apSpent: 0, focusSpent: 0, sequence: [], possessedBy: null
     };
+    t.positions[id] = pos;
     t.log.push({ type: 'system', text: 'An enemy joined the fight: ' + t.enemies[id].name, time: timeNow() });
   });
+}
+
+// Per-enemy version of clearDead below — lets a hover-revealed X on a single
+// chip remove just that one enemy, instead of waiting to bulk-clear everyone.
+export async function removeEnemy(id){
+  const enemy = AppState.table && AppState.table.enemies && AppState.table.enemies[id];
+  if(!enemy) return;
+  await mutateTable(t => {
+    delete t.enemies[id];
+    t.log.push({ type: 'system', text: enemy.name + ' is removed from the field', time: timeNow() });
+  });
+  if(AppState.actingEnemyId === id) AppState.actingEnemyId = null;
+  if(AppState.selectedTargetId === id) AppState.selectedTargetId = null;
+}
+
+// Populates the "Custom" optgroup in the encounter loader dropdown. Called
+// on entering a table and right after a new save, mirroring
+// populateSavedCharacterDropdowns in character.js.
+export function populateSavedEncounterDropdown(){
+  const el = document.getElementById('dm-encounter-saved-group');
+  if(!el) return;
+  const names = Object.keys(getSavedEncounters()).sort();
+  el.innerHTML = names.length
+    ? names.map(n => '<option value="' + escapeHtml(n) + '">' + escapeHtml(n) + '</option>').join('')
+    : '<option value="" disabled>No saved encounters yet</option>';
+}
+
+// Snapshots the current field's enemies (full health, no live combat state)
+// as a reusable roster template — distinct from the per-character Saved
+// Characters system, which saves one build at a time.
+export async function saveEncounterAsTemplate(){
+  const nameInput = document.getElementById('dm-encounter-name');
+  const name = nameInput ? nameInput.value.trim() : '';
+  if(!name){ showBannerError('Name the encounter before saving it.'); return; }
+  const list = Object.values((AppState.table && AppState.table.enemies) || {});
+  if(!list.length){ showBannerError('No enemies on the field to save.'); return; }
+
+  const snapshot = list.map(e => ({
+    archetype: e.archetype, wounds: e.woundsMax, woundsMax: e.woundsMax, ap: e.ap, flow: e.flowMax, flowMax: e.flowMax,
+    recovery: e.recovery, power: e.power, quickness: e.quickness, range: e.range, lightning: e.lightning, lava: e.lava,
+    focus: e.focus, control: e.control ?? 0, attunement: e.attunement ?? 0, life: e.life ?? 1
+  }));
+  saveEncounterTemplate(name, snapshot);
+  populateSavedEncounterDropdown();
+  flashHint('dm-encounter-hint', 'Saved "' + name + '" (' + snapshot.length + (snapshot.length === 1 ? ' enemy' : ' enemies') + ')');
+}
+
+// Spawns a saved roster's full set of enemies onto the field at once — additive,
+// so a DM can layer multiple saved templates together instead of it being all-or-nothing.
+export async function loadEncounterTemplate(){
+  const select = document.getElementById('dm-encounter-loader');
+  const name = select && select.value;
+  if(!name) return;
+  const roster = getSavedEncounters()[name];
+  if(!roster || !roster.length){ if(select) select.value = ''; return; }
+
+  await mutateTable(t => {
+    if(!t.enemies) t.enemies = {};
+    if(!t.positions) t.positions = {};
+    roster.forEach(b => {
+      const id = 'e_' + Math.random().toString(36).slice(2, 8);
+      const count = Object.values(t.enemies).filter(e => e.archetype === b.archetype && e.name.indexOf(b.archetype) === 0).length + 1;
+      const pos = nextEnemyPosition(t);
+      t.enemies[id] = { ...b, name: b.archetype + ' #' + count, num: count, apSpent: 0, focusSpent: 0, sequence: [], possessedBy: null };
+      t.positions[id] = pos;
+    });
+    t.log.push({ type: 'system', text: 'The DM loads the "' + name + '" encounter (' + roster.length + (roster.length === 1 ? ' enemy' : ' enemies') + ')', time: timeNow() });
+  });
+  if(select) select.value = '';
 }
 
 export function renderDMEnemyPicker(){
@@ -64,11 +148,15 @@ export function renderDMEnemyPicker(){
     let cls = 'target-chip';
     if(id === AppState.actingEnemyId) cls += ' selected';
     if(defeated) cls += ' defeated';
-    return '<div class="' + cls + '" data-id="' + id + '">' + escapeHtml(e.name) + ' &mdash; ' + Math.max(0, e.wounds) + '/' + e.woundsMax + '</div>';
+    const removeX = defeated ? '<span class="chip-remove-x" data-id="' + id + '">✕</span>' : '';
+    return '<div class="' + cls + '" data-id="' + id + '">' + escapeHtml(e.name) + ' &mdash; ' + Math.max(0, e.wounds) + '/' + e.woundsMax + removeX + '</div>';
   }).join('');
 
   el.querySelectorAll('.target-chip').forEach(chip => {
     chip.onclick = () => selectActingEnemy(chip.dataset.id);
+  });
+  el.querySelectorAll('.chip-remove-x').forEach(x => {
+    x.onclick = (ev) => { ev.stopPropagation(); removeEnemy(x.dataset.id); };
   });
 }
 
@@ -293,6 +381,38 @@ export async function dmUndoAction(){
     a.apSpent = Math.max(0, (a.apSpent || 0) - removed.apCost);
     a.focusSpent = Math.max(0, (a.focusSpent || 0) - (removed.focusCost || 0));
     t.log.push({ type: 'system', text: a.name + ' undoes ' + describeAction(removed) + (removed.targetName ? (' on ' + removed.targetName) : ''), time: timeNow() });
+  });
+}
+
+// Companion to dmUndoAction above, mirroring removeStagedAction in combat.js —
+// lets the DM staged-actions list remove any one entry directly, not just the
+// most recently staged one.
+export async function dmRemoveStagedAction(index){
+  if(!AppState.actingEnemyId) return;
+  const actor = AppState.table.enemies[AppState.actingEnemyId];
+  if(!actor || !actor.sequence || !actor.sequence[index]) return;
+  await mutateTable(t => {
+    const a = t.enemies[AppState.actingEnemyId];
+    const removed = a.sequence.splice(index, 1)[0];
+    a.apSpent = Math.max(0, (a.apSpent || 0) - removed.apCost);
+    a.focusSpent = Math.max(0, (a.focusSpent || 0) - (removed.focusCost || 0));
+    t.log.push({ type: 'system', text: a.name + ' removes ' + describeAction(removed) + (removed.targetName ? (' on ' + removed.targetName) : ''), time: timeNow() });
+  });
+}
+
+export function renderDMStagedActions(){
+  const actor = AppState.actingEnemyId && AppState.table && AppState.table.enemies[AppState.actingEnemyId];
+  const el = document.getElementById('dm-staged-list');
+  if(!el) return;
+  const seq = (actor && actor.sequence) || [];
+  if(!seq.length){ el.innerHTML = ''; return; }
+  el.innerHTML = seq.map((entry, i) =>
+    '<div class="staged-row"><span>' + escapeHtml(describeAction(entry)) +
+    (entry.targetName ? ' on ' + escapeHtml(entry.targetName) : '') + '</span>' +
+    '<span class="staged-remove-x" data-index="' + i + '">✕</span></div>'
+  ).join('');
+  el.querySelectorAll('.staged-remove-x').forEach(x => {
+    x.onclick = () => dmRemoveStagedAction(parseInt(x.dataset.index, 10));
   });
 }
 

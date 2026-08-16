@@ -1,6 +1,9 @@
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
 import { escapeHtml, timeNow, targetShorthand, computeEntryTick, computeCounterMax, apCostForControl, describeAction, powerToDamage } from './utils.js';
+import { removeEnemy } from './dm.js';
+import { TECHNIQUES } from './techniques.js';
+import { MAX_MINI_PARTY } from './possession.js';
 
 function showBannerError(msg){
   const el = document.getElementById('banner-error');
@@ -22,12 +25,16 @@ export function renderTargetRange(){
     let cls = 'target-chip';
     if(id === AppState.selectedTargetId) cls += ' selected';
     if(defeated) cls += ' defeated';
+    const removeX = defeated ? '<span class="chip-remove-x" data-id="' + id + '">✕</span>' : '';
     return '<div class="' + cls + '" data-id="' + id + '">' +
-      escapeHtml(e.name) + ' &mdash; ' + Math.max(0, e.wounds) + '/' + e.woundsMax + '</div>';
+      escapeHtml(e.name) + ' &mdash; ' + Math.max(0, e.wounds) + '/' + e.woundsMax + removeX + '</div>';
   }).join('');
 
   el.querySelectorAll('.target-chip').forEach(chip => {
     chip.onclick = () => selectTarget(chip.dataset.id);
+  });
+  el.querySelectorAll('.chip-remove-x').forEach(x => {
+    x.onclick = (ev) => { ev.stopPropagation(); removeEnemy(x.dataset.id); };
   });
 }
 
@@ -183,31 +190,57 @@ export async function commitAction(){
   });
 }
 
+// Shared by undoAction/removeStagedAction below — a removed entry might be a
+// plain Attack/Block (apCost/focusCost only) or a Technique (which can also
+// carry flowCost/lightningCost/lavaCost); restoring all five uniformly means
+// neither function needs to know which kind of entry it's reversing.
+function restoreEntryCosts(actor, removed){
+  actor.apSpent = Math.max(0, (actor.apSpent || 0) - (removed.apCost || 0));
+  actor.focusSpent = Math.max(0, (actor.focusSpent || 0) - (removed.focusCost || 0));
+  actor.lightningSpent = Math.max(0, (actor.lightningSpent || 0) - (removed.lightningCost || 0));
+  actor.lavaSpent = Math.max(0, (actor.lavaSpent || 0) - (removed.lavaCost || 0));
+  if(removed.flowCost) actor.flow = Math.min(actor.flowMax ?? actor.flow, (actor.flow || 0) + removed.flowCost);
+}
+
 export async function undoAction(){
   const me = AppState.table.players[AppState.playerId];
   if(!me || !me.sequence || !me.sequence.length) return;
   await mutateTable(t => {
     const actor = t.players[AppState.playerId];
     const removed = actor.sequence.pop();
-    actor.apSpent = Math.max(0, (actor.apSpent || 0) - removed.apCost);
-    actor.focusSpent = Math.max(0, (actor.focusSpent || 0) - (removed.focusCost || 0));
+    restoreEntryCosts(actor, removed);
     t.log.push({ type: 'system', text: actor.name + ' undoes ' + describeAction(removed) + (removed.targetName ? (' on ' + removed.targetName) : ''), time: timeNow() });
   });
 }
 
-export async function resetAP(){
+// Companion to undoAction above — Undo only ever pops the most recent staged
+// entry; this lets the staged-actions list remove any one of them directly,
+// by splicing it out instead of popping from the end.
+export async function removeStagedAction(index){
+  const me = AppState.table.players[AppState.playerId];
+  if(!me || !me.sequence || !me.sequence[index]) return;
   await mutateTable(t => {
-    const me = t.players[AppState.playerId];
-    if(!me) return;
-    me.apSpent = 0;
-    me.focusSpent = 0;
-    me.sequence = [];
+    const actor = t.players[AppState.playerId];
+    const removed = actor.sequence.splice(index, 1)[0];
+    restoreEntryCosts(actor, removed);
+    t.log.push({ type: 'system', text: actor.name + ' removes ' + describeAction(removed) + (removed.targetName ? (' on ' + removed.targetName) : ''), time: timeNow() });
   });
-  AppState.pendingType = null;
-  AppState.pendingAttackKind = null;
-  AppState.pendingEssenceSchool = null;
-  AppState.pendingBlockKind = null;
-  AppState.pendingCounter = false;
+}
+
+export function renderStagedActions(){
+  const me = AppState.table && AppState.table.players[AppState.playerId];
+  const el = document.getElementById('cb-staged-list');
+  if(!el) return;
+  const seq = (me && me.sequence) || [];
+  if(!seq.length){ el.innerHTML = ''; return; }
+  el.innerHTML = seq.map((entry, i) =>
+    '<div class="staged-row"><span>' + escapeHtml(describeAction(entry)) +
+    (entry.targetName ? ' on ' + escapeHtml(entry.targetName) : '') + '</span>' +
+    '<span class="staged-remove-x" data-index="' + i + '">✕</span></div>'
+  ).join('');
+  el.querySelectorAll('.staged-remove-x').forEach(x => {
+    x.onclick = () => removeStagedAction(parseInt(x.dataset.index, 10));
+  });
 }
 
 // "N Wounds (XX% Dmg)" \u2014 the percentage is against the target's max pool, so a
@@ -256,7 +289,20 @@ function computeOverwhelmChance(dmg, flow){
 // back down. flowDmg (raw Power, uncapped) only ever touches Flow; woundDmg (the
 // bracketed Power\u2192Damage value) is the only thing that ever touches Wounds or
 // escalates Hit% \u2014 keeping a 0-50 stat from one-shotting a 3-8 Wounds pool.
-function applyDamage(target, flowDmg, woundDmg){
+//
+// Shadow Possession / "Plot Armor" (2026-08-15): every Character has to witness
+// a Shield Fragment early on, which per dDd creates a latent, never-felt
+// possession link to Kulkrow. When a player's exposure gets really bad, Kulkrow
+// quietly leans on that link to cut the odds against them \u2014 the displayed
+// hitPercent in the log is untouched (still the real number), only the actual
+// roll threshold is secretly reduced, so it reads as ordinary good luck, never
+// as a revealed mechanic. Enemies don't get this \u2014 it's the party's Plot
+// Armor, not a general rule. Threshold/reduction are rough placeholders ("50%
+// or whatever" \u2014 dDd's own words); tune freely once there's real playtesting.
+const SHADOW_POSSESSION_THRESHOLD = 70;
+const SHADOW_POSSESSION_REDUCTION = 0.5;
+
+function applyDamage(target, flowDmg, woundDmg, isPlayerTarget){
   if(target.flow > 0){
     const overwhelmChance = computeOverwhelmChance(flowDmg, target.flow);
     if(overwhelmChance > 0 && Math.random() * 100 < overwhelmChance){
@@ -270,8 +316,10 @@ function applyDamage(target, flowDmg, woundDmg){
   }
 
   const current = target.hitPercent ?? 1;
+  const effectiveChance = (isPlayerTarget && current >= SHADOW_POSSESSION_THRESHOLD)
+    ? current * SHADOW_POSSESSION_REDUCTION : current;
   const roll = Math.random() * 100;
-  const wounded = roll < current;
+  const wounded = roll < effectiveChance;
   let result;
   if(wounded){
     target.wounds = Math.max(0, target.wounds - woundDmg);
@@ -308,6 +356,21 @@ function applyRecoveryTick(actor){
   }else{
     actor.hitPercent = Math.max(1, hitPercent - recovery * 2);
   }
+}
+
+// Attunement (2026-08-16, dDd): refills Lightning, Lava, and Focus at end of
+// round the same way Recovery refills Flow — not a per-round allowance that
+// resets to full regardless, but a persistent pool only Attunement brings
+// back. Full Attunement value applies to *each* of the three, not split
+// between them (Attunement 3 means +3 Lightning AND +3 Lava AND +3 Focus,
+// not +1 each). Most current Builds sit at Attunement 0, so this is a real
+// behavior change — Focus in particular no longer freely resets every round.
+function applyAttunementTick(actor){
+  const attunement = actor.attunement || 0;
+  if(!attunement) return;
+  actor.focusSpent = Math.max(0, (actor.focusSpent || 0) - attunement);
+  actor.lightningSpent = Math.max(0, (actor.lightningSpent || 0) - attunement);
+  actor.lavaSpent = Math.max(0, (actor.lavaSpent || 0) - attunement);
 }
 
 // Commits some or all of this round's remaining AP to resting instead of acting.
@@ -388,6 +451,14 @@ export async function resolveRound(){
   });
 
   await mutateTable(t => {
+    // Possess (2026-08-16): a Possessed Enemy joins the Mini-Party "until the
+    // next Sequence ends" \u2014 implemented as one-shot: it survives the rest of
+    // *this* resolve (the possess action itself may still be about to run
+    // below), then gets swept out right here at the start of the *next* one.
+    Object.values(t.players || {}).forEach(p => {
+      if(p.miniParty) p.miniParty = p.miniParty.filter(m => !m.possessedExpiring);
+    });
+
     t.log.push({ type: 'system', text: '\u2014 resolving the round \u2014', time: timeNow() });
 
     blockRegistry.forEach(b => {
@@ -402,6 +473,56 @@ export async function resolveRound(){
         type: 'combat', time: timeNow(), tick: item.resolveTick,
         attacker: actorName, defender: defenderName, action, result
       });
+
+      // Techniques (2026-08-16): effects are text-only for now, not
+      // mechanically resolved — logged so it's obvious what *should* happen,
+      // per dDd's "hold off on testing them, just verify they commit and
+      // it's obvious how they work." Separation is the one exception: its
+      // Map Obstacle is simple/deterministic enough to actually implement.
+      if(entry.kind === 'technique'){
+        const def = TECHNIQUES[entry.techniqueKey];
+        const target = item.actorType === 'player' ? t.enemies[entry.targetId] : t.players[entry.targetId];
+        const targetName = (target && target.name) || entry.targetName || '(target)';
+        if(entry.techniqueKey === 'separation'){
+          const pos = t.positions && t.positions[item.actorId];
+          let result = def ? def.effect : 'Effect not yet implemented';
+          if(pos && t.map && pos.x + 1 < t.map.width){
+            t.map.tiles[pos.y * t.map.width + (pos.x + 1)] = 0;
+          }else{
+            result += ' (no room to the right — no Tile changed)';
+          }
+          logCombat(targetName, result);
+          return;
+        }
+        // Possess (2026-08-16): converts the target Enemy into a real Mini-
+        // Party member of the possessing Player — the Enemy stays exactly
+        // where it is on the Map and stays targetable (a fresh Possess later
+        // in the same Sequence just transfers it, see the dedup below), it
+        // just also now shows up in the possessor's Mini-Party. Only Players
+        // can possess for now. Reverts automatically at the top of the *next*
+        // resolveRound via the sweep above.
+        if(entry.techniqueKey === 'possess'){
+          if(item.actorType !== 'player' || !target){
+            logCombat(targetName, 'No valid target — Possession fails.');
+            return;
+          }
+          if(!actor.miniParty) actor.miniParty = [];
+          if(actor.miniParty.length >= MAX_MINI_PARTY){
+            logCombat(targetName, actorName + '’s Mini-Party is already full — Possession fails.');
+            return;
+          }
+          // A target already possessed by someone else this Sequence gets
+          // transferred, not duplicated.
+          Object.values(t.players || {}).forEach(p => {
+            if(p.miniParty) p.miniParty = p.miniParty.filter(m => m.sourceEnemyId !== entry.targetId);
+          });
+          actor.miniParty.push({ name: target.name, sourceEnemyId: entry.targetId, possessed: true, possessedExpiring: true });
+          logCombat(targetName, target.name + ' joins ' + actorName + '’s Mini-Party until the Sequence ends.');
+          return;
+        }
+        logCombat(targetName, (def ? def.effect : 'Effect not yet implemented') + ' (not yet mechanically resolved)');
+        return;
+      }
 
       if(entry.kind === 'attack' && entry.attackKind === 'focus'){
         const targetCollection = item.actorType === 'player' ? t.enemies : t.players;
@@ -443,16 +564,19 @@ export async function resolveRound(){
         const woundDmg = isAttack
           ? powerToDamage(actor.power) + (entry.attackKind === 'strong' ? 1 : 0)
           : (actor.focus || 1);
-        logCombat(target.name || 'target', applyDamage(target, flowDmg, woundDmg));
+        logCombat(target.name || 'target', applyDamage(target, flowDmg, woundDmg, targetOwnerType === 'player'));
       }
     });
 
     // Rest multiplier reads each actor's sequence, so this has to run before it's cleared.
-    Object.values(t.players || {}).forEach(p => { if(p.wounds > 0) applyRecoveryTick(p); });
-    Object.values(t.enemies || {}).forEach(e => { if(e.wounds > 0) applyRecoveryTick(e); });
+    Object.values(t.players || {}).forEach(p => { if(p.wounds > 0){ applyRecoveryTick(p); applyAttunementTick(p); } });
+    Object.values(t.enemies || {}).forEach(e => { if(e.wounds > 0){ applyRecoveryTick(e); applyAttunementTick(e); } });
 
-    Object.values(t.players || {}).forEach(p => { p.sequence = []; p.apSpent = 0; p.focusSpent = 0; });
-    Object.values(t.enemies || {}).forEach(e => { e.sequence = []; e.apSpent = 0; e.focusSpent = 0; });
+    // AP is still a flat per-round allowance — sequence/apSpent always clear.
+    // Focus/Lightning/Lava are NOT reset here anymore (2026-08-16) — like
+    // Flow, they only come back via the tick above (Attunement), not for free.
+    Object.values(t.players || {}).forEach(p => { p.sequence = []; p.apSpent = 0; });
+    Object.values(t.enemies || {}).forEach(e => { e.sequence = []; e.apSpent = 0; });
   });
 
   AppState.pendingType = null; AppState.pendingAttackKind = null; AppState.pendingEssenceSchool = null;

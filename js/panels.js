@@ -1,10 +1,21 @@
 import { AppState } from './state.js';
 
-const PANEL_IDS = ['character', 'combat', 'sequencer', 'dm', 'dmtest'];
+const PANEL_IDS = ['character', 'combat', 'sequencer', 'dm', 'dmtest', 'character-view', 'stats', 'techniques', 'party', 'technique-use'];
+
+// Attack/Block/Essence submenus otherwise remember whatever open/closed state
+// they were left in — force them collapsed every time the panel opens instead.
+function collapseActionMenus(prefix){
+  ['attack', 'block', 'essence'].forEach(m => {
+    const el = document.getElementById(prefix + 'menu-' + m);
+    if(el) el.classList.add('hidden');
+  });
+}
 
 export function openPanel(name){
   if(!PANEL_IDS.includes(name)) return;
   AppState.activePanel = name;
+  if(name === 'combat') collapseActionMenus('');
+  if(name === 'dm') collapseActionMenus('dm-');
   render();
 }
 

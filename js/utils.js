@@ -47,16 +47,40 @@ export function computeCounterMax(table){
   return Math.max(1, Math.max(0, ...playerAp), Math.max(0, ...enemyAp));
 }
 
-// The base (1x) AP cost for a given Control value: 11 - Control, clamped so
-// Control <= 1 costs 10 AP and Control >= 10 costs 1 AP. Strong Attack and any
-// other "heavy" action pass multiplier 2 to double it at the same Control.
+// The base (1x) AP cost for a given Control value: 11 - Control, scaling from
+// Control 1 (10 AP) down to Control 10 (1 AP). Strong Attack and any other
+// "heavy" action pass multiplier 2 to double it at the same Control.
+// Control 0 is its own case, not just the bottom of the 1-10 clamp: it costs
+// 0 AP, because a Control-0 character can't act unassisted at all (see the
+// foundational Control-substitution / Possession question in the roadmap's
+// Stats section) — the number is a placeholder for "not really spendable,"
+// not a discount.
 export function apCostForControl(control, multiplier = 1){
-  const c = Math.max(1, Math.min(10, control || 0));
+  const c = Math.max(0, Math.min(10, control || 0));
+  if(c === 0) return 0;
   return (11 - c) * multiplier;
 }
 
 export function clampInt(value, min, max){
   return Math.max(min, Math.min(max, value));
+}
+
+// Generic flash-then-fade status text, shared by any panel that needs a
+// "Saved"-style confirmation without a permanently-visible line (see the
+// Character sheet's save-hint, which used to sit statically in the layout
+// and force a scroll to reach the button below it). Errors are the one case
+// that sticks around — no fade timer — until the next non-error call clears them.
+const hintFadeTimeouts = {};
+export function flashHint(elId, text, isError){
+  const el = document.getElementById(elId);
+  if(!el) return;
+  clearTimeout(hintFadeTimeouts[elId]);
+  el.textContent = text;
+  el.classList.toggle('error', !!isError);
+  el.classList.add('show');
+  if(!isError){
+    hintFadeTimeouts[elId] = setTimeout(() => el.classList.remove('show'), 1500);
+  }
 }
 
 // Full, unabbreviated action name for Ledger display — the sequence entry's own

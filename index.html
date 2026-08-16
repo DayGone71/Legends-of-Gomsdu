@@ -46,6 +46,7 @@
         <span class="code" id="table-code-display">------</span>
         <button id="btn-copy-code" class="btn-ghost btn-small">Copy</button>
       </div>
+      <button id="toolbar-character" class="btn-ghost btn-small">Create New Character</button>
       <div class="who">You are <b id="who-name">&mdash;</b></div>
       <div class="header-actions">
         <button id="toolbar-dmtest" class="btn-ghost btn-small">DM Test</button>
@@ -55,7 +56,9 @@
     <div id="banner-error" class="hidden"></div>
 
     <div class="toolbar">
-      <button id="toolbar-character">Character</button>
+      <button id="toolbar-stats">Stats</button>
+      <button id="toolbar-techniques">Techniques</button>
+      <button id="toolbar-party">Party</button>
       <button id="toolbar-combat">Combat</button>
       <button id="toolbar-sequencer">Sequencer</button>
       <button id="toolbar-dm">Dungeon Master</button>
@@ -74,6 +77,36 @@
         <div class="panel-static">
           <h2>Party</h2>
           <div id="roster"></div>
+          <div id="add-party-kind-row" class="action-row hidden" style="margin-top:10px;">
+            <button id="add-party-kind-possessor" class="btn-action">Possessor</button>
+            <button id="add-party-kind-miniparty" class="btn-action">Mini-Party Character</button>
+          </div>
+          <div id="add-party-fields" class="hidden" style="margin-top:10px;">
+            <div class="field"><label>Name</label><input id="add-party-name" /></div>
+            <div class="field" id="add-party-tier-field">
+              <label>Tier</label>
+              <select id="add-party-tier">
+                <option value="2">Possessor</option>
+                <option value="3">Possessor</option>
+                <option value="4">Higher Power</option>
+                <option value="5">Supreme Force</option>
+              </select>
+            </div>
+            <div class="field" id="add-party-type-field">
+              <label>Possession Type</label>
+              <select id="add-party-type">
+                <option value="shadow">Shadow Possession</option>
+                <option value="active">Active Possession</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Base build (optional)</label>
+              <select id="add-party-build">
+                <option value="">&mdash; blank &mdash;</option>
+              </select>
+            </div>
+            <button id="btn-confirm-add-party-member" class="btn-brass btn-small btn-block">Add</button>
+          </div>
         </div>
       </div>
 
@@ -93,6 +126,7 @@
     <div id="panel-character" class="panel-overlay hidden">
       <div class="panel-overlay-header">
         <h2>Character Sheet</h2>
+        <div class="save-hint" id="save-hint"></div>
         <button id="panel-close-character" class="btn-ghost btn-small">Close</button>
       </div>
       <div class="sheet">
@@ -152,7 +186,6 @@
           <div class="field"><label>Attunement</label><input id="ch-attunement" type="number" min="0" max="10" /></div>
           <div class="field"><label>Life</label><input id="ch-life" type="number" min="0" max="1" /></div>
         </div>
-        <div class="save-hint" id="save-hint">Saved</div>
         <button id="btn-save-template" class="btn-ghost btn-small btn-block" style="margin-top:10px;">Save as Template</button>
       </div>
     </div>
@@ -201,14 +234,14 @@
         <button id="btn-commit" class="btn-brass btn-small">Commit</button>
         <button id="btn-undo" class="btn-ghost btn-small">Undo</button>
       </div>
+      <div id="cb-staged-list"></div>
       <div class="field" style="margin-top:14px;">
         <label>Rest (spend AP to recover Flow or shed Hit% instead of acting)</label>
         <div class="action-row">
-          <input type="number" id="rest-ap-input" min="0" step="1" placeholder="AP to commit" style="width:110px;">
+          <input type="number" id="rest-ap-input" min="0" step="1" placeholder="AP to commit" style="width:150px;">
           <button id="btn-rest" class="btn-ghost btn-small">Rest</button>
         </div>
       </div>
-      <button id="btn-discard-round" class="btn-ghost btn-small" style="margin-top:14px;">Discard round (no resolve)</button>
     </div>
 
     <div id="panel-sequencer" class="panel-overlay hidden">
@@ -224,6 +257,21 @@
       <div class="panel-overlay-header">
         <h2>Dungeon Master</h2>
         <button id="panel-close-dm" class="btn-ghost btn-small">Close</button>
+      </div>
+      <div class="field">
+        <label>Load an encounter</label>
+        <select id="dm-encounter-loader">
+          <option value="">&mdash; pick a saved encounter &mdash;</option>
+          <optgroup label="Custom" id="dm-encounter-saved-group"></optgroup>
+        </select>
+      </div>
+      <div class="field">
+        <label>Save current field as an encounter</label>
+        <div class="chat-row">
+          <input id="dm-encounter-name" placeholder="Encounter name" />
+          <button id="btn-save-encounter" class="btn-ghost btn-small">Save Encounter</button>
+        </div>
+        <div class="save-hint" id="dm-encounter-hint"></div>
       </div>
       <div class="field">
         <label>Encounter</label>
@@ -294,6 +342,7 @@
         <button id="dm-btn-commit" class="btn-brass btn-small">Commit</button>
         <button id="dm-btn-undo" class="btn-ghost btn-small">Undo</button>
       </div>
+      <div id="dm-staged-list"></div>
       <button id="btn-clear-dead" class="btn-ghost btn-small" style="margin-top:14px;">Clear the dead</button>
     </div>
 
@@ -313,6 +362,114 @@
         <button id="btn-dmtest-until-defeat" class="btn-brass btn-small dmtest-run-btn">Run Until Defeat</button>
       </div>
       <div id="dmtest-result" class="dmtest-result"></div>
+    </div>
+
+    <div id="panel-character-view" class="panel-overlay hidden">
+      <div class="panel-overlay-header">
+        <h2 id="cv-name">Character</h2>
+        <button id="panel-close-character-view" class="btn-ghost btn-small">Close</button>
+      </div>
+      <div class="sheet">
+        <p class="footnote" id="cv-archetype" style="color:#7A6A47; margin-bottom:10px;"></p>
+        <div class="field">
+          <label>Wounds</label>
+          <div class="hp-fields">
+            <input id="cv-wounds" readonly /> <span>/</span>
+            <input id="cv-woundsmax" readonly />
+          </div>
+        </div>
+        <div class="stat-header">Form</div>
+        <div class="stat-grid">
+          <div class="field"><label>Flow</label><input id="cv-flow" readonly /></div>
+          <div class="field"><label>AP</label><input id="cv-ap" readonly /></div>
+          <div class="field"><label>Recovery</label><input id="cv-recovery" readonly /></div>
+        </div>
+        <div class="stat-grid">
+          <div class="field"><label>Power</label><input id="cv-power" readonly /></div>
+          <div class="field"><label>Quickness</label><input id="cv-quickness" readonly /></div>
+          <div class="field"><label>Range</label><input id="cv-range" readonly /></div>
+        </div>
+        <div class="stat-header">Essence</div>
+        <div class="stat-grid">
+          <div class="field"><label>Lightning</label><input id="cv-lightning" readonly /></div>
+          <div class="field"><label>Lava</label><input id="cv-lava" readonly /></div>
+          <div class="field"><label>Focus</label><input id="cv-focus" readonly /></div>
+        </div>
+        <div class="stat-grid">
+          <div class="field"><label>Control</label><input id="cv-control" readonly /></div>
+          <div class="field"><label>Attunement</label><input id="cv-attunement" readonly /></div>
+          <div class="field"><label>Life</label><input id="cv-life" readonly /></div>
+        </div>
+        <div class="stat-header">Equipment</div>
+        <div id="cv-equipment" class="log-empty">No equipment system yet &mdash; placeholder.</div>
+        <div class="stat-header">Buffs</div>
+        <div id="cv-buffs" class="log-empty">No active buffs.</div>
+      </div>
+    </div>
+
+    <div id="panel-stats" class="panel-overlay hidden">
+      <div class="panel-overlay-header">
+        <h2>Stats</h2>
+        <button id="panel-close-stats" class="btn-ghost btn-small">Close</button>
+      </div>
+    </div>
+
+    <div id="panel-techniques" class="panel-overlay hidden">
+      <div class="panel-overlay-header">
+        <h2>Techniques</h2>
+        <button id="panel-close-techniques" class="btn-ghost btn-small">Close</button>
+      </div>
+      <div class="sheet">
+        <div class="tech-main-header">Powers</div>
+        <div class="tech-columns">
+          <div class="tech-column">
+            <div class="tech-column-label">Flow</div>
+            <button class="tech-item" data-technique="wound">Wound</button>
+          </div>
+          <div class="tech-column">
+            <div class="tech-column-label">Focus</div>
+            <button class="tech-item" data-technique="possess">Possess</button>
+          </div>
+        </div>
+        <div class="tech-main-header">Craft</div>
+        <div class="tech-columns">
+          <div class="tech-column">
+            <div class="tech-column-label">Lightning</div>
+            <button class="tech-item" data-technique="heartAttack">Heart Attack</button>
+            <button class="tech-item" data-technique="skullExplosion">Skull Explosion</button>
+          </div>
+          <div class="tech-column">
+            <div class="tech-column-label">Lava</div>
+            <button class="tech-item" data-technique="separation">Separation</button>
+            <button class="tech-item" data-technique="bloodkindle">Bloodkindle</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="panel-party" class="panel-overlay hidden">
+      <div class="panel-overlay-header">
+        <h2>Party</h2>
+        <button id="panel-close-party" class="btn-ghost btn-small">Close</button>
+      </div>
+    </div>
+
+    <div id="panel-technique-use" class="panel-overlay hidden">
+      <div class="panel-overlay-header">
+        <h2 id="tu-name">Technique</h2>
+        <button id="panel-close-technique-use" class="btn-ghost btn-small">Close</button>
+      </div>
+      <p class="footnote" id="tu-type" style="margin-bottom:12px;"></p>
+      <div class="counter-row">
+        <div class="counter"><span class="counter-label">Cost</span><span id="tu-cost" class="counter-value">&mdash;</span></div>
+        <div class="counter"><span class="counter-label">Range</span><span id="tu-range" class="counter-value">&mdash;</span></div>
+      </div>
+      <p class="footnote" id="tu-effect" style="margin:14px 0;"></p>
+      <div class="field">
+        <label>Target</label>
+        <select id="tu-target"></select>
+      </div>
+      <button id="btn-tu-stage" class="btn-brass btn-block" style="margin-top:10px;">Stage</button>
     </div>
   </div>
 </div>

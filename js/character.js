@@ -1,13 +1,13 @@
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
 import { getSavedCharacters, saveCharacterTemplate } from './savedCharacters.js';
-import { clampInt, timeNow } from './utils.js';
+import { clampInt, timeNow, flashHint } from './utils.js';
 
 // Control and Attunement default to 0 on every existing build — meaning nothing
 // about current AP costs changes for them. Only a character explicitly set to
 // Control 10 gets the "every action costs 1 AP" effect (see combat.js/dm.js).
 export function blankCharacter(name){
-  return { name, archetype: '', wounds: 7, woundsMax: 7, ap: 10, flow: 10, flowMax: 10, recovery: 5, power: 1, quickness: 5, range: 3, lightning: 0, lava: 0, focus: 0, control: 0, attunement: 0, life: 1, apSpent: 0, focusSpent: 0, sequence: [] };
+  return { name, archetype: '', wounds: 7, woundsMax: 7, ap: 10, flow: 10, flowMax: 10, recovery: 5, power: 1, quickness: 5, range: 3, lightning: 0, lava: 0, focus: 0, control: 0, attunement: 0, life: 1, apSpent: 0, focusSpent: 0, sequence: [], possessors: [], miniParty: [] };
 }
 
 // Enemy Power/Flow values are canon, straight from reference/Power.txt's stat
@@ -112,15 +112,12 @@ export function saveAsTemplate(){
   const stats = { name, ...readStatsFromSheet() };
   saveCharacterTemplate(name, stats);
   populateSavedCharacterDropdowns();
-  const hint = document.getElementById('save-hint');
-  if(hint) hint.textContent = 'Saved "' + name + '" as a template';
+  flashHint('save-hint', 'Saved "' + name + '" as a template');
 }
 
 let saveDebounce = null;
 let saveDebouncePending = false;
 export function scheduleSave(){
-  const hint = document.getElementById('save-hint');
-  if(hint) hint.textContent = 'Saving…';
   saveDebouncePending = true;
   clearTimeout(saveDebounce);
   saveDebounce = setTimeout(() => { saveDebouncePending = false; saveCharacter(); }, 700);
@@ -143,6 +140,9 @@ export async function saveCharacter(hintText, announce){
   const prevApSpent = me.apSpent || 0;
   const prevFocusSpent = me.focusSpent || 0;
   const prevSequence = me.sequence || [];
+  const prevHitPercent = me.hitPercent;
+  const prevPossessors = me.possessors || [];
+  const prevMiniParty = me.miniParty || [];
   const sheetStats = readStatsFromSheet();
   // The sheet's Flow field is a single "rating" number (flowMax); the current,
   // possibly mid-combat Flow value is preserved rather than reset by unrelated
@@ -154,7 +154,11 @@ export async function saveCharacter(hintText, announce){
     flow: Math.min(prevFlow, sheetStats.flowMax),
     apSpent: prevApSpent,
     focusSpent: prevFocusSpent,
-    sequence: prevSequence
+    sequence: prevSequence,
+    // Not sheet fields — combat-runtime/relationship state that a sheet edit shouldn't reset.
+    hitPercent: prevHitPercent,
+    possessors: prevPossessors,
+    miniParty: prevMiniParty
   };
   const prevName = me.name;
   const ok = await mutateTable(t => {
@@ -172,8 +176,7 @@ export async function saveCharacter(hintText, announce){
       });
     }
   });
-  const hint = document.getElementById('save-hint');
-  if(hint) hint.textContent = ok ? (hintText || 'Saved') : 'Could not save';
+  if(ok) flashHint('save-hint', hintText || 'Saved'); else flashHint('save-hint', 'Could not save', true);
   // Don't wait on the realtime round-trip to show the (possibly clamped) value
   // that was just written — mutateTable already updated AppState.table in
   // memory, so this reflects it immediately. Still skips whichever field, if
