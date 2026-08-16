@@ -1,9 +1,10 @@
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
-import { escapeHtml, timeNow, targetShorthand, computeEntryTick, computeCounterMax, apCostForControl, describeAction, powerToDamage } from './utils.js';
+import { escapeHtml, timeNow, targetShorthand, computeEntryTick, computeCounterMax, apCostForControl, describeAction, powerToDamage, DEATH_WOUNDS_DEFAULT, isDown, isDeathWounded, resolveEntityRef, ownerTypeOf, possessedEnemyIds } from './utils.js';
 import { removeEnemy } from './dm.js';
 import { TECHNIQUES } from './techniques.js';
 import { MAX_MINI_PARTY } from './possession.js';
+import { addChunksAt } from './map.js';
 
 function showBannerError(msg){
   const el = document.getElementById('banner-error');
@@ -17,13 +18,14 @@ export function renderTargetRange(){
   const el = document.getElementById('target-range');
   if(!el) return;
   const enemies = (AppState.table && AppState.table.enemies) || {};
-  const list = Object.entries(enemies);
+  const possessed = possessedEnemyIds(AppState.table);
+  const list = Object.entries(enemies).filter(([id]) => !possessed.has(id));
   if(!list.length){ el.innerHTML = '<div class="log-empty">No enemies in the encounter.</div>'; return; }
 
   el.innerHTML = list.map(([id, e]) => {
-    const defeated = e.wounds <= 0;
+    const defeated = isDeathWounded(e);
     let cls = 'target-chip';
-    if(id === AppState.selectedTargetId) cls += ' selected';
+    if(id === AppState.selectedTargetId && AppState.selectedTargetSide === 'enemy') cls += ' selected';
     if(defeated) cls += ' defeated';
     const removeX = defeated ? '<span class="chip-remove-x" data-id="' + id + '">✕</span>' : '';
     return '<div class="' + cls + '" data-id="' + id + '">' +
@@ -40,9 +42,62 @@ export function renderTargetRange(){
 
 export function selectTarget(id){
   const enemy = AppState.table && AppState.table.enemies && AppState.table.enemies[id];
-  if(!enemy || enemy.wounds <= 0) return;
+  if(!enemy || isDeathWounded(enemy)) return;
   AppState.selectedTargetId = id;
+  AppState.selectedTargetSide = 'enemy';
   renderTargetRange();
+  renderAllyRange();
+}
+
+// Ally Targeting (2026-08-16): the Player, every other Player at the table,
+// and their statted Mini-Party members are all valid targets, same as
+// Enemies — for Techniques like Embolden/Anchor eventually, but per dDd
+// "the same way Enemy Characters can be targeted" applies generally, so
+// Attack/Block/Essence can target an ally too (anybody-can-target-anybody,
+// same testing-scope precedent as Techniques). Un-statted Mini-Party stubs
+// (added with no base build) have no wounds to track and are skipped — they
+// aren't a legitimate combat target yet.
+export function renderAllyRange(){
+  const el = document.getElementById('ally-range');
+  if(!el) return;
+  const table = AppState.table;
+  if(!table){ el.innerHTML = ''; return; }
+
+  const rows = [];
+  Object.entries(table.players || {}).forEach(([pid, p]) => {
+    rows.push({ id: pid, name: p.name || 'Unnamed', dead: isDeathWounded(p), sub: pid === AppState.playerId ? '(You)' : '' });
+    (p.miniParty || []).forEach((mp, idx) => {
+      if(mp.sourceEnemyId){
+        const src = table.enemies && table.enemies[mp.sourceEnemyId];
+        if(src) rows.push({ id: mp.sourceEnemyId, name: src.name, dead: isDeathWounded(src), sub: '(' + (p.name || '?') + '’s Mini-Party)' });
+      }else if(mp.woundsMax != null){
+        rows.push({ id: 'mp:' + pid + ':' + idx, name: mp.name || 'Follower', dead: isDeathWounded(mp), sub: '(' + (p.name || '?') + '’s Mini-Party)' });
+      }
+    });
+  });
+
+  if(!rows.length){ el.innerHTML = '<div class="log-empty">No Allies to target.</div>'; return; }
+
+  el.innerHTML = rows.map(r => {
+    let cls = 'target-chip';
+    if(r.id === AppState.selectedTargetId && AppState.selectedTargetSide === 'ally') cls += ' selected';
+    if(r.dead) cls += ' defeated';
+    return '<div class="' + cls + '" data-id="' + r.id + '">' + escapeHtml(r.name) +
+      (r.sub ? ' <span class="chip-sub">' + escapeHtml(r.sub) + '</span>' : '') + '</div>';
+  }).join('');
+
+  el.querySelectorAll('.target-chip').forEach(chip => {
+    chip.onclick = () => selectAllyTarget(chip.dataset.id);
+  });
+}
+
+export function selectAllyTarget(id){
+  const target = resolveEntityRef(AppState.table, id);
+  if(!target || isDeathWounded(target)) return;
+  AppState.selectedTargetId = id;
+  AppState.selectedTargetSide = 'ally';
+  renderTargetRange();
+  renderAllyRange();
 }
 
 export function toggleMenu(name){
@@ -144,7 +199,7 @@ export async function commitAction(){
 
   if(AppState.pendingType === 'attack'){
     if(!AppState.pendingAttackKind){ showBannerError('Choose Fast, Strong, or Focus first.'); return; }
-    const target = AppState.table.enemies && AppState.table.enemies[AppState.selectedTargetId];
+    const target = resolveEntityRef(AppState.table, AppState.selectedTargetId);
     if(!target){ showBannerError('Pick a target first.'); return; }
     const cost = apCostForControl(control, AppState.pendingAttackKind === 'fast' ? 1 : 2);
     if(spent + cost > (me.ap || 0)){ showBannerError('Not enough AP left this round.'); return; }
@@ -157,7 +212,7 @@ export async function commitAction(){
     if(!AppState.pendingBlockKind){ showBannerError('Choose General Block or Target Block first.'); return; }
     let targetId = null, targetLabel = '', targetName = '';
     if(AppState.pendingBlockKind === 'target'){
-      const target = AppState.table.enemies && AppState.table.enemies[AppState.selectedTargetId];
+      const target = resolveEntityRef(AppState.table, AppState.selectedTargetId);
       if(!target){ showBannerError('Pick a target first for Target Block.'); return; }
       targetId = AppState.selectedTargetId;
       targetLabel = targetShorthand(target);
@@ -170,7 +225,7 @@ export async function commitAction(){
     entry = { apCost: cost, focusCost: 0, actionLabel: label, targetLabel, targetName, kind: 'block', blockKind: AppState.pendingBlockKind, counter: AppState.pendingCounter, targetId };
   }else if(AppState.pendingType === 'essence'){
     if(!AppState.pendingEssenceSchool){ showBannerError('Choose Lightning or Lava first.'); return; }
-    const target = AppState.table.enemies && AppState.table.enemies[AppState.selectedTargetId];
+    const target = resolveEntityRef(AppState.table, AppState.selectedTargetId);
     if(!target){ showBannerError('Pick a target first.'); return; }
     const cost = 8; // flat for now — Essence is slated for Attunement, not Control
     if(spent + cost > (me.ap || 0)){ showBannerError('Not enough AP left this round.'); return; }
@@ -243,24 +298,71 @@ export function renderStagedActions(){
   });
 }
 
-// "N Wounds (XX% Dmg)" \u2014 the percentage is against the target's max pool, so a
-// hit's real weight reads at a glance instead of needing the max looked up.
+// "N Wounds (XX% Dmg)" \u2014 the percentage is against the target's personal
+// Down threshold, so a hit's real weight reads at a glance instead of needing
+// the threshold looked up.
 function woundLine(woundDmg, target){
   const pct = target.woundsMax ? Math.round((woundDmg / target.woundsMax) * 100) : 0;
   return woundDmg + (woundDmg === 1 ? ' Wound' : ' Wounds') + ' (' + pct + '% Dmg)';
+}
+
+// Resilience (2026-08-16, one of its three jobs per roadmap Stats item G):
+// negates a flat slice of incoming Wound damage per hit. This is also what
+// governs "how far x can climb past a character's personal y" (item G's
+// third job / item A's buffer) \u2014 there's no separate number for that, it's
+// just the emergent effect of every hit landing lighter. Divisor is a rough
+// placeholder like Shadow Possession's thresholds \u2014 tune freely.
+const RESILIENCE_DAMAGE_DIVISOR = 5;
+function negateByResilience(woundDmg, target){
+  return Math.max(0, woundDmg - Math.floor((target.resilience || 0) / RESILIENCE_DAMAGE_DIVISOR));
+}
+
+// Applies a Wound hit: Resilience shaves it first, then x climbs (clamped at
+// the target's own Death Wounds threshold \u2014 species-fixed, see character.js's
+// SPECIES/DEATH_WOUNDS_DEFAULT \u2014 never past it). Returns the actually-applied
+// amount (post-Resilience), the status suffix for the log line, and whether
+// this specific hit is what just crossed into Death \u2014 the caller
+// (resolveRound) uses that last flag to credit Chunks to the right Tile,
+// since this function only knows the target, not its position. (Chunks are
+// credited on Death as the current best proxy \u2014 true Obliteration is a
+// separate, not-yet-built check on every Body Part being false; see
+// reference/style-guide.md and ROADMAP.md's Chunk Mechanic notes.)
+function applyWound(target, rawWoundDmg){
+  const ceiling = target.deathWounds ?? DEATH_WOUNDS_DEFAULT;
+  const wasDeathWounded = (target.wounds || 0) >= ceiling;
+  const dmg = negateByResilience(rawWoundDmg, target);
+  target.wounds = Math.min(ceiling, (target.wounds || 0) + dmg);
+  const nowDeathWounded = target.wounds >= ceiling;
+  const suffix = nowDeathWounded ? ' \u2014 Dead!' : isDown(target) ? ' \u2014 Down!' : '';
+  return { dmg, suffix, justDeathWounded: nowDeathWounded && !wasDeathWounded };
+}
+
+// Execution (2026-08-16, Stats item A): once a target is already Down, a
+// normal Attack stops grinding through the Wounds climb and goes straight for
+// Life instead \u2014 trivial, guaranteed, no Block/Flow check, since a downed
+// target is defenseless. x still climbs (+1, clamped at the target's own
+// Death Wounds threshold) so Death is still reachable; Life is what actually drops.
+function applyExecution(target){
+  const ceiling = target.deathWounds ?? DEATH_WOUNDS_DEFAULT;
+  const wasDeathWounded = (target.wounds || 0) >= ceiling;
+  target.wounds = Math.min(ceiling, (target.wounds || 0) + 1);
+  const nowDeathWounded = target.wounds >= ceiling;
+  const life = Math.max(0, (target.life ?? 1) - 1);
+  target.life = life;
+  let text = 'Already Down \u2014 Execution lands: +1 Wound, Life ' + life;
+  if(nowDeathWounded) text += ' \u2014 Dead!';
+  if(life <= 0) text += ' (no longer self-sustaining)';
+  return { text, justDeathWounded: nowDeathWounded && !wasDeathWounded };
 }
 
 function resolveFocusBypass(actor, target){
   const defenderRemaining = (target.focus || 0) - (target.focusSpent || 0);
   if(defenderRemaining >= 1){
     target.focusSpent = (target.focusSpent || 0) + 1;
-    return (target.name || 'target') + ' spends a Focus point \u2014 Blocked, no wound';
+    return { text: (target.name || 'target') + ' spends a Focus point \u2014 Blocked, no wound', justDeathWounded: false };
   }
-  const woundDmg = powerToDamage(actor.power);
-  target.wounds = Math.max(0, target.wounds - woundDmg);
-  let result = 'Bypasses everything \u2014 ' + woundLine(woundDmg, target);
-  if(target.wounds <= 0) result += ' \u2014 Down!';
-  return result;
+  const { dmg, suffix, justDeathWounded } = applyWound(target, powerToDamage(actor.power));
+  return { text: 'Bypasses everything \u2014 ' + woundLine(dmg, target) + suffix, justDeathWounded };
 }
 
 // Overwhelm: when a single hit's damage badly outclasses the target's *current*
@@ -306,13 +408,11 @@ function applyDamage(target, flowDmg, woundDmg, isPlayerTarget){
   if(target.flow > 0){
     const overwhelmChance = computeOverwhelmChance(flowDmg, target.flow);
     if(overwhelmChance > 0 && Math.random() * 100 < overwhelmChance){
-      target.wounds = Math.max(0, target.wounds - woundDmg);
-      let result = 'Overwhelms Flow entirely! ' + overwhelmChance.toFixed(0) + '% chance to hit \u2014 Lands \u2014 ' + woundLine(woundDmg, target);
-      if(target.wounds <= 0) result += ' \u2014 Down!';
-      return result;
+      const { dmg, suffix, justDeathWounded } = applyWound(target, woundDmg);
+      return { text: 'Overwhelms Flow entirely! ' + overwhelmChance.toFixed(0) + '% chance to hit \u2014 Lands \u2014 ' + woundLine(dmg, target) + suffix, justDeathWounded };
     }
     target.flow = Math.max(0, target.flow - flowDmg);
-    return 'Flow drops to ' + target.flow + '/' + target.flowMax;
+    return { text: 'Flow drops to ' + target.flow + '/' + target.flowMax, justDeathWounded: false };
   }
 
   const current = target.hitPercent ?? 1;
@@ -320,16 +420,16 @@ function applyDamage(target, flowDmg, woundDmg, isPlayerTarget){
     ? current * SHADOW_POSSESSION_REDUCTION : current;
   const roll = Math.random() * 100;
   const wounded = roll < effectiveChance;
-  let result;
+  let text, justDeathWounded = false;
   if(wounded){
-    target.wounds = Math.max(0, target.wounds - woundDmg);
-    result = current.toFixed(0) + '% chance to hit \u2014 Lands \u2014 ' + woundLine(woundDmg, target);
-    if(target.wounds <= 0) result += ' \u2014 Down!';
+    const r = applyWound(target, woundDmg);
+    text = current.toFixed(0) + '% chance to hit \u2014 Lands \u2014 ' + woundLine(r.dmg, target) + r.suffix;
+    justDeathWounded = r.justDeathWounded;
   }else{
-    result = current.toFixed(0) + '% chance to hit \u2014 Holds \u2014 no wound';
+    text = current.toFixed(0) + '% chance to hit \u2014 Holds \u2014 no wound';
   }
   target.hitPercent = Math.min(100, current + woundDmg);
-  return result;
+  return { text, justDeathWounded };
 }
 
 // How much an actor's end-of-round Recovery tick is worth this round: 1x by
@@ -396,12 +496,12 @@ export async function stageRest(){
 
 // Finds an unconsumed Block belonging to (ownerType, ownerId) that would intercept
 // an attack from attackerId landing at attackResolveTick. General Block is checked
-// first (timing-window match, sized by the owner's Range), then Target Block
+// first (timing-window match, sized by the owner's Resilience), then Target Block
 // (identity match against the specific attacker, no timing constraint).
 function findAndConsumeBlock(registry, ownerType, ownerId, attackerId, attackResolveTick){
   const general = registry.find(b =>
     !b.consumed && b.ownerType === ownerType && b.ownerId === ownerId && b.kind === 'general' &&
-    Math.abs(attackResolveTick - b.resolveTick) <= (b.owner.range || 0)
+    Math.abs(attackResolveTick - b.resolveTick) <= (b.owner.resilience || 0)
   );
   if(general){ general.consumed = true; return general; }
 
@@ -419,8 +519,8 @@ export async function resolveRound(){
   const counterMax = computeCounterMax(table);
   let allEntries = [];
 
-  function gatherFrom(collection, actorType){
-    Object.entries(collection || {}).forEach(([id, actor]) => {
+  function gatherFrom(entries, actorType){
+    entries.forEach(([id, actor]) => {
       const entryTick = computeEntryTick(actor.quickness, counterMax);
       let runningCost = 0;
       (actor.sequence || []).forEach(entry => {
@@ -429,8 +529,21 @@ export async function resolveRound(){
       });
     });
   }
-  gatherFrom(table.players, 'player');
-  gatherFrom(table.enemies, 'enemy');
+  gatherFrom(Object.entries(table.players || {}), 'player');
+  gatherFrom(Object.entries(table.enemies || {}), 'enemy');
+  // Statted Mini-Party members (added with a base build) can stage and act
+  // on their own now too — same machinery as a real Player, keyed by their
+  // composite 'mp:<playerId>:<index>' id (see utils.js's resolveEntityRef).
+  // Possessed Mini-Party members are already real table.enemies entries,
+  // gathered normally above — not duplicated here.
+  const miniPartyActors = [];
+  Object.entries(table.players || {}).forEach(([pid, p]) => {
+    (p.miniParty || []).forEach((mp, idx) => {
+      if(mp.sourceEnemyId || mp.woundsMax == null) return;
+      miniPartyActors.push(['mp:' + pid + ':' + idx, mp]);
+    });
+  });
+  gatherFrom(miniPartyActors, 'player');
 
   if(!allEntries.length){ showBannerError('Nothing staged to resolve.'); return; }
   allEntries.sort((a, b) => b.resolveTick - a.resolveTick);
@@ -466,6 +579,16 @@ export async function resolveRound(){
       t.log.push({ type: 'system', text: (b.owner.name || 'Someone') + ' sets a ' + label + (b.counter ? ' with Counter' : ''), time: timeNow() });
     });
 
+    // Chunks (2026-08-16): fires once, right when a hit is what actually
+    // crosses a target's Death Wounds threshold — see applyWound/
+    // applyExecution's justDeathWounded flag. Those functions only ever see
+    // the target object, not its Tile, so the credit happens here where
+    // positions are in scope.
+    const creditChunksFor = (targetId) => {
+      const pos = t.positions && t.positions[targetId];
+      if(pos) addChunksAt(t, pos.x, pos.y, 3);
+    };
+
     actionEntries.forEach(item => {
       const actor = item.actor, entry = item.entry, actorName = actor.name || 'Someone';
       const action = describeAction(entry);
@@ -481,7 +604,7 @@ export async function resolveRound(){
       // Map Obstacle is simple/deterministic enough to actually implement.
       if(entry.kind === 'technique'){
         const def = TECHNIQUES[entry.techniqueKey];
-        const target = item.actorType === 'player' ? t.enemies[entry.targetId] : t.players[entry.targetId];
+        const target = resolveEntityRef(t, entry.targetId);
         const targetName = (target && target.name) || entry.targetName || '(target)';
         if(entry.techniqueKey === 'separation'){
           const pos = t.positions && t.positions[item.actorId];
@@ -525,25 +648,37 @@ export async function resolveRound(){
       }
 
       if(entry.kind === 'attack' && entry.attackKind === 'focus'){
-        const targetCollection = item.actorType === 'player' ? t.enemies : t.players;
-        const target = targetCollection && targetCollection[entry.targetId];
-        if(target && target.wounds > 0){
-          logCombat(target.name || 'target', resolveFocusBypass(actor, target));
-        }else{
-          logCombat('(no target)', 'No target \u2014 already down');
+        const target = resolveEntityRef(t, entry.targetId);
+        if(!target || isDeathWounded(target)){
+          logCombat((target && target.name) || '(no target)', 'No target \u2014 already Dead');
+          return;
         }
+        if(isDown(target)){
+          const r = applyExecution(target);
+          logCombat(target.name || 'target', r.text);
+          if(r.justDeathWounded) creditChunksFor(entry.targetId);
+          return;
+        }
+        const bypassResult = resolveFocusBypass(actor, target);
+        logCombat(target.name || 'target', bypassResult.text);
+        if(bypassResult.justDeathWounded) creditChunksFor(entry.targetId);
         return;
       }
 
       if(entry.kind === 'attack' || entry.kind === 'essence'){
-        const targetCollection = item.actorType === 'player' ? t.enemies : t.players;
-        const target = targetCollection && targetCollection[entry.targetId];
-        if(!target || target.wounds <= 0){
-          logCombat((target && target.name) || '(no target)', 'No target \u2014 already down');
+        const target = resolveEntityRef(t, entry.targetId);
+        if(!target || isDeathWounded(target)){
+          logCombat((target && target.name) || '(no target)', 'No target \u2014 already Dead');
+          return;
+        }
+        if(entry.kind === 'attack' && isDown(target)){
+          const r = applyExecution(target);
+          logCombat(target.name || 'target', r.text);
+          if(r.justDeathWounded) creditChunksFor(entry.targetId);
           return;
         }
 
-        const targetOwnerType = item.actorType === 'player' ? 'enemy' : 'player';
+        const targetOwnerType = ownerTypeOf(t, entry.targetId);
         const blocked = findAndConsumeBlock(blockRegistry, targetOwnerType, entry.targetId, item.actorId, item.resolveTick);
         if(blocked){
           const blockLabel = blocked.kind === 'general' ? 'General Block' : 'Target Block';
@@ -564,19 +699,35 @@ export async function resolveRound(){
         const woundDmg = isAttack
           ? powerToDamage(actor.power) + (entry.attackKind === 'strong' ? 1 : 0)
           : (actor.focus || 1);
-        logCombat(target.name || 'target', applyDamage(target, flowDmg, woundDmg, targetOwnerType === 'player'));
+        const dmgResult = applyDamage(target, flowDmg, woundDmg, targetOwnerType === 'player');
+        logCombat(target.name || 'target', dmgResult.text);
+        if(dmgResult.justDeathWounded) creditChunksFor(entry.targetId);
       }
     });
 
+    // Statted Mini-Party members go through the exact same end-of-round
+    // upkeep as a real Player/Enemy — collected once here since it's needed
+    // for both the Recovery/Attunement tick and the sequence/apSpent reset
+    // below. Possessed members are real table.enemies entries, handled by
+    // the plain enemy loops already.
+    const miniPartyStubs = [];
+    Object.values(t.players || {}).forEach(p => {
+      (p.miniParty || []).forEach(mp => { if(!mp.sourceEnemyId && mp.woundsMax != null) miniPartyStubs.push(mp); });
+    });
+
     // Rest multiplier reads each actor's sequence, so this has to run before it's cleared.
-    Object.values(t.players || {}).forEach(p => { if(p.wounds > 0){ applyRecoveryTick(p); applyAttunementTick(p); } });
-    Object.values(t.enemies || {}).forEach(e => { if(e.wounds > 0){ applyRecoveryTick(e); applyAttunementTick(e); } });
+    // "Alive" now means not-yet-Dead, not wounds>0 — a merely-Down
+    // character (still x<10) keeps recovering same as anyone else.
+    Object.values(t.players || {}).forEach(p => { if(!isDeathWounded(p)){ applyRecoveryTick(p); applyAttunementTick(p); } });
+    Object.values(t.enemies || {}).forEach(e => { if(!isDeathWounded(e)){ applyRecoveryTick(e); applyAttunementTick(e); } });
+    miniPartyStubs.forEach(mp => { if(!isDeathWounded(mp)){ applyRecoveryTick(mp); applyAttunementTick(mp); } });
 
     // AP is still a flat per-round allowance — sequence/apSpent always clear.
     // Focus/Lightning/Lava are NOT reset here anymore (2026-08-16) — like
     // Flow, they only come back via the tick above (Attunement), not for free.
     Object.values(t.players || {}).forEach(p => { p.sequence = []; p.apSpent = 0; });
     Object.values(t.enemies || {}).forEach(e => { e.sequence = []; e.apSpent = 0; });
+    miniPartyStubs.forEach(mp => { mp.sequence = []; mp.apSpent = 0; });
   });
 
   AppState.pendingType = null; AppState.pendingAttackKind = null; AppState.pendingEssenceSchool = null;

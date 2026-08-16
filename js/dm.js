@@ -1,6 +1,6 @@
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
-import { escapeHtml, timeNow, playerShorthand, apCostForControl, describeAction, flashHint } from './utils.js';
+import { escapeHtml, timeNow, playerShorthand, apCostForControl, describeAction, flashHint, isDeathWounded, resolveEntityRef } from './utils.js';
 import { BUILDS } from './character.js';
 import { getSavedCharacters } from './savedCharacters.js';
 import { getSavedEncounters, saveEncounterTemplate } from './savedEncounters.js';
@@ -57,8 +57,9 @@ export async function addEnemy(){
     t.enemies[id] = {
       archetype: b.archetype, name: displayBase + ' #' + count, num: count,
       wounds: b.wounds, woundsMax: b.woundsMax, ap: b.ap, flow: b.flow, flowMax: b.flowMax, recovery: b.recovery, power: b.power,
-      quickness: b.quickness, range: b.range, lightning: b.lightning, lava: b.lava, focus: b.focus,
+      quickness: b.quickness, resilience: b.resilience, lightning: b.lightning, lava: b.lava, focus: b.focus,
       control: b.control ?? 0, attunement: b.attunement ?? 0, life: b.life ?? 1,
+      species: b.species, deathWounds: b.deathWounds, body: b.body ? [...b.body] : undefined,
       apSpent: 0, focusSpent: 0, sequence: [], possessedBy: null
     };
     t.positions[id] = pos;
@@ -102,9 +103,10 @@ export async function saveEncounterAsTemplate(){
   if(!list.length){ showBannerError('No enemies on the field to save.'); return; }
 
   const snapshot = list.map(e => ({
-    archetype: e.archetype, wounds: e.woundsMax, woundsMax: e.woundsMax, ap: e.ap, flow: e.flowMax, flowMax: e.flowMax,
-    recovery: e.recovery, power: e.power, quickness: e.quickness, range: e.range, lightning: e.lightning, lava: e.lava,
-    focus: e.focus, control: e.control ?? 0, attunement: e.attunement ?? 0, life: e.life ?? 1
+    archetype: e.archetype, wounds: 0, woundsMax: e.woundsMax, ap: e.ap, flow: e.flowMax, flowMax: e.flowMax,
+    recovery: e.recovery, power: e.power, quickness: e.quickness, resilience: e.resilience, lightning: e.lightning, lava: e.lava,
+    focus: e.focus, control: e.control ?? 0, attunement: e.attunement ?? 0, life: e.life ?? 1,
+    species: e.species, deathWounds: e.deathWounds, body: e.body ? [...e.body] : undefined
   }));
   saveEncounterTemplate(name, snapshot);
   populateSavedEncounterDropdown();
@@ -144,9 +146,10 @@ export function renderDMEnemyPicker(){
   if(!list.length){ el.innerHTML = '<div class="log-empty">No enemies to control yet.</div>'; return; }
 
   el.innerHTML = list.map(([id, e]) => {
-    const defeated = e.wounds <= 0;
+    const defeated = isDeathWounded(e);
     let cls = 'target-chip';
     if(id === AppState.actingEnemyId) cls += ' selected';
+    if(id === AppState.dmSelectedTargetId) cls += ' self-targeted';
     if(defeated) cls += ' defeated';
     const removeX = defeated ? '<span class="chip-remove-x" data-id="' + id + '">✕</span>' : '';
     return '<div class="' + cls + '" data-id="' + id + '">' + escapeHtml(e.name) + ' &mdash; ' + Math.max(0, e.wounds) + '/' + e.woundsMax + removeX + '</div>';
@@ -154,6 +157,7 @@ export function renderDMEnemyPicker(){
 
   el.querySelectorAll('.target-chip').forEach(chip => {
     chip.onclick = () => selectActingEnemy(chip.dataset.id);
+    chip.ondblclick = () => toggleActingSelfTarget(chip.dataset.id);
   });
   el.querySelectorAll('.chip-remove-x').forEach(x => {
     x.onclick = (ev) => { ev.stopPropagation(); removeEnemy(x.dataset.id); };
@@ -162,10 +166,29 @@ export function renderDMEnemyPicker(){
 
 export function selectActingEnemy(id){
   const enemy = AppState.table && AppState.table.enemies && AppState.table.enemies[id];
-  if(!enemy || enemy.wounds <= 0) return;
+  if(!enemy || isDeathWounded(enemy)) return;
+  // A self-target only makes sense pinned to the Enemy that had it — moving
+  // to act as someone else drops it rather than carrying it along silently.
+  if(AppState.dmSelectedTargetId === AppState.actingEnemyId && AppState.actingEnemyId !== id){
+    AppState.dmSelectedTargetId = null;
+  }
   AppState.actingEnemyId = id;
   renderDMEnemyPicker();
   renderDMCounters();
+  renderDMTargetRange();
+}
+
+// Double-click the Acting As chip to toggle it as its own target (e.g. to
+// test Execution/self-effects) — added alongside the Player-side Ally
+// Targeting work, 2026-08-16. A second double-click clears it.
+export function toggleActingSelfTarget(id){
+  const enemy = AppState.table && AppState.table.enemies && AppState.table.enemies[id];
+  if(!enemy || isDeathWounded(enemy)) return;
+  AppState.actingEnemyId = id;
+  AppState.dmSelectedTargetId = (AppState.dmSelectedTargetId === id) ? null : id;
+  renderDMEnemyPicker();
+  renderDMCounters();
+  renderDMTargetRange();
 }
 
 export function renderDMCounters(){
@@ -224,7 +247,7 @@ export function renderDMTargetRange(){
   if(!list.length){ el.innerHTML = '<div class="log-empty">No players to target.</div>'; return; }
 
   el.innerHTML = list.map(([id, p]) => {
-    const defeated = (p.wounds ?? 0) <= 0;
+    const defeated = isDeathWounded(p);
     let cls = 'target-chip';
     if(id === AppState.dmSelectedTargetId) cls += ' selected';
     if(defeated) cls += ' defeated';
@@ -238,9 +261,10 @@ export function renderDMTargetRange(){
 
 export function selectDMTarget(id){
   const p = AppState.table && AppState.table.players && AppState.table.players[id];
-  if(!p || (p.wounds ?? 0) <= 0) return;
+  if(!p || isDeathWounded(p)) return;
   AppState.dmSelectedTargetId = id;
   renderDMTargetRange();
+  renderDMEnemyPicker(); // clears any self-targeted highlight on the Acting As chip
 }
 
 export function dmToggleMenu(name){
@@ -325,7 +349,7 @@ export async function dmCommitAction(){
 
   if(AppState.dmPendingType === 'attack'){
     if(!AppState.dmPendingAttackKind){ showBannerError('Choose Fast, Strong, or Focus first.'); return; }
-    const target = AppState.table.players && AppState.table.players[AppState.dmSelectedTargetId];
+    const target = resolveEntityRef(AppState.table, AppState.dmSelectedTargetId);
     if(!target){ showBannerError('Pick a target first.'); return; }
     const cost = apCostForControl(control, AppState.dmPendingAttackKind === 'fast' ? 1 : 2);
     if(spent + cost > (actor.ap || 0)){ showBannerError('Not enough AP left this round.'); return; }
@@ -338,7 +362,7 @@ export async function dmCommitAction(){
     if(!AppState.dmPendingBlockKind){ showBannerError('Choose General Block or Target Block first.'); return; }
     let targetId = null, targetLabel = '', targetName = '';
     if(AppState.dmPendingBlockKind === 'target'){
-      const target = AppState.table.players && AppState.table.players[AppState.dmSelectedTargetId];
+      const target = resolveEntityRef(AppState.table, AppState.dmSelectedTargetId);
       if(!target){ showBannerError('Pick a target first for Target Block.'); return; }
       targetId = AppState.dmSelectedTargetId;
       targetLabel = playerShorthand(target);
@@ -351,7 +375,7 @@ export async function dmCommitAction(){
     entry = { apCost: cost, focusCost: 0, actionLabel: label, targetLabel, targetName, kind: 'block', blockKind: AppState.dmPendingBlockKind, counter: AppState.dmPendingCounter, targetId };
   }else if(AppState.dmPendingType === 'essence'){
     if(!AppState.dmPendingEssenceSchool){ showBannerError('Choose Lightning or Lava first.'); return; }
-    const target = AppState.table.players && AppState.table.players[AppState.dmSelectedTargetId];
+    const target = resolveEntityRef(AppState.table, AppState.dmSelectedTargetId);
     if(!target){ showBannerError('Pick a target first.'); return; }
     const cost = 8;
     if(spent + cost > (actor.ap || 0)){ showBannerError('Not enough AP left this round.'); return; }
@@ -418,7 +442,7 @@ export function renderDMStagedActions(){
 
 export async function clearDead(){
   const enemies = (AppState.table && AppState.table.enemies) || {};
-  const deadIds = Object.keys(enemies).filter(id => enemies[id].wounds <= 0);
+  const deadIds = Object.keys(enemies).filter(id => isDeathWounded(enemies[id]));
   if(!deadIds.length){ showBannerError('Nothing to clear.'); return; }
 
   await mutateTable(t => {

@@ -82,11 +82,32 @@
   width:100%; border:1px solid var(--parchment-line); background:#F8F3E7; color:var(--text-dark);
   border-radius:5px; padding:9px 10px; font-family:'Inter',sans-serif; font-size:13.5px; resize:vertical;
 }
-.hp-fields{display:flex; gap:10px; align-items:center;}
+.hp-fields{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
 .hp-fields input{width:64px; text-align:center;}
 .hp-fields span{color:#7A6A47;}
+.sheet-inline-stat{font-size:12.5px; color:#7A6A47;}
+.sheet-inline-stat b{color:var(--text-dark);}
 .stat-grid{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:12px;}
+.stat-grid-2{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;}
 .stat-header{font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#7A6A47; font-weight:700; margin:14px 0 8px; padding-top:8px; border-top:1px solid var(--parchment-line);}
+
+/* Two-column Character Sheet layout (2026-08-16) — shared by Create-a-
+   Character (editable) and the read-only Character Sheet (avatar click),
+   per dDd's spec: Right = the hard numbers, Left = identity/relationships.
+   The Roster's possessor/mini-party grid classes (roster-possessor-grid
+   etc., panels.css's "Roster" section) get reused here unchanged, on a
+   parchment background instead of ink — same shapes, different panel. */
+.panel-overlay.wide{width:min(760px, 94vw);}
+.sheet-columns{display:grid; grid-template-columns:1fr 1fr; gap:0 24px; align-items:start;}
+.sheet-col-left{border-right:1px solid var(--parchment-line); padding-right:24px;}
+.sheet-columns .roster-possessor-grid, .sheet-columns .roster-miniparty-grid{padding-left:0;}
+.sheet-columns .roster-possessor{color:#7A5A1E;}
+.sheet-columns .roster-miniparty-member{color:#7A6A47;}
+.sheet-columns .roster-miniparty-member.possessed{color:var(--ember);}
+@media (max-width: 640px){
+  .sheet-columns{grid-template-columns:1fr;}
+  .sheet-col-left{border-right:none; padding-right:0; border-bottom:1px solid var(--parchment-line); padding-bottom:14px; margin-bottom:14px;}
+}
 .tech-main-header{
   text-align:center; font-size:15px; text-transform:uppercase; letter-spacing:.08em;
   color:#7A6A47; font-weight:700; margin:18px 0 12px; padding-bottom:8px; border-bottom:2px solid var(--brass);
@@ -101,6 +122,17 @@
 }
 .tech-item:last-child{border-bottom:none;}
 .tech-item:hover{color:#7A6A47; font-weight:600;}
+/* Technique Lists (2026-08-16) — per-Character access to the 4 Technique
+   categories (Flow Powers/Focus Powers/Lightning Crafts/Lava Crafts), not
+   individual Techniques. Denied categories on the real Techniques Panel
+   grey out and cross through, per dDd's spec. */
+.tech-item.tech-denied{opacity:.4; text-decoration:line-through; cursor:not-allowed;}
+.tech-item.tech-denied:hover{color:var(--text-dark); font-weight:400;}
+.tech-access-grid{display:grid; grid-template-columns:1fr 1fr; gap:6px 14px; margin-bottom:12px;}
+.tech-access-toggle{display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dark); cursor:pointer;}
+.tech-access-toggle input{width:auto;}
+.tech-access-item{font-size:12.5px; color:var(--text-dark);}
+.tech-access-item.denied{color:#B08A8A; text-decoration:line-through;}
 .save-hint{
   font-size:11px; color:var(--brass-bright); opacity:0; pointer-events:none;
   transition:opacity .5s ease;
@@ -113,13 +145,18 @@
 .counter{flex:1; background:var(--ink); border:1px solid var(--ink-line); border-radius:8px; padding:10px 14px;}
 .counter-label{display:block; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-dim);}
 .counter-value{font-family:'IBM Plex Mono',monospace; font-size:18px; color:var(--brass-bright);}
-#target-range, #dm-target-range{display:flex; flex-wrap:wrap; gap:8px;}
+#target-range, #dm-target-range, #ally-range{display:flex; flex-wrap:wrap; gap:8px;}
 .target-chip{
   position:relative; background:var(--ink); border:1px solid var(--ink-line); border-radius:6px; padding:7px 12px;
   font-size:12.5px; cursor:pointer; color:var(--text-light);
 }
 .target-chip.selected{border-color:var(--brass); color:var(--brass-bright); background:rgba(185,151,91,.1);}
 .target-chip.defeated{opacity:.4; text-decoration:line-through; cursor:default;}
+.chip-sub{color:var(--text-dim); font-size:11px;}
+/* DM's "Acting As" chip, double-clicked into targeting itself (2026-08-16) —
+   reuses the same green established for Ally-crowding on the Map, since both
+   are "this one's on the friendly/self side" signals. */
+.target-chip.self-targeted{border-color:#2ECC71; box-shadow:inset 0 0 0 1px #2ECC71;}
 .chip-remove-x{
   position:absolute; top:-7px; right:-7px; width:16px; height:16px; line-height:14px; text-align:center;
   border-radius:50%; background:#3a1414; border:1px solid #F0BBAE; color:#F0BBAE; font-size:10px; font-weight:bold;
@@ -180,16 +217,64 @@
   background:var(--ink); color:var(--text-light); font-size:12.5px;
 }
 .dmtest-result{margin-top:14px; font-size:13px; color:var(--brass-bright); min-height:18px;}
+.dmtest-run-n{display:flex; gap:6px; flex:1;}
+.dmtest-run-n input{
+  width:44px; flex-shrink:0; padding:0 4px; border-radius:5px; border:1px solid var(--ink-line);
+  background:var(--ink); color:var(--text-light); font-size:12.5px; text-align:center;
+}
+.dmtest-run-n button{flex:1;}
 
 /* ---------- Map ---------- */
 #map-grid{display:grid; gap:2px; margin-top:10px;}
 .map-tile{
-  aspect-ratio:1; background:#EFEAE0; border-radius:3px; cursor:pointer;
+  position:relative; aspect-ratio:1; background:#EFEAE0; border-radius:3px; cursor:pointer;
   display:flex; align-items:center; justify-content:center;
-  font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink);
+  font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink); z-index:0;
 }
 .map-tile.blocked{background:#0A0B0D; cursor:default;}
 .map-tile.occupied{background:var(--brass); color:#221A0E; font-weight:700;}
+
+/* Crowding-blocked (5+ Down, either side, or 3+ living Enemies-of-the-mover)
+   — a soft, occupancy-driven obstacle, distinct from a real (black) Obstacle
+   Tile: still enterable by nothing further, but never blocks line of sight
+   on its own (that's the separate 5+ Active rule below). Cursor is the only
+   dedicated indicator left — the Down/Chunk gradients and Ally/Enemy edges
+   already communicate *why* at a glance. */
+.map-tile.crowd-blocked{cursor:not-allowed;}
+
+/* Down gradient (2026-08-16, dDd's spec): Burgundy creeps in from the edge
+   as Down Characters (1-5, either side) pile up on a Tile, never reaching
+   the center. --down-color/--down-reach are set per-Tile inline by
+   js/map.js's renderMap (see DOWN_GRADIENT/DOWN_REACH there). */
+.map-tile::before{
+  content:''; position:absolute; inset:0; border-radius:3px; pointer-events:none; z-index:1;
+  background:radial-gradient(circle, transparent var(--down-reach, 100%), var(--down-color, transparent) 100%);
+  opacity:.85;
+}
+/* Chunk gradient — Pink spreads out from the center as Chunks (1-40 in 8
+   bands of 5) pile up, opposite direction from the Down gradient above so
+   the two can overlap into a blended band without either ever reaching a
+   full solid Tile. --chunk-color/--chunk-reach are set the same way. */
+.map-tile::after{
+  content:''; position:absolute; inset:0; border-radius:3px; pointer-events:none; z-index:2;
+  background:radial-gradient(circle, var(--chunk-color, transparent) 0%, transparent var(--chunk-reach, 0%));
+  opacity:.8;
+}
+/* At 30+ Chunks the pile is dense enough to spill past the Tile's own edge
+   into its neighbors — per dDd, a pure visual bleed only, the Chunk count
+   itself always stays on the origin Tile. A wide, soft glow reads as
+   "spilling" better than trying to literally paint into the next cell. */
+.map-tile.chunk-spill{box-shadow:0 0 10px 3px var(--chunk-color); z-index:1;}
+
+/* Active-Character edges (2026-08-16) — Friend/Foe at a glance: which side
+   has 3+ Active Characters holding this Tile. Enemy takes priority in the
+   (rare) case both apply at once, since that's the actionable "you can't
+   get through" signal. Green/Cyan were picked specifically to avoid every
+   other claimed hue in the game (Gom: white/blue/indigo, Kulkrow:
+   orange/red/black, existing brass "occupied" tiles, burgundy Down, pink
+   Chunks) — see reference/ROADMAP.md's Color Schemes note for the reasoning. */
+.map-tile.edge-ally{box-shadow:inset 0 0 0 2px #2ECC71; z-index:3;}
+.map-tile.edge-enemy{box-shadow:inset 0 0 0 2px #22D3EE; z-index:3;}
 .map-corner, .map-col-header, .map-row-header{
   display:flex; align-items:center; justify-content:center;
   font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-dim);

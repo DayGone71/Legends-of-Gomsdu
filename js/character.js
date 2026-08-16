@@ -1,35 +1,93 @@
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
 import { getSavedCharacters, saveCharacterTemplate } from './savedCharacters.js';
-import { clampInt, timeNow, flashHint } from './utils.js';
+import { clampInt, timeNow, flashHint, isDown } from './utils.js';
+import { addPossessor, addMiniPartyMember } from './possession.js';
+import { possessorGridHtml, miniPartyGridHtml, wirePossessorMiniPartyClicks } from './possessionView.js';
+import { showCharacterView } from './characterView.js';
+
+// Species (2026-08-16): the immutable structural defaults a Character starts
+// from — Death Wounds (z, the wound count that kills — NOT the same thing as
+// Obliteration, which is reserved for every Body Part going false, see
+// utils.js), Body Part count, which Tier 5 entity(ies) occupy the sandwich
+// model's top row and on which side (see Party System item C in the
+// roadmap), and the stat Caps readStatsFromSheet clamps to. Every existing
+// BUILDS entry/Cap was already tuned toward General Humanoids without saying
+// so — this makes that explicit instead of assumed. Caps for the three new
+// species are rough placeholders scaled off their Death Wounds/Body numbers,
+// dDd's own call ("I don't have concrete numbers for that yet either") —
+// tune freely, same treatment as Shadow Possession's thresholds.
+export const SPECIES = {
+  humanoid: {
+    name: 'Humanoid', // General Humanoids: Human, Dwarf, Elf, Ork
+    deathWounds: 10, bodyParts: 6,
+    tier5: { left: 'gom', right: 'kulkrow' },
+    caps: { ap: [0, 100], flow: [0, 50], recovery: [0, 50], power: [0, 50], quickness: [0, 50], resilience: [0, 50], lightning: [0, 10], lava: [0, 10], focus: [0, 10], control: [0, 10], attunement: [0, 10] }
+  },
+  sandman: {
+    name: 'Sandman',
+    deathWounds: 10, bodyParts: 6,
+    tier5: { left: null, right: 'planet' }, // the Planet, not Gom/Kulkrow — Sandmen connect straight to Tier 6
+    caps: { ap: [0, 100], flow: [0, 50], recovery: [0, 50], power: [0, 50], quickness: [0, 50], resilience: [0, 50], lightning: [0, 10], lava: [0, 10], focus: [0, 10], control: [0, 10], attunement: [0, 10] }
+  },
+  crystalBeing: {
+    name: 'Crystal Being',
+    deathWounds: 15, bodyParts: 8, // additional Torso + Skull
+    tier5: { left: 'gom', right: null },
+    caps: { ap: [0, 120], flow: [0, 65], recovery: [0, 60], power: [0, 65], quickness: [0, 50], resilience: [0, 65], lightning: [0, 10], lava: [0, 10], focus: [0, 12], control: [0, 10], attunement: [0, 12] }
+  },
+  desertAbomination: {
+    name: 'Desert Abomination',
+    deathWounds: 20, bodyParts: 10, // 4 Arms, Tails, 3 Torsos combined to 1 base part
+    tier5: { left: null, right: 'kulkrow' },
+    caps: { ap: [0, 150], flow: [0, 85], recovery: [0, 70], power: [0, 85], quickness: [0, 50], resilience: [0, 85], lightning: [0, 10], lava: [0, 10], focus: [0, 10], control: [0, 10], attunement: [0, 10] }
+  }
+};
+
+// Bakes a species' deathWounds/body defaults into a Build's own literal (this
+// codebase's established pattern is full denormalization — every Character
+// carries its own copy of every stat, nothing is looked up live off a shared
+// template at runtime) rather than repeating them by hand on every entry.
+function withSpecies(speciesKey, stats){
+  const sp = SPECIES[speciesKey];
+  return { species: speciesKey, deathWounds: sp.deathWounds, body: new Array(sp.bodyParts).fill(true), ...stats };
+}
 
 // Control and Attunement default to 0 on every existing build — meaning nothing
 // about current AP costs changes for them. Only a character explicitly set to
 // Control 10 gets the "every action costs 1 AP" effect (see combat.js/dm.js).
+// Wounds (x) starts at 0 — the real x/y model counts UP from uninjured toward
+// woundsMax (y, the personal Down threshold), not down from a depleting pool.
 export function blankCharacter(name){
-  return { name, archetype: '', wounds: 7, woundsMax: 7, ap: 10, flow: 10, flowMax: 10, recovery: 5, power: 1, quickness: 5, range: 3, lightning: 0, lava: 0, focus: 0, control: 0, attunement: 0, life: 1, apSpent: 0, focusSpent: 0, sequence: [], possessors: [], miniParty: [] };
+  return withSpecies('humanoid', { name, archetype: '', wounds: 0, woundsMax: 7, ap: 10, flow: 10, flowMax: 10, recovery: 5, power: 1, quickness: 5, resilience: 3, lightning: 0, lava: 0, focus: 0, control: 0, attunement: 0, life: 1, apSpent: 0, focusSpent: 0, sequence: [], possessors: [], miniParty: [] });
 }
 
 // Enemy Power/Flow values are canon, straight from reference/Power.txt's stat
 // table (the "how strong should Characters be" roster). Everything else on each
-// entry — Wounds, AP, Recovery, Quickness, Range, Control — isn't specified
+// entry — Wounds, AP, Recovery, Quickness, Resilience, Control — isn't specified
 // there yet, so these are reasonable placeholders scaled to each creature's
 // tier, meant to be tuned once the Power brackets get rebuilt for real.
+// wounds is always 0 here (a fresh Build starts uninjured); woundsMax is each
+// creature's personal Down threshold (y) — distinct from deathWounds (z),
+// species-fixed, added by withSpecies. Stray Dog/Sandworm aren't General
+// Humanoids and don't fit any of the four species defined above yet (a
+// "Beast" species or similar is still open) — left un-tagged for now, so
+// they fall back to utils.js's DEATH_WOUNDS_DEFAULT and have no Body array.
 export const BUILDS = {
-  'player-swift':   { archetype: 'Blade-quick duelist', wounds: 7,  woundsMax: 7,  ap: 20, flow: 12, flowMax: 12, recovery: 5, power: 2, quickness: 9, range: 3, lightning: 0, lava: 0, focus: 0, control: 0, attunement: 0 },
-  'player-heavy':   { archetype: 'Armored bruiser',      wounds: 7,  woundsMax: 7,  ap: 20, flow: 16, flowMax: 16, recovery: 7, power: 2, quickness: 4, range: 3, lightning: 0, lava: 0, focus: 0, control: 0, attunement: 0 },
-  'player-parry':   { archetype: 'Counter-fighter',      wounds: 7,  woundsMax: 7,  ap: 20, flow: 14, flowMax: 14, recovery: 6, power: 2, quickness: 6, range: 9, lightning: 0, lava: 0, focus: 0, control: 0, attunement: 0 },
+  'player-swift':   withSpecies('humanoid', { archetype: 'Blade-quick duelist', wounds: 0,  woundsMax: 7,  ap: 20, flow: 12, flowMax: 12, recovery: 5, power: 2, quickness: 9, resilience: 3, lightning: 0, lava: 0, focus: 0, control: 0, attunement: 0 }),
+  'player-heavy':   withSpecies('humanoid', { archetype: 'Armored bruiser',      wounds: 0,  woundsMax: 7,  ap: 20, flow: 16, flowMax: 16, recovery: 7, power: 2, quickness: 4, resilience: 3, lightning: 0, lava: 0, focus: 0, control: 0, attunement: 0 }),
+  'player-parry':   withSpecies('humanoid', { archetype: 'Counter-fighter',      wounds: 0,  woundsMax: 7,  ap: 20, flow: 14, flowMax: 14, recovery: 6, power: 2, quickness: 6, resilience: 9, lightning: 0, lava: 0, focus: 0, control: 0, attunement: 0 }),
 
-  'human-adult':        { archetype: 'Regular Human Adult', wounds: 3, woundsMax: 3, ap: 15, flow: 7,  flowMax: 7,  recovery: 5,  power: 7,  quickness: 5, range: 4,  lightning: 0, lava: 0, focus: 0, control: 5, attunement: 0 },
-  'human-farmer':        { archetype: 'Human Farmer',        wounds: 3, woundsMax: 3, ap: 15, flow: 10, flowMax: 10, recovery: 6,  power: 8,  quickness: 4, range: 3,  lightning: 0, lava: 0, focus: 0, control: 4, attunement: 0 },
-  'human-bandit':        { archetype: 'Human Bandit',        wounds: 3, woundsMax: 3, ap: 20, flow: 8,  flowMax: 8,  recovery: 5,  power: 11, quickness: 7, range: 5,  lightning: 0, lava: 0, focus: 0, control: 6, attunement: 0 },
-  'stray-dog':           { archetype: 'Stray Dog',            wounds: 2, woundsMax: 2, ap: 10, flow: 4,  flowMax: 4,  recovery: 4,  power: 3,  quickness: 9, range: 2,  lightning: 0, lava: 0, focus: 0, control: 3, attunement: 0 },
-  'empire-recruit':      { archetype: 'Empire Recruit',       wounds: 4, woundsMax: 4, ap: 20, flow: 13, flowMax: 13, recovery: 6,  power: 13, quickness: 6, range: 5,  lightning: 0, lava: 0, focus: 0, control: 6, attunement: 0 },
-  'cultist':             { archetype: 'Cultist',              wounds: 4, woundsMax: 4, ap: 25, flow: 11, flowMax: 11, recovery: 6,  power: 15, quickness: 6, range: 5,  lightning: 0, lava: 0, focus: 0, control: 6, attunement: 0 },
-  'empire-soldier':      { archetype: 'Empire Soldier',       wounds: 5, woundsMax: 5, ap: 30, flow: 20, flowMax: 20, recovery: 8,  power: 19, quickness: 6, range: 7,  lightning: 0, lava: 0, focus: 0, control: 7, attunement: 0 },
-  'cultist-bloodletter': { archetype: 'Cultist Bloodletter',  wounds: 5, woundsMax: 5, ap: 30, flow: 17, flowMax: 17, recovery: 7,  power: 21, quickness: 7, range: 6,  lightning: 0, lava: 0, focus: 0, control: 7, attunement: 0 },
-  'woodwhisperer':       { archetype: 'Elven Woodwhisperer',  wounds: 6, woundsMax: 6, ap: 40, flow: 40, flowMax: 40, recovery: 12, power: 36, quickness: 9, range: 10, lightning: 0, lava: 0, focus: 0, control: 8, attunement: 0 },
-  'sandworm':            { archetype: 'Gigantic Sandworm',    wounds: 8, woundsMax: 8, ap: 40, flow: 68, flowMax: 68, recovery: 15, power: 74, quickness: 3, range: 6,  lightning: 0, lava: 0, focus: 0, control: 5, attunement: 0 }
+  'human-adult':        withSpecies('humanoid', { archetype: 'Regular Human Adult', wounds: 0, woundsMax: 3, ap: 15, flow: 7,  flowMax: 7,  recovery: 5,  power: 7,  quickness: 5, resilience: 4,  lightning: 0, lava: 0, focus: 0, control: 5, attunement: 0 }),
+  'human-farmer':        withSpecies('humanoid', { archetype: 'Human Farmer',        wounds: 0, woundsMax: 3, ap: 15, flow: 10, flowMax: 10, recovery: 6,  power: 8,  quickness: 4, resilience: 3,  lightning: 0, lava: 0, focus: 0, control: 4, attunement: 0 }),
+  'human-bandit':        withSpecies('humanoid', { archetype: 'Human Bandit',        wounds: 0, woundsMax: 3, ap: 20, flow: 8,  flowMax: 8,  recovery: 5,  power: 11, quickness: 7, resilience: 5,  lightning: 0, lava: 0, focus: 0, control: 6, attunement: 0 }),
+  'stray-dog':           { archetype: 'Stray Dog',            wounds: 0, woundsMax: 2, ap: 10, flow: 4,  flowMax: 4,  recovery: 4,  power: 3,  quickness: 9, resilience: 2,  lightning: 0, lava: 0, focus: 0, control: 3, attunement: 0 },
+  'empire-recruit':      withSpecies('humanoid', { archetype: 'Empire Recruit',       wounds: 0, woundsMax: 4, ap: 20, flow: 13, flowMax: 13, recovery: 6,  power: 13, quickness: 6, resilience: 5,  lightning: 0, lava: 0, focus: 0, control: 6, attunement: 0 }),
+  'cultist':             withSpecies('humanoid', { archetype: 'Cultist',              wounds: 0, woundsMax: 4, ap: 25, flow: 11, flowMax: 11, recovery: 6,  power: 15, quickness: 6, resilience: 5,  lightning: 0, lava: 0, focus: 0, control: 6, attunement: 0 }),
+  'empire-soldier':      withSpecies('humanoid', { archetype: 'Empire Soldier',       wounds: 0, woundsMax: 5, ap: 30, flow: 20, flowMax: 20, recovery: 8,  power: 19, quickness: 6, resilience: 7,  lightning: 0, lava: 0, focus: 0, control: 7, attunement: 0 }),
+  'cultist-bloodletter': withSpecies('humanoid', { archetype: 'Cultist Bloodletter',  wounds: 0, woundsMax: 5, ap: 30, flow: 17, flowMax: 17, recovery: 7,  power: 21, quickness: 7, resilience: 6,  lightning: 0, lava: 0, focus: 0, control: 7, attunement: 0 }),
+  'woodwhisperer':       withSpecies('humanoid', { archetype: 'Elven Woodwhisperer',  wounds: 0, woundsMax: 6, ap: 40, flow: 40, flowMax: 40, recovery: 12, power: 36, quickness: 9, resilience: 10, lightning: 0, lava: 0, focus: 0, control: 8, attunement: 0 }),
+  'sandworm':            { archetype: 'Gigantic Sandworm',    wounds: 0, woundsMax: 8, ap: 40, flow: 68, flowMax: 68, recovery: 15, power: 74, quickness: 3, resilience: 6,  lightning: 0, lava: 0, focus: 0, control: 5, attunement: 0 }
 };
 
 // Only fills the form fields — doesn't save. Picking a build used to call
@@ -46,6 +104,7 @@ export function loadBuild(key){
   }
   if(!b) return;
   if(b.name) document.getElementById('ch-name').value = b.name;
+  document.getElementById('ch-species').value = b.species || 'humanoid';
   document.getElementById('ch-archetype').value = b.archetype;
   document.getElementById('ch-wounds').value = b.wounds;
   document.getElementById('ch-woundsmax').value = b.woundsMax;
@@ -54,7 +113,7 @@ export function loadBuild(key){
   document.getElementById('ch-recovery').value = b.recovery;
   document.getElementById('ch-power').value = b.power;
   document.getElementById('ch-quickness').value = b.quickness;
-  document.getElementById('ch-range').value = b.range;
+  document.getElementById('ch-resilience').value = b.resilience;
   document.getElementById('ch-lightning').value = b.lightning;
   document.getElementById('ch-lava').value = b.lava;
   document.getElementById('ch-focus').value = b.focus;
@@ -80,28 +139,49 @@ export function populateSavedCharacterDropdowns(){
   if(dmGroup) dmGroup.innerHTML = optionsHtml;
 }
 
-// Reads the sheet's fields into a stats object, clamped to the ranges in
-// reference/gomsdu-stats.odt. Wounds is deliberately left unclamped — it's
-// still running on the old depleting-pool model, pending the real Wounds
-// rebuild, so a 0/10-style cap doesn't apply to it yet.
+// Technique Lists (2026-08-16) — per-Character access at the category level
+// (Flow Powers/Focus Powers/Lightning Crafts/Lava Crafts), matching
+// techniques.js's TECHNIQUES entries' existing group/column pairing. Keys
+// double as the `ch-tech-<key>` checkbox id suffix.
+export const TECHNIQUE_CATEGORIES = ['flowPowers', 'focusPowers', 'lightningCrafts', 'lavaCrafts'];
+
+// Reads the sheet's fields into a stats object, clamped to each stat's real
+// Species Cap now (character.js's SPECIES — every Cap used to be a flat
+// number, quietly tuned toward General Humanoids; now genuinely per-Species).
+// Wounds (x) is clamped 0-deathWounds, deathWounds (z) itself and the Body
+// array both come straight from the chosen Species — deathWounds is
+// species-fixed by design (not independently sheet-editable), and Body has
+// no per-part mechanics yet so it's simplest to just regenerate a fresh
+// all-true array on every save rather than track edits to it.
 function readStatsFromSheet(){
-  const flowVal = clampInt(parseInt(document.getElementById('ch-flow').value || '0', 10), 0, 50);
+  const speciesKey = document.getElementById('ch-species').value || 'humanoid';
+  const sp = SPECIES[speciesKey] || SPECIES.humanoid;
+  const flowVal = clampInt(parseInt(document.getElementById('ch-flow').value || '0', 10), sp.caps.flow[0], sp.caps.flow[1]);
+  const techniqueAccess = {};
+  TECHNIQUE_CATEGORIES.forEach(key => {
+    const el = document.getElementById('ch-tech-' + key);
+    techniqueAccess[key] = el ? el.checked : true;
+  });
   return {
     archetype: document.getElementById('ch-archetype').value.trim(),
-    wounds: parseInt(document.getElementById('ch-wounds').value || '0', 10),
+    species: speciesKey,
+    deathWounds: sp.deathWounds,
+    body: new Array(sp.bodyParts).fill(true),
+    techniqueAccess,
+    wounds: clampInt(parseInt(document.getElementById('ch-wounds').value || '0', 10), 0, sp.deathWounds),
     woundsMax: parseInt(document.getElementById('ch-woundsmax').value || '1', 10),
-    ap: clampInt(parseInt(document.getElementById('ch-ap').value || '0', 10), 0, 100),
+    ap: clampInt(parseInt(document.getElementById('ch-ap').value || '0', 10), sp.caps.ap[0], sp.caps.ap[1]),
     flow: flowVal,
     flowMax: flowVal,
-    recovery: clampInt(parseInt(document.getElementById('ch-recovery').value || '0', 10), 0, 50),
-    power: clampInt(parseInt(document.getElementById('ch-power').value || '0', 10), 0, 50),
-    quickness: clampInt(parseInt(document.getElementById('ch-quickness').value || '0', 10), 0, 50),
-    range: clampInt(parseInt(document.getElementById('ch-range').value || '0', 10), 0, 50),
-    lightning: clampInt(parseInt(document.getElementById('ch-lightning').value || '0', 10), 0, 10),
-    lava: clampInt(parseInt(document.getElementById('ch-lava').value || '0', 10), 0, 10),
-    focus: clampInt(parseInt(document.getElementById('ch-focus').value || '0', 10), 0, 10),
-    control: clampInt(parseInt(document.getElementById('ch-control').value || '0', 10), 0, 10),
-    attunement: clampInt(parseInt(document.getElementById('ch-attunement').value || '0', 10), 0, 10),
+    recovery: clampInt(parseInt(document.getElementById('ch-recovery').value || '0', 10), sp.caps.recovery[0], sp.caps.recovery[1]),
+    power: clampInt(parseInt(document.getElementById('ch-power').value || '0', 10), sp.caps.power[0], sp.caps.power[1]),
+    quickness: clampInt(parseInt(document.getElementById('ch-quickness').value || '0', 10), sp.caps.quickness[0], sp.caps.quickness[1]),
+    resilience: clampInt(parseInt(document.getElementById('ch-resilience').value || '0', 10), sp.caps.resilience[0], sp.caps.resilience[1]),
+    lightning: clampInt(parseInt(document.getElementById('ch-lightning').value || '0', 10), sp.caps.lightning[0], sp.caps.lightning[1]),
+    lava: clampInt(parseInt(document.getElementById('ch-lava').value || '0', 10), sp.caps.lava[0], sp.caps.lava[1]),
+    focus: clampInt(parseInt(document.getElementById('ch-focus').value || '0', 10), sp.caps.focus[0], sp.caps.focus[1]),
+    control: clampInt(parseInt(document.getElementById('ch-control').value || '0', 10), sp.caps.control[0], sp.caps.control[1]),
+    attunement: clampInt(parseInt(document.getElementById('ch-attunement').value || '0', 10), sp.caps.attunement[0], sp.caps.attunement[1]),
     life: clampInt(parseInt(document.getElementById('ch-life').value || '0', 10), 0, 1)
   };
 }
@@ -205,15 +285,16 @@ export function renderCharacterSheet(){
   };
 
   setIfNotActive('ch-name', me.name || '');
+  setIfNotActive('ch-species', me.species || 'humanoid');
   setIfNotActive('ch-archetype', me.archetype || '');
-  setIfNotActive('ch-wounds', me.wounds ?? 7);
+  setIfNotActive('ch-wounds', me.wounds ?? 0);
   setIfNotActive('ch-woundsmax', me.woundsMax ?? 7);
   setIfNotActive('ch-ap', me.ap ?? 10);
   setIfNotActive('ch-flow', me.flowMax ?? 10);
   setIfNotActive('ch-recovery', me.recovery ?? 5);
   setIfNotActive('ch-power', me.power ?? 1);
   setIfNotActive('ch-quickness', me.quickness ?? 5);
-  setIfNotActive('ch-range', me.range ?? 3);
+  setIfNotActive('ch-resilience', me.resilience ?? 3);
   setIfNotActive('ch-lightning', me.lightning ?? 0);
   setIfNotActive('ch-lava', me.lava ?? 0);
   setIfNotActive('ch-focus', me.focus ?? 0);
@@ -221,6 +302,80 @@ export function renderCharacterSheet(){
   setIfNotActive('ch-attunement', me.attunement ?? 0);
   setIfNotActive('ch-life', me.life ?? 1);
 
+  // Missing techniqueAccess (every pre-existing Character) defaults to full
+  // access, matching hasCategoryAccess()'s fallback in techniques.js.
+  TECHNIQUE_CATEGORIES.forEach(key => {
+    const el = document.getElementById('ch-tech-' + key);
+    if(el && el !== active) el.checked = me.techniqueAccess ? (me.techniqueAccess[key] ?? true) : true;
+  });
+
+  const downEl = document.getElementById('ch-down-display');
+  if(downEl) downEl.textContent = isDown(me) ? 'Y' : 'N';
+  const bodyEl = document.getElementById('ch-body-display');
+  if(bodyEl) bodyEl.textContent = me.body ? (me.body.filter(Boolean).length + '/' + me.body.length) : '—';
+
   const whoName = document.getElementById('who-name');
   if(whoName) whoName.textContent = me.name || '—';
+}
+
+// Duplicated Add-Possessor/Add-Mini-Party flow (2026-08-16) — same engine as
+// the Roster's (possession.js's addPossessor/addMiniPartyMember, unchanged),
+// just always targeting the current Player's own record rather than an
+// arbitrary one, so Create-a-Character can generate a whole family —
+// Character + Mini-Party + Possessors — in one sitting. Per dDd: this is
+// what actually makes populating a Tile with 5 Characters practical, since
+// Characters are meant to cluster together anyway. DM-side (an Enemy
+// generated with its own Possessors/Mini-Party) is explicitly out of scope
+// for this pass — dm.js's addEnemy has no equivalent yet.
+let chAddPartyKind = null; // 'possessor' | 'miniparty'
+
+function chShowAddPartyFields(kind){
+  chAddPartyKind = kind;
+  document.getElementById('ch-add-party-fields').classList.remove('hidden');
+  document.getElementById('ch-add-party-tier-field').classList.toggle('hidden', kind !== 'possessor');
+  document.getElementById('ch-add-party-type-field').classList.toggle('hidden', kind !== 'possessor');
+  document.getElementById('ch-add-party-name').value = '';
+  document.getElementById('ch-add-party-build').value = '';
+}
+
+async function chConfirmAddPartyMember(){
+  if(!chAddPartyKind || !AppState.playerId) return;
+  const name = document.getElementById('ch-add-party-name').value.trim();
+  if(!name) return;
+  const buildKey = document.getElementById('ch-add-party-build').value;
+  const stats = buildKey ? { ...BUILDS[buildKey] } : {};
+  if(chAddPartyKind === 'possessor'){
+    const tier = parseInt(document.getElementById('ch-add-party-tier').value, 10);
+    const type = document.getElementById('ch-add-party-type').value;
+    await addPossessor(AppState.playerId, name, tier, type, stats);
+  }else{
+    await addMiniPartyMember(AppState.playerId, name, stats);
+  }
+  document.getElementById('ch-add-party-fields').classList.add('hidden');
+  chAddPartyKind = null;
+}
+
+// Wires the Create-a-Character panel's own Add-Party instance — a separate
+// set of element ids from the Roster's shared add-party-fields, so the two
+// don't fight over the same hidden/shown state.
+export function initCreateCharacterPartyUI(){
+  const buildOptions = Object.entries(BUILDS).map(([key, b]) => '<option value="' + key + '">' + b.archetype + '</option>').join('');
+  document.getElementById('ch-add-party-build').innerHTML = '<option value="">&mdash; blank &mdash;</option>' + buildOptions;
+  document.getElementById('ch-add-party-kind-possessor').addEventListener('click', () => chShowAddPartyFields('possessor'));
+  document.getElementById('ch-add-party-kind-miniparty').addEventListener('click', () => chShowAddPartyFields('miniparty'));
+  document.getElementById('btn-ch-confirm-add-party-member').addEventListener('click', chConfirmAddPartyMember);
+}
+
+// Renders the current Player's own Possessor/Mini-Party grids inside
+// Create-a-Character — same shared renderer the Roster and the read-only
+// Character Sheet use (possessionView.js), just always scoped to
+// AppState.playerId.
+export function renderCreateCharacterParty(){
+  const me = AppState.table && AppState.table.players[AppState.playerId];
+  const possessorEl = document.getElementById('ch-possessor-grid');
+  const miniPartyEl = document.getElementById('ch-miniparty-grid');
+  if(!me || !possessorEl || !miniPartyEl) return;
+  possessorEl.innerHTML = possessorGridHtml(me, AppState.playerId);
+  miniPartyEl.innerHTML = miniPartyGridHtml(me, AppState.playerId) || '<div class="log-empty">No Mini-Party yet.</div>';
+  wirePossessorMiniPartyClicks(document.getElementById('panel-character'), showCharacterView);
 }

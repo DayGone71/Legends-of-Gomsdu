@@ -65,6 +65,98 @@ export function clampInt(value, min, max){
   return Math.max(min, Math.min(max, value));
 }
 
+// Wounds model (2026-08-16, replaces the old depleting-pool version, vocabulary
+// corrected same night): `wounds` (x) counts UP from 0. Two different
+// thresholds on the same counter, previously conflated under one name:
+//   - `woundsMax` (y) — personal, mutable, levelable. The Down threshold:
+//     past it a character can't fight unaided, but isn't removed from play.
+//   - `deathWounds` (z) — species-fixed (see character.js's SPECIES; falls
+//     back to DEATH_WOUNDS_DEFAULT for anything not yet given a species).
+//     Past it, a character is dead of accumulated Wounds. This is NOT the
+//     same thing as Obliteration — Obliteration is reserved for when every
+//     Body Part (also character.js) is false, a Chunk-based state with its
+//     own separate check, not built yet since Body has no per-part mechanics
+//     this pass. A Down character is still a valid target (for continued
+//     damage or Execution, see combat.js); a Death-Wounded one no longer is.
+export const DEATH_WOUNDS_DEFAULT = 10;
+export function isDown(actor){ return (actor.wounds || 0) >= (actor.woundsMax || 1); }
+export function isDeathWounded(actor){ return (actor.wounds || 0) >= (actor.deathWounds ?? DEATH_WOUNDS_DEFAULT); }
+
+// Ally Targeting (2026-08-16): before this, a Player could only ever target
+// table.enemies and an Enemy could only ever target table.players — the
+// collection was always inferable from who was attacking. Now a Player can
+// also target another Player, or a statted Mini-Party member, so the
+// collection has to be resolved from the targetId itself. A Mini-Party
+// member with no top-level record of its own uses a composite
+// 'mp:<playerId>:<index>' id; everything else is a plain top-level id, safe
+// to disambiguate since Player/Enemy ids are prefix-namespaced ('p_'/'e_',
+// see genId()/dm.js's addEnemy) and never collide.
+export function resolveEntityRef(table, targetId){
+  if(!targetId || !table) return null;
+  if(targetId.startsWith('mp:')){
+    const [, pid, idxStr] = targetId.split(':');
+    const p = table.players && table.players[pid];
+    return (p && p.miniParty && p.miniParty[parseInt(idxStr, 10)]) || null;
+  }
+  return (table.players && table.players[targetId]) || (table.enemies && table.enemies[targetId]) || null;
+}
+
+// Every Enemy currently riding along as someone's Possessed Mini-Party
+// member — an ally now, not a hostile, so it moves off the Enemy side onto
+// the ally/Player side wherever that matters (target pickers, DM Test's
+// actor lists), instead of showing up as targetable/auto-battling on both.
+export function possessedEnemyIds(table){
+  const ids = new Set();
+  Object.values((table && table.players) || {}).forEach(p => {
+    (p.miniParty || []).forEach(mp => { if(mp.sourceEnemyId) ids.add(mp.sourceEnemyId); });
+  });
+  return ids;
+}
+
+// Every id on the "ally" side of a table: every Player, every Player's
+// statted Mini-Party member (composite 'mp:<playerId>:<index>' id, see
+// resolveEntityRef above), and every Player's Possessed Mini-Party member
+// (the real Enemy's own id). Un-statted Mini-Party stubs — added with no
+// base build, so no wounds to track — are skipped; they aren't a legitimate
+// actor/target yet.
+export function alliedActorIds(table){
+  const ids = [];
+  Object.entries((table && table.players) || {}).forEach(([pid, p]) => {
+    ids.push(pid);
+    (p.miniParty || []).forEach((mp, idx) => {
+      if(mp.sourceEnemyId){ if(table.enemies && table.enemies[mp.sourceEnemyId]) ids.push(mp.sourceEnemyId); }
+      else if(mp.woundsMax != null){ ids.push('mp:' + pid + ':' + idx); }
+    });
+  });
+  return ids;
+}
+
+// A Mini-Party member has no position of its own (see alliedActorIds above)
+// — it rides on its own Player's Tile — so resolving a composite 'mp:' id's
+// position falls back to the owning Player's. Everything else is a plain
+// top-level lookup, same shape as resolveEntityRef.
+export function resolvePositionRef(table, targetId){
+  if(!targetId || !table) return null;
+  if(targetId.startsWith('mp:')){
+    const [, pid] = targetId.split(':');
+    return (table.positions && table.positions[pid]) || null;
+  }
+  return (table.positions && table.positions[targetId]) || null;
+}
+
+// Which side a resolved target actually belongs to — used for Block-registry
+// matching (a Block is registered under the owner's real side, not the
+// attacker's opposite side, which was always true before Ally Targeting but
+// isn't anymore: attacking an ally-Player should still respect a Block *they*
+// staged, the same way attacking an Enemy respects an Enemy's Block).
+export function ownerTypeOf(table, targetId){
+  if(!targetId) return null;
+  if(targetId.startsWith('mp:')) return 'player';
+  if(table.players && table.players[targetId]) return 'player';
+  if(table.enemies && table.enemies[targetId]) return 'enemy';
+  return null;
+}
+
 // Generic flash-then-fade status text, shared by any panel that needs a
 // "Saved"-style confirmation without a permanently-visible line (see the
 // Character sheet's save-hint, which used to sit statically in the layout

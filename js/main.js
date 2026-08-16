@@ -1,15 +1,15 @@
 import { AppState, rememberMe, forgetMe, recallMe } from './state.js';
 import { connectToSession, createNewSession, mutateTable, disconnect, registerRenderCallback } from './sync.js';
 import { genCode, genId, timeNow } from './utils.js';
-import { blankCharacter, loadBuild, scheduleSave, saveCharacter, makeActiveCharacter, renderCharacterSheet, saveAsTemplate, populateSavedCharacterDropdowns, syncFieldOnBlur } from './character.js';
+import { blankCharacter, loadBuild, scheduleSave, saveCharacter, makeActiveCharacter, renderCharacterSheet, saveAsTemplate, populateSavedCharacterDropdowns, syncFieldOnBlur, initCreateCharacterPartyUI, renderCreateCharacterParty } from './character.js';
 import { renderLedger, renderRoster, sendMessage, initAddPartyMemberUI } from './ledger.js';
-import { renderTargetRange, toggleMenu, selectAttackKind, selectEssenceSchool, selectBlockKind, toggleCounter, commitAction, undoAction, resolveRound, renderCombatCounters, renderStagedActions, stageRest } from './combat.js';
+import { renderTargetRange, renderAllyRange, toggleMenu, selectAttackKind, selectEssenceSchool, selectBlockKind, toggleCounter, commitAction, undoAction, resolveRound, renderCombatCounters, renderStagedActions, stageRest } from './combat.js';
 import { renderSequencer } from './sequencer.js';
 import { addEnemy, startEncounter, endEncounter, renderDMEnemyPicker, renderDMCounters, renderDMTargetRange, dmToggleMenu, dmSelectAttackKind, dmSelectEssenceSchool, dmSelectBlockKind, dmToggleCounter, dmCommitAction, dmUndoAction, renderDMStagedActions, clearDead, populateSavedEncounterDropdown, saveEncounterAsTemplate, loadEncounterTemplate } from './dm.js';
 import { defaultMap, renderMap, toggleMapEditMode } from './map.js';
 import { openPanel, closePanel, togglePanel, updateToolbarAvailability, initPanelBackdrop } from './panels.js';
-import { renderDMTestPanel, runDMTestRound, runDMTestUntilDefeat } from './dmtest.js';
-import { initTechniquesUI } from './techniques.js';
+import { renderDMTestPanel, runDMTestRound, runDMTestNRounds, runDMTestUntilDefeat } from './dmtest.js';
+import { initTechniquesUI, renderTechniquesPanel } from './techniques.js';
 
 // ---------- Screen helpers ----------
 function showLoading(v){ document.getElementById('loading').classList.toggle('hidden', !v); }
@@ -28,8 +28,11 @@ function renderAll(){
     return;
   }
   renderCharacterSheet();
+  renderCreateCharacterParty();
+  renderTechniquesPanel();
   renderCombatCounters();
   renderTargetRange();
+  renderAllyRange();
   renderStagedActions();
   renderSequencer();
   renderDMEnemyPicker();
@@ -173,12 +176,14 @@ function wireEvents(){
   document.getElementById('ch-build-loader').addEventListener('change', e => loadBuild(e.target.value));
   document.getElementById('btn-make-active').addEventListener('click', makeActiveCharacter);
   document.getElementById('btn-save-template').addEventListener('click', saveAsTemplate);
-  ['ch-name', 'ch-archetype', 'ch-wounds', 'ch-woundsmax', 'ch-ap', 'ch-flow', 'ch-recovery', 'ch-power', 'ch-quickness', 'ch-range', 'ch-lightning', 'ch-lava', 'ch-focus', 'ch-control', 'ch-attunement', 'ch-life']
+  ['ch-name', 'ch-species', 'ch-archetype', 'ch-wounds', 'ch-woundsmax', 'ch-ap', 'ch-flow', 'ch-recovery', 'ch-power', 'ch-quickness', 'ch-resilience', 'ch-lightning', 'ch-lava', 'ch-focus', 'ch-control', 'ch-attunement', 'ch-life',
+   'ch-tech-flowPowers', 'ch-tech-focusPowers', 'ch-tech-lightningCrafts', 'ch-tech-lavaCrafts']
     .forEach(id => {
       const el = document.getElementById(id);
       el.addEventListener('input', scheduleSave);
       el.addEventListener('blur', syncFieldOnBlur);
     });
+  initCreateCharacterPartyUI();
 
   // Combat
   document.getElementById('btn-attack-menu').addEventListener('click', () => toggleMenu('attack'));
@@ -220,6 +225,7 @@ function wireEvents(){
 
   // DM Test panel
   document.getElementById('btn-dmtest-round').addEventListener('click', runDMTestRound);
+  document.getElementById('btn-dmtest-n-rounds').addEventListener('click', runDMTestNRounds);
   document.getElementById('btn-dmtest-until-defeat').addEventListener('click', runDMTestUntilDefeat);
 
   // Map

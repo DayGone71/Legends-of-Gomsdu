@@ -4,6 +4,7 @@ import { escapeHtml, timeNow } from './utils.js';
 import { addPossessor, addMiniPartyMember } from './possession.js';
 import { BUILDS } from './character.js';
 import { showCharacterView } from './characterView.js';
+import { possessorGridHtml, miniPartyGridHtml, wirePossessorMiniPartyClicks } from './possessionView.js';
 
 export function renderLedger(){
   const el = document.getElementById('ledger');
@@ -90,46 +91,16 @@ export function renderRoster(){
   // for every player — it isn't tracked as data, only manually-added Tier
   // 2-5 possessors and mini-party members are.
   el.innerHTML = list.map(([id, p]) => {
+    // Wounds (x) counts UP toward woundsMax (y, the Down threshold) now, not
+    // down from it — so the bar has to show *remaining* health (100% at
+    // x=0, empty once Down), the inverse of the raw x/y ratio.
     const wounds = p.wounds ?? 0, woundsMax = p.woundsMax || 1;
-    const pct = Math.max(0, Math.min(100, Math.round((wounds / woundsMax) * 100)));
+    const pct = Math.max(0, Math.min(100, Math.round((1 - wounds / woundsMax) * 100)));
     const low = pct <= 30;
     const initial = (p.name || '?').trim().charAt(0).toUpperCase() || '?';
 
-    // Shadow Possession uses a filled circle (dimmed); Active Possession uses
-    // a hollow circle (full brightness); Mini-Party uses a dotted circle.
-    // Gom/Kulkrow's own rows are always Shadow. The possessor grid always
-    // reserves 2 default + 2 optional slots (empty ones padded, invisible)
-    // so every player's stack is the same height regardless of how many
-    // possessors they actually have.
-    const defaultPossessorHtml =
-      '<div class="roster-possessor shadow"><span class="roster-icon">●</span> Gom (Tier 5)</div>' +
-      '<div class="roster-possessor shadow"><span class="roster-icon">●</span> Kulkrow (Tier 5)</div>';
-    const possessorEntries = p.possessors || [];
-    // Lower-tier (2/3, "Possessor") always renders in the left column, higher-
-    // tier (4/5, "Higher Power"/"Supreme Force") in the right — sort by tier
-    // ascending before laying out the grid, but keep each entry's *original*
-    // array index for data-possessor-index (click-to-view still needs the
-    // real position in player.possessors, not its sorted display position).
-    const possessorSorted = possessorEntries.map((pos, i) => ({ pos, i })).sort((a, b) => a.pos.tier - b.pos.tier);
-    const possessorHtml = possessorSorted.map(({ pos, i }) => {
-      const isShadow = pos.type === 'shadow';
-      return '<div class="roster-possessor' + (isShadow ? ' shadow' : '') + '" data-player-id="' + id + '" data-possessor-index="' + i + '">' +
-        '<span class="roster-icon">' + (isShadow ? '●' : '○') + '</span> ' + escapeHtml(pos.name) + ' (Tier ' + pos.tier + ')</div>';
-    }).join('') + '<div class="roster-possessor empty">&nbsp;</div>'.repeat(Math.max(0, 2 - possessorEntries.length));
-    // A Possessed member (from the Possess Technique) reflects a *real* Enemy
-    // still living in table.enemies — hexagon icon, distinct color, and its
-    // current live name (not the frozen name from the moment it was possessed).
-    const miniPartyEntries = p.miniParty || [];
-    const miniPartyHtml = miniPartyEntries.map((mp, i) => {
-      const sourceEnemy = mp.sourceEnemyId && AppState.table.enemies && AppState.table.enemies[mp.sourceEnemyId];
-      const isPossessed = !!mp.possessed;
-      const displayName = sourceEnemy ? sourceEnemy.name : mp.name;
-      return '<div class="roster-miniparty-member' + (isPossessed ? ' possessed' : '') + '" data-player-id="' + id + '" data-miniparty-index="' + i + '">' +
-        '<span class="roster-icon">' + (isPossessed ? '⬢' : '⊙') + '</span> ' + escapeHtml(displayName) + '</div>';
-    }).join('');
-
     return '<div class="roster-stack">' +
-      '<div class="roster-possessor-grid">' + defaultPossessorHtml + possessorHtml + '</div>' +
+      possessorGridHtml(p, id) +
       '<div class="roster-item" data-player-id="' + id + '">' +
       '<div class="avatar">' + initial + '</div>' +
       '<div class="roster-info">' +
@@ -140,7 +111,7 @@ export function renderRoster(){
       '<div class="hp-text">' + wounds + '/' + woundsMax + '</div>' +
       '<div class="ap-text">' + (p.ap ?? 0) + ' AP</div>' +
       '</div>' +
-      (miniPartyHtml ? '<div class="roster-miniparty-grid">' + miniPartyHtml + '</div>' : '') +
+      miniPartyGridHtml(p, id) +
       '<button class="btn-ghost btn-small btn-block add-party-member-btn" data-player-id="' + id + '" style="margin-top:6px;">+ Add AI Party Member for ' + escapeHtml(p.name || 'this Character') + '</button>' +
       '</div>';
   }).join('');
@@ -154,27 +125,10 @@ export function renderRoster(){
   el.querySelectorAll('.roster-item[data-player-id]').forEach(item => {
     item.onclick = () => {
       const player = AppState.table.players[item.dataset.playerId];
-      if(player) showCharacterView(player);
+      if(player) showCharacterView(player, item.dataset.playerId);
     };
   });
-  el.querySelectorAll('.roster-possessor[data-possessor-index]').forEach(item => {
-    item.onclick = () => {
-      const player = AppState.table.players[item.dataset.playerId];
-      const pos = player && player.possessors && player.possessors[item.dataset.possessorIndex];
-      if(pos) showCharacterView(pos);
-    };
-  });
-  el.querySelectorAll('.roster-miniparty-member[data-miniparty-index]').forEach(item => {
-    item.onclick = () => {
-      const player = AppState.table.players[item.dataset.playerId];
-      const mp = player && player.miniParty && player.miniParty[item.dataset.minipartyIndex];
-      if(!mp) return;
-      // A Possessed entry reflects a real, still-live Enemy — show its actual
-      // current stats, not the frozen stub captured at possession time.
-      const sourceEnemy = mp.sourceEnemyId && AppState.table.enemies && AppState.table.enemies[mp.sourceEnemyId];
-      showCharacterView(sourceEnemy || mp);
-    };
-  });
+  wirePossessorMiniPartyClicks(el, showCharacterView);
 }
 
 function toggleAddPartyFlow(targetPlayerId){

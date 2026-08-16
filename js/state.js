@@ -8,6 +8,7 @@ export const AppState = {
 
   // Player combat staging
   selectedTargetId: null,
+  selectedTargetSide: 'enemy', // 'enemy' | 'ally' — which range the current selectedTargetId came from
   pendingType: null,
   pendingAttackKind: null,
   pendingEssenceSchool: null,

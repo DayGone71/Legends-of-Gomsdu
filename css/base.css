@@ -12,6 +12,20 @@
   --ember: #A34B36;
   --ember-bright: #C1604A;
   --sage: #7C9070;
+
+  /* Tier 5 palette (2026-08-16, design tokens only — captured per dDd's
+     Color Schemes note, not wired into any UI yet; the Roster's Possessor
+     icons still use plain circle glyphs, not color). Ordering intentional:
+     1=Primary, 2=Secondary, 3=Tertiary. True black is deliberately reserved
+     for Kulkrow's tertiary only — per dDd, "Black is the rarest color in
+     the Universe in game" — everything else in this theme (including --ink
+     above) stays a dark charcoal specifically to leave true black alone. */
+  --gom-primary: #F5F5F0;
+  --gom-secondary: #4A90D9;
+  --gom-tertiary: #2E2A6E;
+  --kulkrow-primary: #E8792E;
+  --kulkrow-secondary: #B0281E;
+  --kulkrow-tertiary: #000000;
 }
 *{box-sizing:border-box;}
 html,body{margin:0;padding:0;}

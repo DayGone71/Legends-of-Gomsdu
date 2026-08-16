@@ -46,7 +46,7 @@
         <span class="code" id="table-code-display">------</span>
         <button id="btn-copy-code" class="btn-ghost btn-small">Copy</button>
       </div>
-      <button id="toolbar-character" class="btn-ghost btn-small">Create New Character</button>
+      <button id="toolbar-character" class="btn-ghost btn-small">Create a Character</button>
       <div class="who">You are <b id="who-name">&mdash;</b></div>
       <div class="header-actions">
         <button id="toolbar-dmtest" class="btn-ghost btn-small">DM Test</button>
@@ -123,70 +123,133 @@
     <!-- PANELS -->
     <div id="panel-backdrop" class="hidden"></div>
 
-    <div id="panel-character" class="panel-overlay hidden">
+    <div id="panel-character" class="panel-overlay wide hidden">
       <div class="panel-overlay-header">
-        <h2>Character Sheet</h2>
+        <h2>Create a Character</h2>
         <div class="save-hint" id="save-hint"></div>
         <button id="panel-close-character" class="btn-ghost btn-small">Close</button>
       </div>
       <div class="sheet">
-        <div class="field">
-          <label>Load a build</label>
-          <select id="ch-build-loader">
-            <option value="">&mdash; pick a template &mdash;</option>
-            <optgroup label="Player">
-              <option value="player-swift">Player &mdash; Swift</option>
-              <option value="player-heavy">Player &mdash; Heavy</option>
-              <option value="player-parry">Player &mdash; Parry</option>
-            </optgroup>
-            <optgroup label="Enemy">
-              <option value="human-adult">Regular Human Adult</option>
-              <option value="human-farmer">Human Farmer</option>
-              <option value="human-bandit">Human Bandit</option>
-              <option value="stray-dog">Stray Dog</option>
-              <option value="empire-recruit">Empire Recruit</option>
-              <option value="cultist">Cultist</option>
-              <option value="empire-soldier">Empire Soldier</option>
-              <option value="cultist-bloodletter">Cultist Bloodletter</option>
-              <option value="woodwhisperer">Elven Woodwhisperer</option>
-              <option value="sandworm">Gigantic Sandworm</option>
-            </optgroup>
-            <optgroup label="Custom" id="ch-build-saved-group"></optgroup>
-          </select>
-        </div>
-        <button id="btn-make-active" class="btn-ghost btn-small btn-block" style="margin-bottom:14px;">Make Active Character</button>
-        <div class="field"><label>Name</label><input id="ch-name" /></div>
-        <div class="field"><label>Role</label><input id="ch-archetype" placeholder="e.g. Wandering blade-for-hire" /></div>
-        <div class="field">
-          <label>Wounds</label>
-          <div class="hp-fields">
-            <input id="ch-wounds" type="number" /> <span>/</span>
-            <input id="ch-woundsmax" type="number" />
+        <div class="sheet-columns">
+          <div class="sheet-col-left">
+            <button id="btn-make-active" class="btn-ghost btn-small btn-block" style="margin-bottom:14px;">Make Active Character</button>
+            <div class="field">
+              <label>Load a Build | Save as Template</label>
+              <div class="chat-row">
+                <select id="ch-build-loader" style="flex:2;">
+                  <option value="">&mdash; pick a template &mdash;</option>
+                  <optgroup label="Player">
+                    <option value="player-swift">Player &mdash; Swift</option>
+                    <option value="player-heavy">Player &mdash; Heavy</option>
+                    <option value="player-parry">Player &mdash; Parry</option>
+                  </optgroup>
+                  <optgroup label="Enemy">
+                    <option value="human-adult">Regular Human Adult</option>
+                    <option value="human-farmer">Human Farmer</option>
+                    <option value="human-bandit">Human Bandit</option>
+                    <option value="stray-dog">Stray Dog</option>
+                    <option value="empire-recruit">Empire Recruit</option>
+                    <option value="cultist">Cultist</option>
+                    <option value="empire-soldier">Empire Soldier</option>
+                    <option value="cultist-bloodletter">Cultist Bloodletter</option>
+                    <option value="woodwhisperer">Elven Woodwhisperer</option>
+                    <option value="sandworm">Gigantic Sandworm</option>
+                  </optgroup>
+                  <optgroup label="Custom" id="ch-build-saved-group"></optgroup>
+                </select>
+                <button id="btn-save-template" class="btn-ghost btn-small">Save as Template</button>
+              </div>
+            </div>
+            <div class="field">
+              <label>Species</label>
+              <select id="ch-species">
+                <option value="humanoid">Humanoid</option>
+                <option value="sandman">Sandman</option>
+                <option value="crystalBeing">Crystal Being</option>
+                <option value="desertAbomination">Desert Abomination</option>
+              </select>
+            </div>
+            <div class="stat-header">Possessors</div>
+            <div id="ch-possessor-grid"></div>
+            <div class="stat-header">Mini Party</div>
+            <div id="ch-miniparty-grid"></div>
+            <div class="action-row" style="margin-top:10px;">
+              <button id="ch-add-party-kind-possessor" class="btn-action">Possessor</button>
+              <button id="ch-add-party-kind-miniparty" class="btn-action">Mini-Party Character</button>
+            </div>
+            <div id="ch-add-party-fields" class="hidden" style="margin-top:10px;">
+              <div class="field"><label>Name</label><input id="ch-add-party-name" /></div>
+              <div class="field" id="ch-add-party-tier-field">
+                <label>Tier</label>
+                <select id="ch-add-party-tier">
+                  <option value="2">Possessor</option>
+                  <option value="3">Possessor</option>
+                  <option value="4">Higher Power</option>
+                  <option value="5">Supreme Force</option>
+                </select>
+              </div>
+              <div class="field" id="ch-add-party-type-field">
+                <label>Possession Type</label>
+                <select id="ch-add-party-type">
+                  <option value="shadow">Shadow Possession</option>
+                  <option value="active">Active Possession</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Base build (optional)</label>
+                <select id="ch-add-party-build">
+                  <option value="">&mdash; blank &mdash;</option>
+                </select>
+              </div>
+              <button id="btn-ch-confirm-add-party-member" class="btn-brass btn-small btn-block">Add</button>
+            </div>
+          </div>
+
+          <div class="sheet-col-right">
+            <div class="stat-grid-2">
+              <div class="field"><label>Name</label><input id="ch-name" /></div>
+              <div class="field"><label>Role</label><input id="ch-archetype" placeholder="e.g. Wandering blade-for-hire" /></div>
+            </div>
+            <div class="field">
+              <label>Wounds | Down | Body</label>
+              <div class="hp-fields">
+                <input id="ch-wounds" type="number" /> <span>/</span>
+                <input id="ch-woundsmax" type="number" />
+                <span class="sheet-inline-stat">Down: <b id="ch-down-display">&mdash;</b></span>
+                <span class="sheet-inline-stat">Body: <b id="ch-body-display">&mdash;</b></span>
+              </div>
+            </div>
+            <div class="stat-header">Technique Tree</div>
+            <div class="tech-access-grid">
+              <label class="tech-access-toggle"><input type="checkbox" id="ch-tech-flowPowers" /> Flow Powers</label>
+              <label class="tech-access-toggle"><input type="checkbox" id="ch-tech-focusPowers" /> Focus Powers</label>
+              <label class="tech-access-toggle"><input type="checkbox" id="ch-tech-lightningCrafts" /> Lightning Crafts</label>
+              <label class="tech-access-toggle"><input type="checkbox" id="ch-tech-lavaCrafts" /> Lava Crafts</label>
+            </div>
+            <div class="stat-header">Form</div>
+            <div class="stat-grid">
+              <div class="field"><label>Flow</label><input id="ch-flow" type="number" min="0" max="50" /></div>
+              <div class="field"><label>AP</label><input id="ch-ap" type="number" min="0" max="100" /></div>
+              <div class="field"><label>Recovery</label><input id="ch-recovery" type="number" min="0" max="50" /></div>
+            </div>
+            <div class="stat-grid">
+              <div class="field"><label>Power</label><input id="ch-power" type="number" min="0" max="50" /></div>
+              <div class="field"><label>Quickness</label><input id="ch-quickness" type="number" min="0" max="50" /></div>
+              <div class="field"><label>Resilience</label><input id="ch-resilience" type="number" min="0" max="50" /></div>
+            </div>
+            <div class="stat-header">Essence</div>
+            <div class="stat-grid">
+              <div class="field"><label>Lightning</label><input id="ch-lightning" type="number" min="0" max="10" /></div>
+              <div class="field"><label>Lava</label><input id="ch-lava" type="number" min="0" max="10" /></div>
+              <div class="field"><label>Focus</label><input id="ch-focus" type="number" min="0" max="10" /></div>
+            </div>
+            <div class="stat-grid">
+              <div class="field"><label>Control</label><input id="ch-control" type="number" min="0" max="10" /></div>
+              <div class="field"><label>Attunement</label><input id="ch-attunement" type="number" min="0" max="10" /></div>
+              <div class="field"><label>Life</label><input id="ch-life" type="number" min="0" max="1" /></div>
+            </div>
           </div>
         </div>
-        <div class="stat-header">Form</div>
-        <div class="stat-grid">
-          <div class="field"><label>Flow</label><input id="ch-flow" type="number" min="0" max="50" /></div>
-          <div class="field"><label>AP</label><input id="ch-ap" type="number" min="0" max="100" /></div>
-          <div class="field"><label>Recovery</label><input id="ch-recovery" type="number" min="0" max="50" /></div>
-        </div>
-        <div class="stat-grid">
-          <div class="field"><label>Power</label><input id="ch-power" type="number" min="0" max="50" /></div>
-          <div class="field"><label>Quickness</label><input id="ch-quickness" type="number" min="0" max="50" /></div>
-          <div class="field"><label>Range</label><input id="ch-range" type="number" min="0" max="50" /></div>
-        </div>
-        <div class="stat-header">Essence</div>
-        <div class="stat-grid">
-          <div class="field"><label>Lightning</label><input id="ch-lightning" type="number" min="0" max="10" /></div>
-          <div class="field"><label>Lava</label><input id="ch-lava" type="number" min="0" max="10" /></div>
-          <div class="field"><label>Focus</label><input id="ch-focus" type="number" min="0" max="10" /></div>
-        </div>
-        <div class="stat-grid">
-          <div class="field"><label>Control</label><input id="ch-control" type="number" min="0" max="10" /></div>
-          <div class="field"><label>Attunement</label><input id="ch-attunement" type="number" min="0" max="10" /></div>
-          <div class="field"><label>Life</label><input id="ch-life" type="number" min="0" max="1" /></div>
-        </div>
-        <button id="btn-save-template" class="btn-ghost btn-small btn-block" style="margin-top:10px;">Save as Template</button>
       </div>
     </div>
 
@@ -210,6 +273,10 @@
       <div class="field" style="margin-top:14px;">
         <label>Target range</label>
         <div id="target-range"><div class="log-empty">No enemies in the encounter.</div></div>
+      </div>
+      <div class="field" style="margin-top:14px;">
+        <label>Ally range</label>
+        <div id="ally-range"><div class="log-empty">No Allies to target.</div></div>
       </div>
       <div class="action-row">
         <button id="btn-attack-menu" class="btn-action">Attack</button>
@@ -299,10 +366,6 @@
           <button id="btn-add-enemy" class="btn-ghost btn-small">+ Add enemy</button>
         </div>
       </div>
-      <div class="field">
-        <label>Acting as</label>
-        <div id="dm-enemy-picker"><div class="log-empty">No enemies to control yet.</div></div>
-      </div>
       <div class="counter-row">
         <div class="counter"><span class="counter-label">Wounds</span><span id="dm-wounds-display" class="counter-value">&mdash;</span></div>
         <div class="counter"><span class="counter-label">AP (committed / total)</span><span id="dm-ap-display" class="counter-value">&mdash;</span></div>
@@ -314,6 +377,10 @@
       <div class="counter-row" style="margin-top:10px;">
         <div class="counter"><span class="counter-label">Control (live)</span><span id="dm-control-display" class="counter-value">&mdash;</span></div>
         <div class="counter"><span class="counter-label">Hit% (exposure)</span><span id="dm-hitpercent-display" class="counter-value">&mdash;</span></div>
+      </div>
+      <div class="field" style="margin-top:14px;">
+        <label>Acting as <span class="footnote" style="display:inline;">(double-click to toggle as its own target)</span></label>
+        <div id="dm-enemy-picker"><div class="log-empty">No enemies to control yet.</div></div>
       </div>
       <div class="field" style="margin-top:14px;">
         <label>Target (players)</label>
@@ -353,52 +420,68 @@
       </div>
       <p class="footnote" style="margin-bottom:14px;">Auto-stages a full AP&rsquo;s worth of attacks per side and resolves the round &mdash; for repeated combat testing without the manual click-through.</p>
       <div id="dmtest-actors"></div>
-      <div class="field" style="margin-top:16px;">
-        <label>Max rounds (for "Run Until Defeat")</label>
-        <input id="dmtest-max-rounds" type="number" min="1" max="100" value="25" />
-      </div>
-      <div class="commit-row">
+      <div class="commit-row" style="margin-top:16px;">
         <button id="btn-dmtest-round" class="btn-ghost btn-small dmtest-run-btn">Run 1 Round</button>
+        <div class="dmtest-run-n">
+          <input id="dmtest-n-rounds" type="number" min="1" max="100" value="5" title="Rounds to run" />
+          <button id="btn-dmtest-n-rounds" class="btn-ghost btn-small dmtest-run-btn">Run Rounds</button>
+        </div>
         <button id="btn-dmtest-until-defeat" class="btn-brass btn-small dmtest-run-btn">Run Until Defeat</button>
       </div>
       <div id="dmtest-result" class="dmtest-result"></div>
     </div>
 
-    <div id="panel-character-view" class="panel-overlay hidden">
+    <div id="panel-character-view" class="panel-overlay wide hidden">
       <div class="panel-overlay-header">
-        <h2 id="cv-name">Character</h2>
+        <h2 id="cv-name">Character Sheet</h2>
         <button id="panel-close-character-view" class="btn-ghost btn-small">Close</button>
       </div>
       <div class="sheet">
         <p class="footnote" id="cv-archetype" style="color:#7A6A47; margin-bottom:10px;"></p>
-        <div class="field">
-          <label>Wounds</label>
-          <div class="hp-fields">
-            <input id="cv-wounds" readonly /> <span>/</span>
-            <input id="cv-woundsmax" readonly />
+        <div class="sheet-columns">
+          <div class="sheet-col-left">
+            <div class="field"><label>Species</label><input id="cv-species" readonly /></div>
+            <div class="stat-header">Possessors</div>
+            <div id="cv-possessor-grid"></div>
+            <div class="stat-header">Mini Party</div>
+            <div id="cv-miniparty-grid"></div>
           </div>
-        </div>
-        <div class="stat-header">Form</div>
-        <div class="stat-grid">
-          <div class="field"><label>Flow</label><input id="cv-flow" readonly /></div>
-          <div class="field"><label>AP</label><input id="cv-ap" readonly /></div>
-          <div class="field"><label>Recovery</label><input id="cv-recovery" readonly /></div>
-        </div>
-        <div class="stat-grid">
-          <div class="field"><label>Power</label><input id="cv-power" readonly /></div>
-          <div class="field"><label>Quickness</label><input id="cv-quickness" readonly /></div>
-          <div class="field"><label>Range</label><input id="cv-range" readonly /></div>
-        </div>
-        <div class="stat-header">Essence</div>
-        <div class="stat-grid">
-          <div class="field"><label>Lightning</label><input id="cv-lightning" readonly /></div>
-          <div class="field"><label>Lava</label><input id="cv-lava" readonly /></div>
-          <div class="field"><label>Focus</label><input id="cv-focus" readonly /></div>
-        </div>
-        <div class="stat-grid">
-          <div class="field"><label>Control</label><input id="cv-control" readonly /></div>
-          <div class="field"><label>Attunement</label><input id="cv-attunement" readonly /></div>
-          <div class="field"><label>Life</label><input id="cv-life" readonly /></div>
+
+          <div class="sheet-col-right">
+            <div class="field">
+              <label>Wounds | Down | Body</label>
+              <div class="hp-fields">
+                <input id="cv-wounds" readonly /> <span>/</span>
+                <input id="cv-woundsmax" readonly />
+                <span class="sheet-inline-stat">Down: <b id="cv-down-display">&mdash;</b></span>
+                <span class="sheet-inline-stat">Body: <b id="cv-body-display">&mdash;</b></span>
+              </div>
+            </div>
+            <div class="stat-header">Technique Tree</div>
+            <div id="cv-tech-access" class="tech-access-grid"></div>
+            <div class="stat-header">Form</div>
+            <div class="stat-grid">
+              <div class="field"><label>Flow</label><input id="cv-flow" readonly /></div>
+              <div class="field"><label>AP</label><input id="cv-ap" readonly /></div>
+              <div class="field"><label>Recovery</label><input id="cv-recovery" readonly /></div>
+            </div>
+            <div class="stat-grid">
+              <div class="field"><label>Power</label><input id="cv-power" readonly /></div>
+              <div class="field"><label>Quickness</label><input id="cv-quickness" readonly /></div>
+              <div class="field"><label>Resilience</label><input id="cv-resilience" readonly /></div>
+            </div>
+            <div class="stat-header">Essence</div>
+            <div class="stat-grid">
+              <div class="field"><label>Lightning</label><input id="cv-lightning" readonly /></div>
+              <div class="field"><label>Lava</label><input id="cv-lava" readonly /></div>
+              <div class="field"><label>Focus</label><input id="cv-focus" readonly /></div>
+            </div>
+            <div class="stat-grid">
+              <div class="field"><label>Control</label><input id="cv-control" readonly /></div>
+              <div class="field"><label>Attunement</label><input id="cv-attunement" readonly /></div>
+              <div class="field"><label>Life</label><input id="cv-life" readonly /></div>
+            </div>
+          </div>
         </div>
         <div class="stat-header">Equipment</div>
         <div id="cv-equipment" class="log-empty">No equipment system yet &mdash; placeholder.</div>
@@ -429,6 +512,8 @@
           <div class="tech-column">
             <div class="tech-column-label">Focus</div>
             <button class="tech-item" data-technique="possess">Possess</button>
+            <button class="tech-item" data-technique="embolden">Embolden</button>
+            <button class="tech-item" data-technique="anchor">Anchor</button>
           </div>
         </div>
         <div class="tech-main-header">Craft</div>
