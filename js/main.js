@@ -1,7 +1,7 @@
 import { AppState, rememberMe, forgetMe, recallMe } from './state.js';
 import { connectToSession, createNewSession, mutateTable, disconnect, registerRenderCallback } from './sync.js';
 import { genCode, genId, timeNow } from './utils.js';
-import { blankCharacter, loadBuild, scheduleSave, saveCharacter, makeActiveCharacter, renderCharacterSheet, saveAsTemplate, populateSavedCharacterDropdowns, syncFieldOnBlur, initCreateCharacterPartyUI, renderCreateCharacterParty } from './character.js';
+import { blankCharacter, loadBuild, scheduleSave, saveCharacter, makeActiveCharacter, renderCharacterSheet, saveAsTemplate, populateSavedCharacterDropdowns, populateBuildDropdowns, syncFieldOnBlur, initCreateCharacterPartyUI, renderCreateCharacterParty } from './character.js';
 import { renderLedger, renderRoster, sendMessage, initAddPartyMemberUI } from './ledger.js';
 import { renderTargetRange, renderAllyRange, toggleMenu, selectAttackKind, selectEssenceSchool, selectBlockKind, toggleCounter, commitAction, undoAction, resolveRound, renderCombatCounters, renderStagedActions, stageRest } from './combat.js';
 import { renderSequencer } from './sequencer.js';
@@ -102,6 +102,7 @@ function enterTable(code){
   document.getElementById('screen-landing').classList.add('hidden');
   document.getElementById('screen-table').classList.remove('hidden');
   document.getElementById('table-code-display').textContent = code;
+  populateBuildDropdowns();
   populateSavedCharacterDropdowns();
   populateSavedEncounterDropdown();
   renderAll();

@@ -1,7 +1,7 @@
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
 import { getSavedCharacters, saveCharacterTemplate } from './savedCharacters.js';
-import { clampInt, timeNow, flashHint, isDown } from './utils.js';
+import { clampInt, timeNow, flashHint, isDown, escapeHtml } from './utils.js';
 import { addPossessor, addMiniPartyMember } from './possession.js';
 import { possessorGridHtml, miniPartyGridHtml, wirePossessorMiniPartyClicks } from './possessionView.js';
 import { showCharacterView } from './characterView.js';
@@ -44,12 +44,16 @@ export const SPECIES = {
   }
 };
 
-// Bakes a species' deathWounds/body defaults into a Build's own literal (this
-// codebase's established pattern is full denormalization — every Character
-// carries its own copy of every stat, nothing is looked up live off a shared
-// template at runtime) rather than repeating them by hand on every entry.
+// Bakes a species' deathWounds/body defaults into a Character's own literal
+// (this codebase's established pattern is full denormalization — every
+// Character carries its own copy of every stat, nothing is looked up live
+// off a shared template at runtime) rather than repeating them by hand on
+// every entry. `speciesKey` may be null/unrecognized (Stray Dog, Sandworm —
+// see BUILDS below) — those entries just skip species/deathWounds/body
+// entirely and fall back to utils.js's DEATH_WOUNDS_DEFAULT at combat time.
 function withSpecies(speciesKey, stats){
   const sp = SPECIES[speciesKey];
+  if(!sp) return { ...stats };
   return { species: speciesKey, deathWounds: sp.deathWounds, body: new Array(sp.bodyParts).fill(true), ...stats };
 }
 
@@ -62,33 +66,30 @@ export function blankCharacter(name){
   return withSpecies('humanoid', { name, archetype: '', wounds: 0, woundsMax: 7, ap: 10, flow: 10, flowMax: 10, recovery: 5, power: 1, quickness: 5, resilience: 3, lightning: 0, lava: 0, focus: 0, control: 0, attunement: 0, life: 1, apSpent: 0, focusSpent: 0, sequence: [], possessors: [], miniParty: [] });
 }
 
-// Enemy Power/Flow values are canon, straight from reference/Power.txt's stat
-// table (the "how strong should Characters be" roster). Everything else on each
-// entry — Wounds, AP, Recovery, Quickness, Resilience, Control — isn't specified
-// there yet, so these are reasonable placeholders scaled to each creature's
-// tier, meant to be tuned once the Power brackets get rebuilt for real.
-// wounds is always 0 here (a fresh Build starts uninjured); woundsMax is each
-// creature's personal Down threshold (y) — distinct from deathWounds (z),
-// species-fixed, added by withSpecies. Stray Dog/Sandworm aren't General
-// Humanoids and don't fit any of the four species defined above yet (a
-// "Beast" species or similar is still open) — left un-tagged for now, so
-// they fall back to utils.js's DEATH_WOUNDS_DEFAULT and have no Body array.
-export const BUILDS = {
-  'player-swift':   withSpecies('humanoid', { archetype: 'Blade-quick duelist', wounds: 0,  woundsMax: 7,  ap: 20, flow: 12, flowMax: 12, recovery: 5, power: 2, quickness: 9, resilience: 3, lightning: 0, lava: 0, focus: 0, control: 0, attunement: 0 }),
-  'player-heavy':   withSpecies('humanoid', { archetype: 'Armored bruiser',      wounds: 0,  woundsMax: 7,  ap: 20, flow: 16, flowMax: 16, recovery: 7, power: 2, quickness: 4, resilience: 3, lightning: 0, lava: 0, focus: 0, control: 0, attunement: 0 }),
-  'player-parry':   withSpecies('humanoid', { archetype: 'Counter-fighter',      wounds: 0,  woundsMax: 7,  ap: 20, flow: 14, flowMax: 14, recovery: 6, power: 2, quickness: 6, resilience: 9, lightning: 0, lava: 0, focus: 0, control: 0, attunement: 0 }),
-
-  'human-adult':        withSpecies('humanoid', { archetype: 'Regular Human Adult', wounds: 0, woundsMax: 3, ap: 15, flow: 7,  flowMax: 7,  recovery: 5,  power: 7,  quickness: 5, resilience: 4,  lightning: 0, lava: 0, focus: 0, control: 5, attunement: 0 }),
-  'human-farmer':        withSpecies('humanoid', { archetype: 'Human Farmer',        wounds: 0, woundsMax: 3, ap: 15, flow: 10, flowMax: 10, recovery: 6,  power: 8,  quickness: 4, resilience: 3,  lightning: 0, lava: 0, focus: 0, control: 4, attunement: 0 }),
-  'human-bandit':        withSpecies('humanoid', { archetype: 'Human Bandit',        wounds: 0, woundsMax: 3, ap: 20, flow: 8,  flowMax: 8,  recovery: 5,  power: 11, quickness: 7, resilience: 5,  lightning: 0, lava: 0, focus: 0, control: 6, attunement: 0 }),
-  'stray-dog':           { archetype: 'Stray Dog',            wounds: 0, woundsMax: 2, ap: 10, flow: 4,  flowMax: 4,  recovery: 4,  power: 3,  quickness: 9, resilience: 2,  lightning: 0, lava: 0, focus: 0, control: 3, attunement: 0 },
-  'empire-recruit':      withSpecies('humanoid', { archetype: 'Empire Recruit',       wounds: 0, woundsMax: 4, ap: 20, flow: 13, flowMax: 13, recovery: 6,  power: 13, quickness: 6, resilience: 5,  lightning: 0, lava: 0, focus: 0, control: 6, attunement: 0 }),
-  'cultist':             withSpecies('humanoid', { archetype: 'Cultist',              wounds: 0, woundsMax: 4, ap: 25, flow: 11, flowMax: 11, recovery: 6,  power: 15, quickness: 6, resilience: 5,  lightning: 0, lava: 0, focus: 0, control: 6, attunement: 0 }),
-  'empire-soldier':      withSpecies('humanoid', { archetype: 'Empire Soldier',       wounds: 0, woundsMax: 5, ap: 30, flow: 20, flowMax: 20, recovery: 8,  power: 19, quickness: 6, resilience: 7,  lightning: 0, lava: 0, focus: 0, control: 7, attunement: 0 }),
-  'cultist-bloodletter': withSpecies('humanoid', { archetype: 'Cultist Bloodletter',  wounds: 0, woundsMax: 5, ap: 30, flow: 17, flowMax: 17, recovery: 7,  power: 21, quickness: 7, resilience: 6,  lightning: 0, lava: 0, focus: 0, control: 7, attunement: 0 }),
-  'woodwhisperer':       withSpecies('humanoid', { archetype: 'Elven Woodwhisperer',  wounds: 0, woundsMax: 6, ap: 40, flow: 40, flowMax: 40, recovery: 12, power: 36, quickness: 9, resilience: 10, lightning: 0, lava: 0, focus: 0, control: 8, attunement: 0 }),
-  'sandworm':            { archetype: 'Gigantic Sandworm',    wounds: 0, woundsMax: 8, ap: 40, flow: 68, flowMax: 68, recovery: 15, power: 74, quickness: 3, resilience: 6,  lightning: 0, lava: 0, focus: 0, control: 5, attunement: 0 }
-};
+// Character Templates (2026-08-16) — BUILDS now loads from data/characters.json
+// instead of a hardcoded literal, specifically so it can be authored in bulk
+// via a spreadsheet (reference/README or ROADMAP has the pipeline) instead of
+// hand-edited JS. Enemy Power/Flow values are canon, straight from
+// reference/Power.txt's stat table; everything else on each entry isn't
+// specified there yet, so these are reasonable placeholders scaled to each
+// creature's tier, meant to be tuned once the Power brackets get rebuilt for
+// real. Each JSON row only needs to carry what actually varies — `wounds`
+// (always starts 0, a fresh Build is uninjured), `flow` (mirrors flowMax),
+// `apSpent`/`focusSpent`/`sequence` (always empty/0 for a fresh Build) all
+// get filled in here rather than repeated in every row. A row's `species`
+// (null for Stray Dog/Sandworm, which don't fit any of the four defined
+// species yet — a "Beast" species or similar is still open) drives
+// `deathWounds`/`body` via withSpecies, same as blankCharacter above.
+// Top-level await: this module (and anything importing it — dm.js, ledger.js,
+// main.js) won't finish evaluating until the fetch resolves, which is exactly
+// what's wanted — nothing should render a Build picker before BUILDS is real.
+const CHARACTERS_DATA = await fetch('/data/characters.json').then(r => r.json());
+export const BUILDS = Object.fromEntries(
+  Object.entries(CHARACTERS_DATA).map(([key, row]) => {
+    const { species, ...rest } = row;
+    return [key, withSpecies(species, { wounds: 0, flow: rest.flowMax, ...rest })];
+  })
+);
 
 // Only fills the form fields — doesn't save. Picking a build used to call
 // scheduleSave() immediately, which meant just browsing the dropdown silently
@@ -120,6 +121,51 @@ export function loadBuild(key){
   document.getElementById('ch-control').value = b.control ?? 0;
   document.getElementById('ch-attunement').value = b.attunement ?? 0;
   document.getElementById('ch-life').value = b.life ?? 1;
+}
+
+// Populates the Player/Custom-bracketing optgroups of both build pickers
+// from BUILDS itself (2026-08-16) — now that BUILDS loads from
+// data/characters.json instead of a hardcoded literal, a static HTML option
+// list would silently miss anything a spreadsheet edit adds. Call once at
+// startup, before populateSavedCharacterDropdowns (below) fills in the
+// separate "Custom" optgroup.
+//
+// Category is free text (2026-08-16, generalized) — dDd's spreadsheet isn't
+// limited to "player"/"enemy", he tags Characters however he wants
+// (civilian, rogue, animal, imperial, ...) to organize the list. "player" is
+// still special-cased as its own optgroup (Create-a-Character only — the DM
+// spawn picker never shows it, same as before), but every other distinct
+// Category value present in BUILDS gets its own dynamically-labeled optgroup
+// in both pickers, inserted right before the "Custom" (saved-character)
+// group. Old dynamic groups are removed and rebuilt each call so the list
+// never drifts from whatever's actually in BUILDS.
+function labelForCategory(category){
+  return category.charAt(0).toUpperCase() + category.slice(1);
+}
+function rebuildDynamicCategoryGroups(select, anchor, categories){
+  if(!select || !anchor) return;
+  select.querySelectorAll('optgroup[data-dynamic-category]').forEach(g => g.remove());
+  categories.forEach(cat => {
+    const group = document.createElement('optgroup');
+    group.label = labelForCategory(cat);
+    group.dataset.dynamicCategory = 'true';
+    group.innerHTML = Object.entries(BUILDS)
+      .filter(([, b]) => (b.category || 'enemy') === cat)
+      .map(([key, b]) => '<option value="' + key + '">' + escapeHtml(b.archetype || key) + '</option>').join('');
+    select.insertBefore(group, anchor);
+  });
+}
+export function populateBuildDropdowns(){
+  const allCategories = [...new Set(Object.values(BUILDS).map(b => (b.category || 'enemy').trim() || 'enemy'))].sort();
+  const nonPlayerCategories = allCategories.filter(c => c !== 'player');
+
+  const chPlayer = document.getElementById('ch-build-player-group');
+  if(chPlayer) chPlayer.innerHTML = Object.entries(BUILDS)
+    .filter(([, b]) => (b.category || 'enemy') === 'player')
+    .map(([key, b]) => '<option value="' + key + '">' + escapeHtml(b.archetype || key) + '</option>').join('');
+
+  rebuildDynamicCategoryGroups(document.getElementById('ch-build-loader'), document.getElementById('ch-build-saved-group'), nonPlayerCategories);
+  rebuildDynamicCategoryGroups(document.getElementById('dm-enemy-build-picker'), document.getElementById('dm-build-saved-group'), nonPlayerCategories);
 }
 
 // Rebuilds the "Custom" optgroups in both the sheet's build loader and the DM's

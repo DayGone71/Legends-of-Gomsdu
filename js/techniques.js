@@ -13,62 +13,17 @@ function showBannerError(msg){
   setTimeout(() => el.classList.add('hidden'), 5000);
 }
 
-// Data-driven so adding a new Technique later is just a new entry here — no
-// new staging/undo/cost-checking code needed, the engine below is generic
-// over whatever `costs` a Technique lists. dDd's spec, 2026-08-16. Effects
-// are text-only for now (not mechanically resolved) except Separation's Map
-// Obstacle, which is simple/deterministic enough to actually implement.
-export const TECHNIQUES = {
-  wound: {
-    name: 'Wound', group: 'Powers', column: 'Flow', type: 'Physical Attack',
-    costs: { ap: 15, flow: 10 }, range: 2,
-    effect: 'Bypasses Target Flow entirely. If Flow is already 0, this attack gets +Hit%.'
-  },
-  possess: {
-    name: 'Possess', group: 'Powers', column: 'Focus', type: 'Mystic Influence',
-    costs: { ap: 20, focus: 2 }, range: 5,
-    effect: 'Target is possessed for the next Sequence.'
-  },
-  // Embolden/Anchor (design settled 2026-08-15, engine 2026-08-16, real
-  // ally-targeting wired in once the Ally Targeting System existed to wire
-  // it to) are the first Techniques to carry an explicit `duration` —
-  // everything above defaults to "this Sequence only" implicitly; these two
-  // are meant to outlive it. Also the first to carry `targetSide: 'ally'` —
-  // everything else implicitly targets Enemies. Text-only for now, same as
-  // Heart Attack/Skull Explosion/Bloodkindle — no Control-buff state is
-  // actually applied yet (Buffs don't have a real data model to live in yet,
-  // see Techniques Panel item C in the roadmap).
-  embolden: {
-    name: 'Embolden', group: 'Powers', column: 'Focus', type: 'Mystic Influence',
-    costs: { ap: 20, focus: 2 }, range: 5, duration: { sequences: 1 }, targetSide: 'ally',
-    effect: 'Target gains +2 Control for the rest of this Sequence.'
-  },
-  anchor: {
-    name: 'Anchor', group: 'Powers', column: 'Focus', type: 'Mystic Influence',
-    costs: { ap: 20, focus: 1 }, range: 5, duration: { sequences: 3 }, targetSide: 'ally',
-    effect: 'Target gains +1 Control for the next 3 Sequences.'
-  },
-  heartAttack: {
-    name: 'Heart Attack', group: 'Craft', column: 'Lightning', type: 'Mystic Attack',
-    costs: { ap: 20, lightning: 1 }, range: 5,
-    effect: "Target's Flow is reduced to 0. If Flow is already 0, a chance to deal 1 Wound at 50% Hit%."
-  },
-  skullExplosion: {
-    name: 'Skull Explosion', group: 'Craft', column: 'Lightning', type: 'Mystic Attack',
-    costs: { ap: 20, lightning: 1 }, range: 5,
-    effect: 'An attack is made with 10 Power against the Target.'
-  },
-  separation: {
-    name: 'Separation', group: 'Craft', column: 'Lava', type: 'Mystic Transformation',
-    costs: { ap: 20, lava: 1 }, range: 5,
-    effect: 'Lifts a chunk of Matter from the Planet — becomes a Map Obstacle on the Tile immediately to the right of the user.'
-  },
-  bloodkindle: {
-    name: 'Bloodkindle', group: 'Craft', column: 'Lava', type: 'Mystic Transformation',
-    costs: { ap: 20, lava: 1 }, range: 5,
-    effect: 'Target gains +10 Power on all attacks made during the Sequence.'
-  }
-};
+// Data-driven so adding a new Technique later is just a new entry — no new
+// staging/undo/cost-checking code needed, the engine below is generic over
+// whatever `costs` a Technique lists. Engine built 2026-08-16; loads from
+// data/techniques.json (2026-08-16, same night, alongside Character
+// Templates) instead of a hardcoded literal, so it can be authored in bulk
+// via the same spreadsheet pipeline as Characters. Effects are text-only for
+// now (not mechanically resolved) except Separation's Map Obstacle, which is
+// simple/deterministic enough to actually implement. Top-level await: this
+// module won't finish evaluating until the fetch resolves — nothing that
+// imports TECHNIQUES can run before it's real data.
+export const TECHNIQUES = await fetch('/data/techniques.json').then(r => r.json());
 
 const RESOURCE_LABELS = { ap: 'AP', focus: 'Focus', flow: 'Flow', lightning: 'Lightning', lava: 'Lava' };
 

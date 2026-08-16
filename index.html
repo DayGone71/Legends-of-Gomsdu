@@ -138,23 +138,7 @@
               <div class="chat-row">
                 <select id="ch-build-loader" style="flex:2;">
                   <option value="">&mdash; pick a template &mdash;</option>
-                  <optgroup label="Player">
-                    <option value="player-swift">Player &mdash; Swift</option>
-                    <option value="player-heavy">Player &mdash; Heavy</option>
-                    <option value="player-parry">Player &mdash; Parry</option>
-                  </optgroup>
-                  <optgroup label="Enemy">
-                    <option value="human-adult">Regular Human Adult</option>
-                    <option value="human-farmer">Human Farmer</option>
-                    <option value="human-bandit">Human Bandit</option>
-                    <option value="stray-dog">Stray Dog</option>
-                    <option value="empire-recruit">Empire Recruit</option>
-                    <option value="cultist">Cultist</option>
-                    <option value="empire-soldier">Empire Soldier</option>
-                    <option value="cultist-bloodletter">Cultist Bloodletter</option>
-                    <option value="woodwhisperer">Elven Woodwhisperer</option>
-                    <option value="sandworm">Gigantic Sandworm</option>
-                  </optgroup>
+                  <optgroup label="Player" id="ch-build-player-group"></optgroup>
                   <optgroup label="Custom" id="ch-build-saved-group"></optgroup>
                 </select>
                 <button id="btn-save-template" class="btn-ghost btn-small">Save as Template</button>
@@ -351,16 +335,6 @@
         <label>Spawn enemy</label>
         <div class="chat-row">
           <select id="dm-enemy-build-picker">
-            <option value="human-adult">Regular Human Adult</option>
-            <option value="human-farmer">Human Farmer</option>
-            <option value="human-bandit">Human Bandit</option>
-            <option value="stray-dog">Stray Dog</option>
-            <option value="empire-recruit">Empire Recruit</option>
-            <option value="cultist">Cultist</option>
-            <option value="empire-soldier">Empire Soldier</option>
-            <option value="cultist-bloodletter">Cultist Bloodletter</option>
-            <option value="woodwhisperer">Elven Woodwhisperer</option>
-            <option value="sandworm">Gigantic Sandworm</option>
             <optgroup label="Custom" id="dm-build-saved-group"></optgroup>
           </select>
           <button id="btn-add-enemy" class="btn-ghost btn-small">+ Add enemy</button>
