@@ -27,6 +27,11 @@ export const AppState = {
   // UI-only, never synced
   activePanel: null,
   mapEditMode: false,
+  // Veil Vision (2026-08-16) — a personal, local-only "see through the fog"
+  // toggle, deliberately not synced to the table: it's meant to feel like
+  // your own vision changing, not a shared DM broadcast, so one player
+  // turning it on must not reveal anything to anyone else connected.
+  veilVision: false,
 
   // DM Test panel — per-actor auto-battle config and run state, all local/UI-only
   dmTestConfig: { enemies: {}, players: {} },

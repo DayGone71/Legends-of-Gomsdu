@@ -56,7 +56,23 @@ export function renderLedger(){
   // #ledger is flex-direction:column-reverse (newest renders at top), which also
   // reverses what scrollTop:0 means — manual scrollTop math fights the browser.
   // scrollIntoView on the newest entry resolves correctly regardless of axis.
-  if(el.lastElementChild) el.lastElementChild.scrollIntoView({ block: 'end' });
+  // Two guards on top of that, both earned the hard way: block:'nearest' (not
+  // 'end') keeps the scroll contained to #ledger's own overflow-y:auto box
+  // rather than planting the entry at the bottom of the whole viewport: but
+  // 'nearest' alone still isn't enough when #ledger itself is off-screen
+  // (e.g. the user's scrolled up to watch the Sequencer divider) — the
+  // browser still has to scroll *something* to bring an invisible element
+  // into view, and during resolveRound() (many Ledger entries pushed in
+  // quick succession) that was yanking the whole page down and off the
+  // divider every time, so you'd never actually see the sweep play out. The
+  // real fix: only auto-scroll if #ledger is already at least partly visible
+  // — never hijack the page to reveal a panel the user isn't currently
+  // looking at.
+  if(el.lastElementChild){
+    const rect = el.getBoundingClientRect();
+    const ledgerVisible = rect.top < window.innerHeight && rect.bottom > 0;
+    if(ledgerVisible) el.lastElementChild.scrollIntoView({ block: 'nearest' });
+  }
 }
 
 export async function sendMessage(){
@@ -100,7 +116,7 @@ export function renderRoster(){
     const initial = (p.name || '?').trim().charAt(0).toUpperCase() || '?';
 
     return '<div class="roster-stack">' +
-      possessorGridHtml(p, id) +
+      possessorGridHtml(p, id, !AppState.veilVision) +
       '<div class="roster-item" data-player-id="' + id + '">' +
       '<div class="avatar">' + initial + '</div>' +
       '<div class="roster-info">' +

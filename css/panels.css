@@ -12,7 +12,23 @@
 .panel-overlay-header h2{font-size:16px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-light);}
 
 /* ---------- Ledger ---------- */
-#ledger{max-height:420px; overflow-y:auto; padding-right:4px; display:flex; flex-direction:column-reverse;}
+/* Fixed (not dynamic) heights, 2026-08-16 — dDd's own systemic fix for the
+   Map/toolbar overlap class of bug: the Party Panel used to grow with
+   however many Possessors/Mini-Party members actually existed, shifting
+   everything below it. Sized generously for a realistic worst case — 5
+   Player Characters, each with 4 (manually-added) Possessors on top of the
+   2 always-present Gom/Kulkrow defaults, plus 4 Mini-Party members — using
+   real measured per-row heights (~20px/row in both the Possessor and
+   Mini-Party grids, ~31px per Character's own row, ~54px of fixed
+   per-Character chrome for the roster-stack's own padding/border and its
+   "+ Add AI Party Member" button) rather than a guess: 5 × (31 + 3×20 +
+   2×20 + 54) ≈ 925px, rounded up with a little headroom. #ledger matches
+   it exactly per dDd ("Ledger should be as long as the Party Panel is").
+   overflow-y:auto on both is a safety net for the rare case actual content
+   exceeds this, not the normal path — normal rosters/logs sit well inside
+   it and the box never visibly resizes as they change. */
+#roster{height:950px; overflow-y:auto;}
+#ledger{height:950px; overflow-y:auto; padding-right:4px; display:flex; flex-direction:column-reverse;}
 .log-entry{
   font-family:'IBM Plex Mono',monospace; font-size:13px; line-height:1.6;
   padding:9px 0; border-bottom:1px dashed var(--ink-line); display:flex; gap:10px;
@@ -58,6 +74,7 @@
 .roster-item .avatar{
   width:30px; height:30px; border-radius:50%; background:var(--brass); color:#221A0E;
   display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex-shrink:0;
+  cursor:pointer; user-select:none;
 }
 .roster-info{flex:1; min-width:0;}
 .roster-info .r-name{font-size:13.5px; font-weight:600;}
@@ -150,7 +167,11 @@
   position:relative; background:var(--ink); border:1px solid var(--ink-line); border-radius:6px; padding:7px 12px;
   font-size:12.5px; cursor:pointer; color:var(--text-light);
 }
-.target-chip.selected{border-color:var(--brass); color:var(--brass-bright); background:rgba(185,151,91,.1);}
+.target-chip.selected{
+  border-color:var(--brass-bright); color:var(--brass-bright); background:rgba(185,151,91,.16);
+  box-shadow:0 0 0 1px var(--brass-bright), 0 0 8px rgba(185,151,91,.55);
+  font-weight:600;
+}
 .target-chip.defeated{opacity:.4; text-decoration:line-through; cursor:default;}
 .chip-sub{color:var(--text-dim); font-size:11px;}
 /* DM's "Acting As" chip, double-clicked into targeting itself (2026-08-16) —
@@ -180,30 +201,10 @@
 }
 
 /* ---------- Sequencer ---------- */
-.seq-wrap{position:relative; padding-top:30px;}
-.seq-counter-badge{
-  position:absolute; top:0; left:50%; transform:translateX(-50%);
-  background:var(--ink); border:1px solid var(--brass); color:var(--brass-bright);
-  font-family:'IBM Plex Mono',monospace; font-size:13px; padding:3px 10px; border-radius:6px;
-}
-.seq-line-row{position:relative; height:24px; margin-top:8px;}
-.seq-line{position:absolute; left:0; right:0; top:50%; height:1px; background:var(--ink-line);}
-.seq-tick{position:absolute; top:50%; width:1px; height:6px; background:var(--ink-line); transform:translate(-50%,-50%);}
-.seq-tick.major{height:10px; background:var(--text-dim);}
-.seq-tick-label{position:absolute; top:100%; transform:translateX(-50%); font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--text-dim); margin-top:2px;}
-.seq-lane-label{font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-dim); margin-top:18px; margin-bottom:6px;}
-.seq-lane{position:relative; height:54px;}
-.seq-lane.enemy{border:1px dashed var(--ink-line); border-radius:8px;}
-.seq-marker{position:absolute; top:2px; transform:translateX(-50%); display:flex; flex-direction:column; gap:2px; align-items:center;}
-.seq-marker-box{
-  background:var(--ink); border:1px solid var(--brass); color:var(--brass-bright);
-  font-family:'IBM Plex Mono',monospace; font-size:11px; padding:3px 6px; border-radius:4px; white-space:nowrap;
-}
-.seq-marker-box.action{border-color:var(--ink-line); color:var(--text-light);}
-.seq-entry-tick{position:absolute; top:50%; width:2px; height:14px; background:var(--sage); transform:translate(-50%,-50%);}
-.seq-entry-tick.dm{background:var(--ember);}
-.seq-entry-label{position:absolute; bottom:100%; transform:translateX(-50%); font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--sage); margin-bottom:2px; white-space:nowrap;}
-.seq-entry-label.dm{color:var(--ember-bright);}
+/* The old boxed "Your actions"/"Enemy actions" lane display (#sequencer-shell
+   and everything in it) is gone entirely — removed 2026-08-16 (CC5) as
+   redundant bloat once the divider's own slashes + Blood Drops took over
+   showing staged actions. See css/layout.css and js/sequencer.js. */
 
 /* ---------- DM Test panel ---------- */
 .dmtest-side-label{font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-dim); margin:14px 0 6px;}
@@ -273,11 +274,11 @@
    other claimed hue in the game (Gom: white/blue/indigo, Kulkrow:
    orange/red/black, existing brass "occupied" tiles, burgundy Down, pink
    Chunks) — see reference/ROADMAP.md's Color Schemes note for the reasoning. */
-.map-tile.edge-ally{box-shadow:inset 0 0 0 2px #2ECC71; z-index:3;}
-.map-tile.edge-enemy{box-shadow:inset 0 0 0 2px #22D3EE; z-index:3;}
+.map-tile.edge-ally{box-shadow:inset 0 0 0 2px #22D3EE; z-index:3;}
+.map-tile.edge-enemy{box-shadow:inset 0 0 0 2px #F5C518; z-index:3;}
 .map-corner, .map-col-header, .map-row-header{
   display:flex; align-items:center; justify-content:center;
   font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-dim);
 }
 .map-corner{font-size:13px;}
-.map-toolbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;}
+.map-toolbar{display:flex; justify-content:flex-end; align-items:center; gap:8px; margin-top:8px;}

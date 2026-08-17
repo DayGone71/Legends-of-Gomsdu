@@ -4,7 +4,7 @@ import { escapeHtml, timeNow, playerShorthand, apCostForControl, describeAction,
 import { BUILDS } from './character.js';
 import { getSavedCharacters } from './savedCharacters.js';
 import { getSavedEncounters, saveEncounterTemplate } from './savedEncounters.js';
-import { updateToolbarAvailability } from './panels.js';
+import { updateEncounterUI } from './panels.js';
 
 function showBannerError(msg){
   const el = document.getElementById('banner-error');
@@ -30,7 +30,7 @@ export async function startEncounter(){
     t.inEncounter = true;
     t.log.push({ type: 'system', text: 'The DM starts an encounter', time: timeNow() });
   });
-  updateToolbarAvailability();
+  updateEncounterUI();
 }
 
 export async function endEncounter(){
@@ -38,7 +38,7 @@ export async function endEncounter(){
     t.inEncounter = false;
     t.log.push({ type: 'system', text: 'The encounter ends', time: timeNow() });
   });
-  updateToolbarAvailability();
+  updateEncounterUI();
 }
 
 export async function addEnemy(){

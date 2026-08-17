@@ -25,6 +25,146 @@
 }
 .landing-card input::placeholder{color:var(--text-dim); font-family:'Inter',sans-serif; letter-spacing:0;}
 
+/* Color Laboratory — a static, labeled color showcase (was an animated wave
+   piece; dDd's call to swap it for something clearer to actually study).
+   Each settled hue-family gets a row: Palette name, its Primary/Secondary/
+   Highlight stops as their own small patches, then the full blended
+   Gradient — all 5 columns aligned under one header via CSS Grid. Below
+   that, a live "Experiment" patch driven by either the hue slider or a
+   typed hex code, for test-driving a candidate color against the palette. */
+.color-lab{
+  width:100%; max-width:900px; margin:40px auto 0; padding:22px 24px;
+  border-radius:18px; background:var(--ink-soft); border:1px solid var(--ink-line);
+  display:flex; flex-direction:column; gap:11px;
+}
+.color-lab-title{
+  font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--brass); margin-bottom:2px;
+}
+.color-lab-headers{
+  display:grid; grid-template-columns:150px 74px 74px 74px 1fr; gap:10px;
+  font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:.05em;
+  text-transform:uppercase; color:var(--text-dim); padding-bottom:2px; white-space:nowrap;
+}
+.color-lab-headers span:first-child{text-align:right;}
+.color-lab-headers span:not(:first-child){text-align:center;}
+.color-lab-row{display:grid; grid-template-columns:150px 74px 74px 74px 1fr; gap:10px; align-items:center;}
+.color-lab-label{font-size:13px; color:var(--text-dim); text-align:right;}
+.color-lab-patch-sm{height:32px; border-radius:7px; border:1px solid rgba(255,255,255,.08); cursor:pointer;}
+.color-lab-band{height:32px; border-radius:7px; border:1px solid rgba(255,255,255,.08);}
+
+/* Click a patch to highlight it (single-select among the palette patches;
+   the Experiment patch highlights independently). When the Experiment patch
+   and a palette patch are highlighted at the same time, the palette patch's
+   color is overwritten to match — live, so it keeps tracking the Experiment
+   color for as long as both stay highlighted. Outline, not border/box-
+   shadow, so highlighting never shifts the grid's own sizing. */
+.color-lab-patch-sm.highlighted, .color-lab-patch.highlighted{
+  outline:3px solid var(--brass-bright); outline-offset:2px;
+}
+
+.color-lab-experiment{padding-top:8px; margin-top:2px; border-top:1px solid var(--ink-line); display:flex; flex-direction:column; gap:8px;}
+.color-lab-exp-row{display:flex; align-items:center; gap:14px;}
+.color-lab-exp-row .color-lab-label{width:150px; flex-shrink:0;}
+.color-lab-patch{
+  width:70px; height:32px; border-radius:7px; border:1px solid rgba(255,255,255,.08);
+  flex-shrink:0; background:hsl(160,65%,55%); cursor:pointer;
+}
+.color-lab-slider{flex:1; accent-color:var(--brass);}
+.color-lab-value{
+  width:170px; flex-shrink:0; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-dim);
+}
+.color-lab-hex-input{
+  width:110px; padding:7px 10px; border-radius:6px; border:1px solid var(--ink-line);
+  background:var(--ink); color:var(--text-light);
+  font-family:'IBM Plex Mono',monospace; font-size:13px; letter-spacing:.03em;
+}
+
+/* Lightning box — pure fun, no function. Click anywhere and a bolt strikes
+   toward that point from somewhere above it. Each bolt is a fresh, randomly
+   generated jagged path (js/main.js's spawnLightningBolt/buildJaggedPath) —
+   varied length, start angle, jaggedness, and branch count — rendered as one
+   crisp white core stroke with 3 stacked drop-shadows standing in for the
+   Inner Glow / Outer Glow / Aura layers, so the layering is real depth, not
+   a flat tint. A multi-peak flicker keyframe (not a single fade) gives the
+   afterimage/strobe feel, at a per-bolt randomized duration. Old bolts clean
+   themselves out of the DOM once their animation ends. */
+/* Controller row — two draggable rotary knobs (Frequency, Intensity) plus a
+   Start/Stop toggle for auto-strikes, sitting above the box. Knobs use
+   Pointer Events with a vertical-drag convention (standard for software
+   knobs — literal angle-tracking off cursor position is fiddlier to use
+   than it sounds), rendered via one CSS custom property (--angle) driving
+   the indicator's rotation across a 270° sweep. See initKnob() in js/main.js. */
+.lightning-controls{
+  width:100%; max-width:900px; margin:24px auto 0;
+  display:flex; align-items:center; justify-content:center; gap:40px;
+}
+.lightning-knob-wrap{display:flex; flex-direction:column; align-items:center; gap:5px;}
+.lightning-knob{
+  width:54px; height:54px; border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, #2b2b2b, #0a0a0a 72%);
+  border:2px solid var(--ink-line); position:relative;
+  cursor:ns-resize; touch-action:none; user-select:none;
+}
+.lightning-knob:focus-visible{outline:2px solid var(--brass-bright); outline-offset:3px;}
+.lightning-knob-indicator{
+  position:absolute; left:50%; top:50%; width:3px; height:20px;
+  background:#00E5FF; border-radius:2px; transform-origin:50% 0%;
+  transform:translateX(-50%) rotate(var(--angle, -135deg));
+  box-shadow:0 0 6px #00E5FF, 0 0 12px #287BFF;
+}
+.lightning-knob-label{
+  font-size:11px; color:var(--text-dim); font-family:'IBM Plex Mono',monospace;
+  text-transform:uppercase; letter-spacing:.06em;
+}
+.lightning-knob-value{font-size:10px; color:var(--text-dim); font-family:'IBM Plex Mono',monospace;}
+
+.lightning-box{
+  width:100%; max-width:900px; height:260px; margin:14px auto 0;
+  background:#000; border-radius:18px; border:1px solid var(--ink-line);
+  position:relative; overflow:hidden; cursor:crosshair;
+}
+.lightning-bolt-svg{position:absolute; inset:0; pointer-events:none;}
+.lightning-core{
+  fill:none; stroke:#FFFFFF; stroke-linecap:round; stroke-linejoin:round;
+  filter:
+    drop-shadow(0 0 calc(3px * var(--glow-scale, 1)) #00E5FF)
+    drop-shadow(0 0 calc(8px * var(--glow-scale, 1)) #287BFF)
+    drop-shadow(0 0 calc(16px * var(--glow-scale, 1)) #6A2CFF);
+}
+.lightning-branch{opacity:.8;}
+.lightning-flash .lightning-bolt{
+  animation-name:bolt-flicker;
+  animation-duration:var(--bolt-dur, 700ms);
+  animation-timing-function:ease-out;
+  animation-fill-mode:forwards;
+}
+@keyframes bolt-flicker{
+  0%{opacity:0;}
+  6%{opacity:1;}
+  14%{opacity:.25;}
+  22%{opacity:.9;}
+  32%{opacity:.15;}
+  44%{opacity:.55;}
+  60%{opacity:.1;}
+  100%{opacity:0;}
+}
+
+/* Lava box — Kulkrow's counterpart to the lightning box, same "click to
+   place, Start/Stop to run" shape but a continuous simulation instead of a
+   one-shot flash. Real per-frame physics in js/main.js's initLavaBox() —
+   no directional gravity, each blob random-walks and bounces off its own
+   vent's circular Crust pool (5x that vent ring's diameter), which is what
+   actually confines it, not a screen edge. The white outer box is the Lava
+   box itself; the dark Crust only exists inside each vent's own pool. */
+.lava-controls{width:100%; max-width:900px; margin:24px auto 0; display:flex; align-items:center; justify-content:center;}
+.lava-box{
+  width:100%; max-width:900px; height:260px; margin:14px auto 0;
+  background:#FFFFFF; border-radius:18px; border:1px solid var(--ink-line);
+  position:relative; overflow:hidden; cursor:crosshair;
+}
+#lava-canvas{position:absolute; inset:0; width:100%; height:100%; display:block;}
+
 /* ---------- Table shell ---------- */
 #screen-table{display:flex; flex-direction:column; gap:20px;}
 .table-header{
@@ -36,21 +176,191 @@
   border:1.5px solid var(--brass); border-radius:999px; padding:6px 8px 6px 16px;
 }
 .seal .code{font-family:'IBM Plex Mono',monospace; font-size:17px; letter-spacing:.12em; color:var(--brass-bright);}
+/* Fixed width sized for "Copied!" (its longest routine label) so the pill
+   doesn't visibly resize/reflow when copyCode() in js/main.js swaps the
+   button's text in and out — text-align:center keeps the shorter resting
+   "Copy" label looking intentional rather than off-center in the extra
+   space. */
+#btn-copy-code{width:72px; text-align:center;}
 .who{font-size:13px; color:var(--text-dim);}
 .who b{color:var(--text-light); font-weight:600;}
 .header-actions{display:flex; align-items:center; gap:10px;}
 
-/* Persistent toolbar for contextual panels */
+/* Toolbar buttons for contextual panels — a horizontal row (unused now, kept in
+   case a flat toolbar returns somewhere) and the vertical stacks flanking the
+   Map (.side-toolbar) share the same button look. */
 .toolbar{display:flex; gap:10px; flex-wrap:wrap;}
-.toolbar button{
+.toolbar button, .side-toolbar button{
   background:var(--ink-soft); border:1px solid var(--ink-line); color:var(--text-light);
   padding:10px 16px; border-radius:8px; font-size:13.5px;
 }
-.toolbar button.active{border-color:var(--brass); color:var(--brass-bright);}
+.toolbar button.active, .side-toolbar button.active{border-color:var(--brass); color:var(--brass-bright);}
+.side-toolbar{display:flex; flex-direction:column; gap:10px; justify-content:center; flex-shrink:0;}
+.side-toolbar button{width:148px;}
 
-/* Persistent area: Ledger + Map, always visible */
-.persistent-grid{display:grid; grid-template-columns:1.1fr .9fr; gap:22px;}
+/* Sequencer divider — decorative strip left behind by the old horizontal
+   toolbar, reimagined as part of the Sequencer: a circle (blank outside an
+   Encounter, the round's total AP scale once one starts) bisecting a line
+   that tapers to a sharp point as it reaches toward the screen's edges.
+   Full-bleed past #app's own max-width via the negative-margin trick, at
+   90vw (pulled in from an earlier 95vw pass — still a touch too close to
+   the edges per dDd) rather than a full 100vw so the sharp tips stay well
+   short of the actual screen edge. The wedge shape itself always looks the
+   same — only the tick density layered behind it (and the marks row below)
+   changes with the current AP scale. */
+.sequencer-divider{
+  position:relative; left:50%; width:90vw; margin-left:-45vw;
+  display:flex; align-items:center; justify-content:center;
+  height:46px;
+}
+/* Scrub cursors only apply while .seq-scrubbable is toggled on (live
+   Encounter, set in renderSequencerDivider() in js/sequencer.js) — outside
+   that there's nothing for a click here to do, so the bar shouldn't look
+   clickable. */
+.sequencer-divider.seq-scrubbable{cursor:pointer;}
+.sequencer-divider-ticks{position:absolute; inset:0; z-index:1; pointer-events:none;}
+.sequencer-divider-tick{
+  position:absolute; top:50%; width:1px; height:10px; background:var(--ink-line);
+  transform:translate(-50%,-50%);
+}
+.sequencer-divider-tick.major{height:20px; background:var(--text-dim);}
+.sequencer-divider-wing{
+  flex:1; height:16px; background:var(--brass); opacity:.55; max-width:640px;
+  position:relative; z-index:2;
+}
+.sequencer-divider-wing.left{clip-path:polygon(100% 0%, 100% 100%, 0% 50%);}
+.sequencer-divider-wing.right{clip-path:polygon(0% 0%, 0% 100%, 100% 50%);}
+.sequencer-divider-circle{
+  flex-shrink:0; width:52px; height:52px; margin:0 -2px; border-radius:50%;
+  background:var(--ink-soft); border:2px solid var(--brass);
+  display:flex; align-items:center; justify-content:center; z-index:3; position:relative;
+  font-family:'IBM Plex Mono',monospace; font-size:15px; font-weight:600; color:var(--brass-bright);
+}
+
+/* The moving needle — a vertical "reptile eye" marker (3 nested lens-shaped
+   paths: dark shell, bright gold gap/iris, dark core/pupil, plus an outer
+   glow) that sweeps the divider's own 0-100 scale. Visible only while an
+   Encounter is live (toggled via .hidden in js/sequencer.js, same gate as
+   the ticks/marks/badge), but otherwise sits still at rest (left:100%) — it
+   does NOT loop. Position/opacity are driven every frame by JS
+   (applySweepFrame() in js/sequencer.js, a requestAnimationFrame clock)
+   rather than a CSS animation, so the sweep can be jumped/skipped
+   interactively (click = jump to next Moment, click-hold = jump to end).
+   Vanishes (fades to opacity 0) right as it reaches the end, rather than
+   holding visible — .hidden then re-shows it at rest for the next Round.
+   Purely a look-and-feel prototype for now — a single marker, not tied to
+   any real per-actor AP data yet; that's the deferred "tick logic"
+   conversation. */
+.sequencer-needle{
+  position:absolute; top:50%; left:100%; transform:translate(-50%,-50%);
+  z-index:5; pointer-events:none;
+}
+.sequencer-needle-svg{
+  width:26px; height:56px; display:block;
+  filter:drop-shadow(0 0 9px rgba(185,151,91,.6));
+}
+.sequencer-needle-svg .needle-shell{fill:var(--ink);}
+.sequencer-needle-svg .needle-gap{fill:var(--brass-bright);}
+.sequencer-needle-svg .needle-core{fill:var(--ink);}
+
+/* Start-of-Encounter lightning flourish — dDd's spec: up to 3 bolts coiling
+   out to the left and up to 3 to the right from the AP circle, fired once
+   the instant an Encounter actually starts (real state transition, not the
+   button click, so every connected player sees it including on remote
+   Start clicks synced in over realtime — see flourishEncounterStart() in
+   js/sequencer.js). Reuses the landing page's Lightning box glow/flicker
+   classes (.lightning-core/.lightning-branch/.lightning-flash/bolt-flicker,
+   defined above) since the visual language should match; only the path
+   generation differs (horizontal + vertically-jaggy "coil" instead of a
+   vertical strike). */
+.sequencer-bolts{position:absolute; inset:0; z-index:6; pointer-events:none; overflow:visible;}
+
+/* Measurement marks — always exactly 5, sitting just under the divider and
+   outside the Sequencer shell box: the two extremes align under the wedge
+   tips, the center under the circle, and one each at the midpoints between.
+   Values scale with the same AP counter as the divider's own ticks. */
+.sequencer-marks{
+  position:relative; left:50%; width:90vw; margin-left:-45vw;
+  height:26px; margin-top:-4px;
+}
+.sequencer-marks.seq-scrubbable{cursor:crosshair;}
+.sequencer-mark{
+  position:absolute; top:0; transform:translateX(-50%);
+  display:flex; flex-direction:column; align-items:center; gap:3px;
+}
+.sequencer-mark-tick{width:1px; height:8px; background:var(--text-dim);}
+.sequencer-mark-label{font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--text-dim);}
+
+/* Staged-action slashes — sit right on the divider line, same 0-100 AP
+   coordinate space as the ticks. Shape is the only signal for friendly vs.
+   hostile (\ = Self/Ally, / = Enemy); color is what tells Self apart from
+   Ally within the friendly side. No effect-type hues here on purpose — see
+   style-guide.md, that idea got corrected out during design. */
+.sequencer-divider-slashes{position:absolute; inset:0; z-index:4; pointer-events:none;}
+.seq-slash{
+  position:absolute; top:50%; width:2.5px; height:24px; border-radius:2px;
+  transform:translate(-50%,-50%) rotate(var(--slash-angle, 32deg));
+}
+.seq-slash.self{background:#2ECC71; box-shadow:0 0 5px #2ECC71;}
+.seq-slash.ally{background:#22D3EE; box-shadow:0 0 5px #22D3EE;}
+.seq-slash.enemy{background:#F5C518; box-shadow:0 0 5px #F5C518;}
+
+/* Blood Drops — a density layer, not a "what happened" layer (that's the
+   slashes' job). One uniform "blood" look regardless of cause: a battlefield
+   doesn't color-code its own blood by what caused it. Staggered across 3
+   rows in AP order (beeswarm/jitter-plot style — the standard fix for
+   overplotting) so adjacent close-together moments don't visually collide;
+   dot size scales with how many actions landed at that exact tick. */
+.sequencer-blood-drops{
+  position:relative; left:50%; width:90vw; margin-left:-45vw;
+  height:38px; margin-top:2px;
+}
+.sequencer-blood-drops.seq-scrubbable{cursor:crosshair;}
+.seq-drop{
+  position:absolute; border-radius:50%; background:#BF527F;
+  box-shadow:0 0 5px rgba(191,82,127,.65); transform:translateX(-50%);
+}
+
+/* Shared "reveal" mechanism for ticks/marks/slashes/drops — moment-by-moment,
+   synced to the needle's own sweep rather than everything appearing at once.
+   Default state is fully visible (normal re-renders, e.g. a chat message
+   arriving mid-Encounter, must NOT replay this). Each element carries a
+   data-reveal-at="<ms>" attribute; applySweepFrame() in js/sequencer.js
+   (the same rAF clock driving the needle) sets opacity to 0 or 1 directly
+   each frame by comparing elapsed time to that value — driven this way
+   (rather than a CSS animation-delay) specifically so a jump/skip can
+   re-apply the correct state instantly instead of waiting out a delay. */
+.seq-reveal{opacity:1; transition:opacity .15s ease-out;}
+/* Blood Drops fade in slower than everything else — dDd's spec: Enemy
+   slashes are a "quick fade in," Blood Drops a "slow" one. Higher
+   specificity than the bare .seq-reveal rule above, so this wins without
+   needing !important. */
+.seq-drop.seq-reveal{transition:opacity .6s ease-out;}
+
+/* Hover popover — the "zoom in" idea's actual first pass: an informational
+   tooltip near the cursor listing whatever's staged nearby, not true optical
+   magnification (see ROADMAP.md, Sequencer Panel — deliberately scoped down
+   to keep this pass's size in check; a real lens effect is a candidate
+   follow-up once this is proven out). */
+.sequencer-hover-popover{
+  position:fixed; z-index:50; pointer-events:none;
+  background:var(--ink); border:1px solid var(--brass); border-radius:8px;
+  padding:8px 10px; font-family:'IBM Plex Mono',monospace; font-size:11px;
+  color:var(--text-light); max-width:220px; box-shadow:0 4px 16px rgba(0,0,0,.4);
+}
+.sequencer-hover-popover-row{padding:2px 0; white-space:nowrap;}
+.sequencer-hover-popover-row.self{color:#2ECC71;}
+.sequencer-hover-popover-row.ally{color:#22D3EE;}
+.sequencer-hover-popover-row.enemy{color:#F5C518;}
+
+/* Persistent area: Party + Ledger, always visible, side by side */
+.persistent-grid{display:grid; grid-template-columns:.9fr 1.1fr; gap:22px;}
 @media(max-width:860px){ .persistent-grid{grid-template-columns:1fr;} }
+
+/* Map sits in its own centered row, flanked by the Stats/Techniques/Party
+   stack on the left and Combat/Dungeon Master on the right. */
+.map-row{display:flex; justify-content:center; align-items:center; gap:24px; flex-wrap:wrap;}
+.map-panel{width:100%; max-width:420px;}
 
 .panel-static{background:var(--ink-soft); border:1px solid var(--ink-line); border-radius:10px; padding:20px;}
 .panel-static h2{font-size:15px; text-transform:uppercase; letter-spacing:.08em; font-weight:600; color:var(--text-dim); margin-bottom:14px;}

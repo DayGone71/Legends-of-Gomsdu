@@ -21,14 +21,24 @@ import { escapeHtml } from './utils.js';
 // renders left, higher-tier (4/5, "Higher Power"/"Supreme Force") right —
 // sorted by tier for layout, but data-possessor-index still points at the
 // real position in player.possessors for click-to-view.
-export function possessorGridHtml(player, playerId){
-  const defaultPossessorHtml =
-    '<div class="roster-possessor shadow"><span class="roster-icon">●</span> Gom (Tier 5)</div>' +
-    '<div class="roster-possessor shadow"><span class="roster-icon">●</span> Kulkrow (Tier 5)</div>';
+// hideShadow (Veil Vision, 2026-08-16): when set, a "shadow"-type Possessor
+// renders as a blank slot — same markup shape as the empty-slot filler
+// below, so the grid's own fixed slot count/height never changes — instead
+// of its real name/icon. Only ledger.js's live Roster passes this; Create-
+// a-Character and the read-only Character Sheet never do, since you're
+// intentionally inspecting/editing that specific Character there, not
+// scanning the Party at a glance through the fog.
+export function possessorGridHtml(player, playerId, hideShadow){
+  const defaultShadowHidden = hideShadow;
+  const defaultPossessorHtml = defaultShadowHidden
+    ? '<div class="roster-possessor empty">&nbsp;</div><div class="roster-possessor empty">&nbsp;</div>'
+    : '<div class="roster-possessor shadow"><span class="roster-icon">●</span> Gom (Tier 5)</div>' +
+      '<div class="roster-possessor shadow"><span class="roster-icon">●</span> Kulkrow (Tier 5)</div>';
   const possessorEntries = player.possessors || [];
   const possessorSorted = possessorEntries.map((pos, i) => ({ pos, i })).sort((a, b) => a.pos.tier - b.pos.tier);
   const possessorHtml = possessorSorted.map(({ pos, i }) => {
     const isShadow = pos.type === 'shadow';
+    if(isShadow && hideShadow) return '<div class="roster-possessor empty">&nbsp;</div>';
     return '<div class="roster-possessor' + (isShadow ? ' shadow' : '') + '" data-player-id="' + playerId + '" data-possessor-index="' + i + '">' +
       '<span class="roster-icon">' + (isShadow ? '●' : '○') + '</span> ' + escapeHtml(pos.name) + ' (Tier ' + pos.tier + ')</div>';
   }).join('') + '<div class="roster-possessor empty">&nbsp;</div>'.repeat(Math.max(0, 2 - possessorEntries.length));

@@ -35,6 +35,85 @@
       </div>
     </div>
     <div id="landing-error" class="hidden"></div>
+
+    <div class="color-lab">
+      <div class="color-lab-title">Color Laboratory</div>
+
+      <div class="color-lab-headers">
+        <span>Palette</span><span>Primary</span><span>Secondary</span><span>Highlight</span><span>Gradient</span>
+      </div>
+
+      <div class="color-lab-row">
+        <span class="color-lab-label">Gom</span>
+        <div class="color-lab-patch-sm" style="background:#F5F5F0;"></div>
+        <div class="color-lab-patch-sm" style="background:#4A90D9;"></div>
+        <div class="color-lab-patch-sm" style="background:#2E2A6E;"></div>
+        <div class="color-lab-band" data-mode="blend" style="background:linear-gradient(to right, #F5F5F0, #4A90D9, #2E2A6E);"></div>
+      </div>
+      <div class="color-lab-row">
+        <span class="color-lab-label">Kulkrow</span>
+        <div class="color-lab-patch-sm" style="background:#E8792E;"></div>
+        <div class="color-lab-patch-sm" style="background:#B0281E;"></div>
+        <div class="color-lab-patch-sm" style="background:#1A1A1A;"></div>
+        <div class="color-lab-band" data-mode="blend" style="background:linear-gradient(to right, #E8792E, #B0281E, #1A1A1A);"></div>
+      </div>
+      <div class="color-lab-row">
+        <span class="color-lab-label">Prime Blood</span>
+        <div class="color-lab-patch-sm" style="background:#F45A9F;"></div>
+        <div class="color-lab-patch-sm" style="background:#BF527F;"></div>
+        <div class="color-lab-patch-sm" style="background:#6B1747;"></div>
+        <div class="color-lab-band" data-mode="blend" style="background:linear-gradient(to right, #F45A9F, #BF527F, #6B1747);"></div>
+      </div>
+      <div class="color-lab-row">
+        <span class="color-lab-label">Umbral Blood</span>
+        <div class="color-lab-patch-sm" style="background:#8B3A5C;"></div>
+        <div class="color-lab-patch-sm" style="background:#5C2140;"></div>
+        <div class="color-lab-patch-sm" style="background:#2B0E1F;"></div>
+        <div class="color-lab-band" data-mode="blend" style="background:linear-gradient(to right, #8B3A5C, #5C2140, #2B0E1F);"></div>
+      </div>
+      <div class="color-lab-row">
+        <span class="color-lab-label">Self / Ally / Enemy</span>
+        <div class="color-lab-patch-sm" style="background:#2ECC71;"></div>
+        <div class="color-lab-patch-sm" style="background:#22D3EE;"></div>
+        <div class="color-lab-patch-sm" style="background:#F5C518;"></div>
+        <div class="color-lab-band" data-mode="blocks" style="background:linear-gradient(to right, #2ECC71 0% 33.33%, #22D3EE 33.33% 66.66%, #F5C518 66.66% 100%);"></div>
+      </div>
+
+      <div class="color-lab-experiment">
+        <div class="color-lab-exp-row">
+          <span class="color-lab-label">Experiment</span>
+          <div class="color-lab-patch" id="color-lab-patch"></div>
+          <input type="range" id="color-lab-slider" class="color-lab-slider" min="0" max="360" value="160" />
+          <span class="color-lab-value" id="color-lab-value"></span>
+        </div>
+        <div class="color-lab-exp-row color-lab-hex-row">
+          <span class="color-lab-label">Hex</span>
+          <input type="text" id="color-lab-hex" class="color-lab-hex-input" placeholder="#RRGGBB" maxlength="7" />
+        </div>
+      </div>
+    </div>
+
+    <div class="lightning-controls">
+      <div class="lightning-knob-wrap">
+        <div class="lightning-knob" id="knob-frequency" tabindex="0"><div class="lightning-knob-indicator"></div></div>
+        <span class="lightning-knob-label">Frequency</span>
+        <span class="lightning-knob-value" id="knob-frequency-value">50%</span>
+      </div>
+      <div class="lightning-knob-wrap">
+        <div class="lightning-knob" id="knob-intensity" tabindex="0"><div class="lightning-knob-indicator"></div></div>
+        <span class="lightning-knob-label">Intensity</span>
+        <span class="lightning-knob-value" id="knob-intensity-value">50%</span>
+      </div>
+      <button id="btn-lightning-toggle" class="btn-brass">Start</button>
+    </div>
+    <div class="lightning-box" id="lightning-box" aria-hidden="true"></div>
+
+    <div class="lava-controls">
+      <button id="btn-lava-toggle" class="btn-brass">Start</button>
+    </div>
+    <div class="lava-box" id="lava-box" aria-hidden="true">
+      <canvas id="lava-canvas"></canvas>
+    </div>
   </div>
 
   <div id="loading" class="loading-row hidden">Loading&hellip;</div>
@@ -55,68 +134,92 @@
     </div>
     <div id="banner-error" class="hidden"></div>
 
-    <div class="toolbar">
-      <button id="toolbar-stats">Stats</button>
-      <button id="toolbar-techniques">Techniques</button>
-      <button id="toolbar-party">Party</button>
-      <button id="toolbar-combat">Combat</button>
-      <button id="toolbar-sequencer">Sequencer</button>
-      <button id="toolbar-dm">Dungeon Master</button>
+    <div class="sequencer-divider" id="sequencer-divider">
+      <div class="sequencer-divider-ticks" id="sequencer-divider-ticks"></div>
+      <div class="sequencer-divider-slashes" id="sequencer-divider-slashes"></div>
+      <div class="sequencer-divider-wing left"></div>
+      <div class="sequencer-divider-circle" id="sequencer-ap-badge"></div>
+      <div class="sequencer-divider-wing right"></div>
+      <div class="sequencer-needle">
+        <svg class="sequencer-needle-svg" viewBox="0 0 36 72">
+          <path class="needle-shell" d="M18,2 Q32,36 18,70 Q4,36 18,2 Z" />
+          <path class="needle-gap" d="M18,8 Q28,36 18,64 Q8,36 18,8 Z" />
+          <path class="needle-core" d="M18,18 Q22,36 18,54 Q14,36 18,18 Z" />
+        </svg>
+      </div>
+      <div class="sequencer-bolts" id="sequencer-bolts"></div>
+    </div>
+    <div class="sequencer-marks" id="sequencer-marks"></div>
+    <div class="sequencer-blood-drops" id="sequencer-blood-drops"></div>
+    <div class="sequencer-hover-popover hidden" id="sequencer-hover-popover"></div>
+
+    <div class="map-row">
+      <div class="side-toolbar">
+        <button id="toolbar-stats">Stats</button>
+        <button id="toolbar-techniques">Techniques</button>
+        <button id="toolbar-party">Party</button>
+      </div>
+
+      <div class="panel-static map-panel">
+        <div id="map-grid"></div>
+        <div class="map-toolbar">
+          <button id="veil-vision-toggle" class="btn-ghost btn-small">TATA Veil Vision</button>
+          <button id="map-edit-toggle" class="btn-ghost btn-small">DM: edit tiles</button>
+        </div>
+      </div>
+
+      <div class="side-toolbar">
+        <button id="btn-start-encounter" class="btn-brass" disabled>Start encounter</button>
+        <button id="btn-end-encounter" class="btn-ghost" disabled>End encounter</button>
+        <button id="btn-resolve" class="btn-brass hidden">Resolve round</button>
+        <button id="toolbar-combat">Combat</button>
+        <button id="toolbar-dm">Dungeon Master</button>
+      </div>
     </div>
 
     <div class="persistent-grid">
-      <div>
-        <div class="panel-static" style="margin-bottom:22px;">
-          <h2>The Ledger</h2>
-          <div id="ledger"><div class="log-empty">Nothing recorded yet.</div></div>
-          <div class="chat-row">
-            <input id="chat-input" placeholder="Say something to the table&hellip;" maxlength="240" />
-            <button id="btn-send-chat" class="btn-brass btn-small">Send</button>
-          </div>
+      <div class="panel-static">
+        <h2>Party</h2>
+        <div id="roster"></div>
+        <div id="add-party-kind-row" class="action-row hidden" style="margin-top:10px;">
+          <button id="add-party-kind-possessor" class="btn-action">Possessor</button>
+          <button id="add-party-kind-miniparty" class="btn-action">Mini-Party Character</button>
         </div>
-        <div class="panel-static">
-          <h2>Party</h2>
-          <div id="roster"></div>
-          <div id="add-party-kind-row" class="action-row hidden" style="margin-top:10px;">
-            <button id="add-party-kind-possessor" class="btn-action">Possessor</button>
-            <button id="add-party-kind-miniparty" class="btn-action">Mini-Party Character</button>
+        <div id="add-party-fields" class="hidden" style="margin-top:10px;">
+          <div class="field"><label>Name</label><input id="add-party-name" /></div>
+          <div class="field" id="add-party-tier-field">
+            <label>Tier</label>
+            <select id="add-party-tier">
+              <option value="2">Possessor</option>
+              <option value="3">Possessor</option>
+              <option value="4">Higher Power</option>
+              <option value="5">Supreme Force</option>
+            </select>
           </div>
-          <div id="add-party-fields" class="hidden" style="margin-top:10px;">
-            <div class="field"><label>Name</label><input id="add-party-name" /></div>
-            <div class="field" id="add-party-tier-field">
-              <label>Tier</label>
-              <select id="add-party-tier">
-                <option value="2">Possessor</option>
-                <option value="3">Possessor</option>
-                <option value="4">Higher Power</option>
-                <option value="5">Supreme Force</option>
-              </select>
-            </div>
-            <div class="field" id="add-party-type-field">
-              <label>Possession Type</label>
-              <select id="add-party-type">
-                <option value="shadow">Shadow Possession</option>
-                <option value="active">Active Possession</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Base build (optional)</label>
-              <select id="add-party-build">
-                <option value="">&mdash; blank &mdash;</option>
-              </select>
-            </div>
-            <button id="btn-confirm-add-party-member" class="btn-brass btn-small btn-block">Add</button>
+          <div class="field" id="add-party-type-field">
+            <label>Possession Type</label>
+            <select id="add-party-type">
+              <option value="shadow">Shadow Possession</option>
+              <option value="active">Active Possession</option>
+            </select>
           </div>
+          <div class="field">
+            <label>Base build (optional)</label>
+            <select id="add-party-build">
+              <option value="">&mdash; blank &mdash;</option>
+            </select>
+          </div>
+          <button id="btn-confirm-add-party-member" class="btn-brass btn-small btn-block">Add</button>
         </div>
       </div>
 
       <div class="panel-static">
-        <h2>Map</h2>
-        <div class="map-toolbar">
-          <span class="footnote">Click an adjacent tile to move.</span>
-          <button id="map-edit-toggle" class="btn-ghost btn-small">DM: edit tiles</button>
+        <h2>The Ledger</h2>
+        <div id="ledger"><div class="log-empty">Nothing recorded yet.</div></div>
+        <div class="chat-row">
+          <input id="chat-input" placeholder="Say something to the table&hellip;" maxlength="240" />
+          <button id="btn-send-chat" class="btn-brass btn-small">Send</button>
         </div>
-        <div id="map-grid"></div>
       </div>
     </div>
 
@@ -295,15 +398,6 @@
       </div>
     </div>
 
-    <div id="panel-sequencer" class="panel-overlay hidden">
-      <div class="panel-overlay-header">
-        <h2>Sequencer</h2>
-        <button id="panel-close-sequencer" class="btn-ghost btn-small">Close</button>
-      </div>
-      <div id="sequencer"></div>
-      <button id="btn-resolve" class="btn-brass btn-block" style="margin-top:14px;">Resolve round</button>
-    </div>
-
     <div id="panel-dm" class="panel-overlay hidden">
       <div class="panel-overlay-header">
         <h2>Dungeon Master</h2>
@@ -323,13 +417,6 @@
           <button id="btn-save-encounter" class="btn-ghost btn-small">Save Encounter</button>
         </div>
         <div class="save-hint" id="dm-encounter-hint"></div>
-      </div>
-      <div class="field">
-        <label>Encounter</label>
-        <div class="commit-row">
-          <button id="btn-start-encounter" class="btn-brass btn-small">Start encounter</button>
-          <button id="btn-end-encounter" class="btn-ghost btn-small">End encounter</button>
-        </div>
       </div>
       <div class="field">
         <label>Spawn enemy</label>

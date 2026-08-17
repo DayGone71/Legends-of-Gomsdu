@@ -5,6 +5,7 @@ import { removeEnemy } from './dm.js';
 import { TECHNIQUES } from './techniques.js';
 import { MAX_MINI_PARTY } from './possession.js';
 import { addChunksAt } from './map.js';
+import { freezeSequencerReveal } from './sequencer.js';
 
 function showBannerError(msg){
   const el = document.getElementById('banner-error');
@@ -546,6 +547,7 @@ export async function resolveRound(){
   gatherFrom(miniPartyActors, 'player');
 
   if(!allEntries.length){ showBannerError('Nothing staged to resolve.'); return; }
+  freezeSequencerReveal(table, counterMax);
   allEntries.sort((a, b) => b.resolveTick - a.resolveTick);
 
   const blockRegistry = [];

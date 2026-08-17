@@ -1,6 +1,6 @@
 import { AppState } from './state.js';
 
-const PANEL_IDS = ['character', 'combat', 'sequencer', 'dm', 'dmtest', 'character-view', 'stats', 'techniques', 'party', 'technique-use'];
+const PANEL_IDS = ['character', 'combat', 'dm', 'dmtest', 'character-view', 'stats', 'techniques', 'party', 'technique-use'];
 
 // Attack/Block/Essence submenus otherwise remember whatever open/closed state
 // they were left in — force them collapsed every time the panel opens instead.
@@ -50,20 +50,31 @@ function render(){
   });
 }
 
-// Gate Combat/Sequencer availability on encounter state — DM stays reachable always,
-// since starting an encounter is itself a DM action.
-export function updateToolbarAvailability(){
-  const inEncounter = !!(AppState.table && AppState.table.inEncounter);
-  ['combat', 'sequencer'].forEach(id => {
-    const btn = document.getElementById('toolbar-' + id);
-    if(!btn) return;
-    btn.disabled = !inEncounter;
-    btn.classList.toggle('disabled', !inEncounter);
-  });
-  // If an in-progress panel just became unavailable (encounter ended), close it.
-  if(!inEncounter && (AppState.activePanel === 'combat' || AppState.activePanel === 'sequencer')){
+// Gate Combat availability on encounter state — DM stays reachable always, since
+// starting an encounter is itself a DM action.
+export function updateEncounterUI(){
+  const table = AppState.table;
+  const inEncounter = !!(table && table.inEncounter);
+  const hasEnemies = !!(table && table.enemies && Object.keys(table.enemies).length > 0);
+
+  const combatBtn = document.getElementById('toolbar-combat');
+  if(combatBtn){
+    combatBtn.disabled = !inEncounter;
+    combatBtn.classList.toggle('disabled', !inEncounter);
+  }
+  // If Combat was open and the encounter just ended, close it.
+  if(!inEncounter && AppState.activePanel === 'combat'){
     closePanel();
   }
+
+  // Start requires at least one Enemy on the Map and no encounter already
+  // running; End requires one currently be running.
+  const startBtn = document.getElementById('btn-start-encounter');
+  const endBtn = document.getElementById('btn-end-encounter');
+  const resolveBtn = document.getElementById('btn-resolve');
+  if(startBtn) startBtn.disabled = inEncounter || !hasEnemies;
+  if(endBtn) endBtn.disabled = !inEncounter;
+  if(resolveBtn) resolveBtn.classList.toggle('hidden', !inEncounter);
 }
 
 // Backdrop click closes whatever's open.
