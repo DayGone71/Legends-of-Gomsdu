@@ -29,6 +29,13 @@
 }
 *{box-sizing:border-box;}
 html,body{margin:0;padding:0;}
+/* Two-view scroll-snap (2026-08-17) — the table screen is exactly View 1
+   (header through the Map) and View 2 (Party+Ledger), both pinned to
+   calc(100vh - 28px) in layout.css. scroll-snap-type lives on html (the
+   real scrolling box for ordinary document scroll, since nothing between
+   here and .view1/.persistent-grid sets its own overflow) so scrolling
+   snaps to whichever view is closer instead of free-scrolling between them. */
+html{scroll-snap-type:y mandatory;}
 body{
   background:var(--ink); color:var(--text-light);
   font-family:'Inter',sans-serif; min-height:100vh;

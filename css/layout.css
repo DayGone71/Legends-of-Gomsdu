@@ -385,23 +385,12 @@
    viewport height itself, so a flat 100vh here always overshot the visible
    window by exactly that padding, pushing the Map toolbar buttons and the
    spacer partly below the fold. */
-.view1{height:calc(100vh - 28px); display:flex; flex-direction:column; min-height:0;}
+.view1{height:calc(100vh - 28px); display:flex; flex-direction:column; min-height:0; scroll-snap-align:start; scroll-snap-stop:always;}
 .view1 .table-header{flex-shrink:0;}
 .view1 #banner-error{flex-shrink:0;}
 .view1 .sequencer-divider, .view1 .sequencer-marks, .view1 .sequencer-blood-drops,
 .view1 .battle-report-line{flex-shrink:0;}
 .view1 .map-row{flex:1; min-height:0; align-items:stretch;}
-/* TEMP calibration marker (2026-08-17) — see index.html's comment. Bright/
-   ugly on purpose so it's unmistakable and easy to find-and-delete later. */
-.view-calibration-line{
-  height:2px; background:#FF2D55; position:relative;
-  font-size:10px; color:#FF2D55; text-align:center; overflow:visible;
-}
-.view-calibration-line::after{
-  content:'View 1 / View 2 boundary';
-  position:absolute; top:4px; left:50%; transform:translateX(-50%);
-  white-space:nowrap; background:var(--ink); padding:0 6px;
-}
 /* Reserved breathing room at the bottom of View 1 (2026-08-17) — dDd's
    correction after seeing the Map squeezed too short: sized to roughly
    match the Battle Report line + Blood Drops strip combined, not a generic
@@ -411,7 +400,7 @@
 /* Persistent area: Party + Ledger, always visible, side by side */
 /* View 2, pinned to a full screen height same as .view1 (2026-08-17) — see
    css/panels.css's #roster/#ledger comment for the full reasoning. */
-.persistent-grid{display:grid; grid-template-columns:.9fr 1.1fr; gap:22px; height:calc(100vh - 28px); min-height:0;}
+.persistent-grid{display:grid; grid-template-columns:.9fr 1.1fr; gap:22px; height:calc(100vh - 28px); min-height:0; scroll-snap-align:start; scroll-snap-stop:always;}
 .persistent-grid .panel-static{display:flex; flex-direction:column; min-height:0;}
 .persistent-grid .panel-static h2{flex-shrink:0;}
 .persistent-grid .chat-row{flex-shrink:0;}
