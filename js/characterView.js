@@ -70,7 +70,7 @@ export function showCharacterView(charLike, ownerId){
   const possessorEl = document.getElementById('cv-possessor-grid');
   const miniPartyEl = document.getElementById('cv-miniparty-grid');
   if(possessorEl) possessorEl.innerHTML = possessorGridHtml(charLike, ownerId || '');
-  if(miniPartyEl) miniPartyEl.innerHTML = miniPartyGridHtml(charLike, ownerId || '') || '<div class="log-empty">No Mini-Party.</div>';
+  if(miniPartyEl) miniPartyEl.innerHTML = miniPartyGridHtml(charLike, ownerId || '');
   // Recursion: clicking a Possessor/Mini-Party member inside this view opens
   // the same view for *them* — reusing showCharacterView itself as the
   // callback, same pattern the Roster uses.

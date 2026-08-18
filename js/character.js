@@ -269,6 +269,8 @@ export async function saveCharacter(hintText, announce){
   const prevHitPercent = me.hitPercent;
   const prevPossessors = me.possessors || [];
   const prevMiniParty = me.miniParty || [];
+  const prevJoinOrder = me.joinOrder;
+  const prevDeparted = me.departed;
   const sheetStats = readStatsFromSheet();
   // The sheet's Flow field is a single "rating" number (flowMax); the current,
   // possibly mid-combat Flow value is preserved rather than reset by unrelated
@@ -284,7 +286,15 @@ export async function saveCharacter(hintText, announce){
     // Not sheet fields — combat-runtime/relationship state that a sheet edit shouldn't reset.
     hitPercent: prevHitPercent,
     possessors: prevPossessors,
-    miniParty: prevMiniParty
+    miniParty: prevMiniParty,
+    // joinOrder/departed (2026-08-17) — also not sheet fields. This whole
+    // function replaces t.players[id] wholesale rather than patching, so
+    // anything not explicitly carried forward here silently reverts to
+    // undefined on every save. Found live: saving a sheet was resetting
+    // joinOrder, which read as "moved me up one place" in the Roster since
+    // a missing joinOrder sorts first.
+    joinOrder: prevJoinOrder,
+    departed: prevDeparted
   };
   const prevName = me.name;
   const ok = await mutateTable(t => {
@@ -422,6 +432,6 @@ export function renderCreateCharacterParty(){
   const miniPartyEl = document.getElementById('ch-miniparty-grid');
   if(!me || !possessorEl || !miniPartyEl) return;
   possessorEl.innerHTML = possessorGridHtml(me, AppState.playerId);
-  miniPartyEl.innerHTML = miniPartyGridHtml(me, AppState.playerId) || '<div class="log-empty">No Mini-Party yet.</div>';
+  miniPartyEl.innerHTML = miniPartyGridHtml(me, AppState.playerId);
   wirePossessorMiniPartyClicks(document.getElementById('panel-character'), showCharacterView);
 }

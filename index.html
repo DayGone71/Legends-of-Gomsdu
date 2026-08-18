@@ -120,6 +120,7 @@
 
   <!-- TABLE -->
   <div id="screen-table" class="hidden">
+    <div class="view1">
     <div class="table-header">
       <div class="seal">
         <span class="code" id="table-code-display">------</span>
@@ -153,11 +154,14 @@
     <div class="sequencer-blood-drops" id="sequencer-blood-drops"></div>
     <div class="sequencer-hover-popover hidden" id="sequencer-hover-popover"></div>
 
+    <div class="battle-report-line">BATTLE REPORT: xxx xxx xxx xxx</div>
+
     <div class="map-row">
       <div class="side-toolbar">
         <button id="toolbar-stats">Stats</button>
         <button id="toolbar-techniques">Techniques</button>
         <button id="toolbar-party">Party</button>
+        <button id="toolbar-help">Help</button>
       </div>
 
       <div class="panel-static map-panel">
@@ -177,43 +181,21 @@
       </div>
     </div>
 
+    <div class="view1-spacer" aria-hidden="true"></div>
+    </div>
+
+    <!-- TEMP dev marker (2026-08-17) — never part of View 1 or View 2 itself,
+         purely a calibration line for scroll-snap/spacing work. Remove once
+         the two-view scroll-snap is dialed in. -->
+    <div class="view-calibration-line" aria-hidden="true">View 1 / View 2 boundary</div>
+
     <div class="persistent-grid">
-      <div class="panel-static">
+      <div class="panel-static" id="party-panel-static">
         <h2>Party</h2>
         <div id="roster"></div>
-        <div id="add-party-kind-row" class="action-row hidden" style="margin-top:10px;">
-          <button id="add-party-kind-possessor" class="btn-action">Possessor</button>
-          <button id="add-party-kind-miniparty" class="btn-action">Mini-Party Character</button>
-        </div>
-        <div id="add-party-fields" class="hidden" style="margin-top:10px;">
-          <div class="field"><label>Name</label><input id="add-party-name" /></div>
-          <div class="field" id="add-party-tier-field">
-            <label>Tier</label>
-            <select id="add-party-tier">
-              <option value="2">Possessor</option>
-              <option value="3">Possessor</option>
-              <option value="4">Higher Power</option>
-              <option value="5">Supreme Force</option>
-            </select>
-          </div>
-          <div class="field" id="add-party-type-field">
-            <label>Possession Type</label>
-            <select id="add-party-type">
-              <option value="shadow">Shadow Possession</option>
-              <option value="active">Active Possession</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Base build (optional)</label>
-            <select id="add-party-build">
-              <option value="">&mdash; blank &mdash;</option>
-            </select>
-          </div>
-          <button id="btn-confirm-add-party-member" class="btn-brass btn-small btn-block">Add</button>
-        </div>
       </div>
 
-      <div class="panel-static">
+      <div class="panel-static" id="ledger-panel-static">
         <h2>The Ledger</h2>
         <div id="ledger"><div class="log-empty">Nothing recorded yet.</div></div>
         <div class="chat-row">
@@ -221,6 +203,48 @@
           <button id="btn-send-chat" class="btn-brass btn-small">Send</button>
         </div>
       </div>
+    </div>
+
+    <!-- TEMP dev marker (2026-08-17) — second calibration line, mirrors the
+         View1/View2 one above; sits right under the Ledger's chat row, per
+         dDd's "a little black space under that can be the new Boundary
+         Line, if we need a second one." Remove alongside the other one. -->
+    <div class="view-calibration-line" id="view2-calibration-line" aria-hidden="true">View 2 end</div>
+
+    <!-- Party's Add Possessor/Mini-Party popup (2026-08-17 redesign) — a
+         small popup positioned over the specific Player's Group (their
+         roster-stack: possessors + the Player row + mini-party), triggered
+         by clicking an empty grid slot's "+" button, NOT a full-screen
+         modal. Position/size set via JS in ledger.js's openAddPartyPopup(). -->
+    <div id="party-add-popup" class="party-add-popup hidden">
+      <div class="party-add-popup-header">
+        <span id="party-add-popup-title">Add</span>
+        <button id="party-add-popup-close" class="btn-ghost btn-small">Close</button>
+      </div>
+      <div class="field"><label>Name</label><input id="add-party-name" /></div>
+      <div class="field" id="add-party-tier-field">
+        <label>Tier</label>
+        <select id="add-party-tier">
+          <option value="2">Possessor</option>
+          <option value="3">Possessor</option>
+          <option value="4">Higher Power</option>
+          <option value="5">Supreme Force</option>
+        </select>
+      </div>
+      <div class="field" id="add-party-type-field">
+        <label>Possession Type</label>
+        <select id="add-party-type">
+          <option value="shadow">Shadow Possession</option>
+          <option value="active">Active Possession</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Base build (optional)</label>
+        <select id="add-party-build">
+          <option value="">&mdash; blank &mdash;</option>
+        </select>
+      </div>
+      <button id="btn-confirm-add-party-member" class="btn-brass btn-small btn-block">Add</button>
     </div>
 
     <!-- PANELS -->
@@ -597,6 +621,44 @@
       <div class="panel-overlay-header">
         <h2>Party</h2>
         <button id="panel-close-party" class="btn-ghost btn-small">Close</button>
+      </div>
+    </div>
+
+    <div id="panel-help" class="panel-overlay hidden">
+      <div class="panel-overlay-header">
+        <h2>Help</h2>
+        <button id="panel-close-help" class="btn-ghost btn-small">Close</button>
+      </div>
+      <div class="sheet">
+        <div class="tech-main-header">Wounds &amp; Death</div>
+        <ul class="help-list">
+          <li>Wounds count <b>up</b>, not down. <code>x</code> is how many you've taken; <code>y</code> is your own personal Down threshold &mdash; different per Character.</li>
+          <li><b>Down</b> &ne; out. A Down Character can still be targeted, and can't act unaided, but isn't removed from play.</li>
+          <li><b>Death Wounds</b> is a separate, species-fixed ceiling (Humanoid: 10) &mdash; crossing it is what actually kills you, not reaching your own <code>y</code>.</li>
+          <li><b>Execution</b>: attacking an already-Down target skips Block and Flow entirely &mdash; guaranteed +1 Wound, -1 Life.</li>
+          <li><b>Obliteration</b> is different again &mdash; every Body Part gone. Rare, not the same as Death Wounds.</li>
+          <li><b>Life</b> reaching 0 doesn't erase you &mdash; it means "no longer self-sustaining," not "no body."</li>
+        </ul>
+        <div class="tech-main-header">Core Resources</div>
+        <ul class="help-list">
+          <li><b>Flow</b> is your personal shield &mdash; Recovery refills it each round.</li>
+          <li><b>Focus / Lightning / Lava</b> are Technique fuel &mdash; Attunement refills all three, each round, in full (not split between them).</li>
+          <li><b>Resilience</b> shrinks every incoming hit and is what lets you take damage past your own <code>y</code>, toward the universal ceiling.</li>
+          <li><b>Control</b> sets your AP cost per action &mdash; higher Control, cheaper actions. Control 0 means you can't act without help.</li>
+        </ul>
+        <div class="tech-main-header">Techniques</div>
+        <ul class="help-list">
+          <li>Four categories: <b>Flow Powers, Focus Powers, Lightning Crafts, Lava Crafts.</b></li>
+          <li>A Character needs a category switched on to use anything in it &mdash; checked on the Character Sheet.</li>
+          <li>Techniques used on an Ally that <i>help</i> (Embolden, Anchor) are never treated as an attack.</li>
+        </ul>
+        <div class="tech-main-header">Party &amp; Possession</div>
+        <ul class="help-list">
+          <li>Your <b>Mini-Party</b> rides on your own Tile &mdash; up to 4 members.</li>
+          <li>A <b>Mob</b> is any group of Characters sharing one Tile &mdash; get crowded enough (3+) and it starts affecting movement and line of sight.</li>
+          <li>Gom and Kulkrow ambiently possess <i>everyone</i> by default (Shadow Possession) &mdash; that's not a special event, it's the baseline every Character already has in their Blood.</li>
+          <li><b>Veil Vision</b> toggles between "what your Character would actually know" and the full picture &mdash; Enemy intent stays hidden until it resolves unless it's on.</li>
+        </ul>
       </div>
     </div>
 

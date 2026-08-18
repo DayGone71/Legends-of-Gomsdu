@@ -75,6 +75,7 @@ async function handleCreate(){
     positions: {}
   };
   initial.players[AppState.playerId] = blankCharacter(name);
+  initial.players[AppState.playerId].joinOrder = Date.now();
   initial.positions[AppState.playerId] = { x: 0, y: 0 };
 
   showLoading(true);
@@ -99,6 +100,13 @@ async function handleJoin(){
 
   await mutateTable(t => {
     t.players[AppState.playerId] = blankCharacter(name);
+    // Explicit join-order timestamp, not reliance on Object key insertion
+    // order (2026-08-17, dDd's "Player Order in Party is scuffed" note) —
+    // insertion order *should* already be stable, but concurrent writes on
+    // this table's whole-row-overwrite persistence (see reference/ROADMAP.md,
+    // Networking & Sync) can scramble it. A stamped, sortable field survives
+    // that regardless of how the underlying object gets rebuilt on a write.
+    t.players[AppState.playerId].joinOrder = Date.now();
     if(!t.positions) t.positions = {};
     // Each new Player starts one Tile down from the previous one, same column.
     const y = Math.min(Object.keys(t.players).length - 1, (t.map.height || 1) - 1);
@@ -117,6 +125,11 @@ function enterTable(code){
   populateSavedCharacterDropdowns();
   populateSavedEncounterDropdown();
   renderAll();
+  // Only auto-open for a genuinely new Character (no archetype set yet) —
+  // was unconditional, which reopened Create-a-Character on every reload of
+  // an already-set-up Character too. Found 2026-08-17, see ISSUES.md.
+  const me = AppState.table && AppState.table.players[AppState.playerId];
+  if(me && !me.archetype) openPanel('character');
 }
 
 // Fires when this tab's own player record is gone from the synced table — left
@@ -133,8 +146,11 @@ function handleRemovedFromTable(){
 async function leaveTable(){
   if(AppState.table && AppState.table.players[AppState.playerId]){
     const name = AppState.table.players[AppState.playerId].name || 'Someone';
+    // Departed, not deleted (2026-08-17, dDd's ask) — the record (and their
+    // Possessors/Mini-Party) stays, greyed out in the Roster (renderRoster()
+    // in ledger.js), rather than vanishing outright.
     await mutateTable(t => {
-      delete t.players[AppState.playerId];
+      t.players[AppState.playerId].departed = true;
       t.log.push({ type: 'system', text: name + ' left the table', time: timeNow() });
     });
   }
@@ -655,6 +671,7 @@ function wireEvents(){
   document.getElementById('toolbar-stats').addEventListener('click', () => togglePanel('stats'));
   document.getElementById('toolbar-techniques').addEventListener('click', () => togglePanel('techniques'));
   document.getElementById('toolbar-party').addEventListener('click', () => togglePanel('party'));
+  document.getElementById('toolbar-help').addEventListener('click', () => togglePanel('help'));
   document.getElementById('panel-close-character').addEventListener('click', closePanel);
   document.getElementById('panel-close-combat').addEventListener('click', closePanel);
   document.getElementById('panel-close-dm').addEventListener('click', closePanel);
@@ -663,11 +680,12 @@ function wireEvents(){
   document.getElementById('panel-close-stats').addEventListener('click', closePanel);
   document.getElementById('panel-close-techniques').addEventListener('click', closePanel);
   document.getElementById('panel-close-party').addEventListener('click', closePanel);
+  document.getElementById('panel-close-help').addEventListener('click', closePanel);
   document.getElementById('panel-close-technique-use').addEventListener('click', closePanel);
 
   // Character sheet
   document.getElementById('ch-build-loader').addEventListener('change', e => loadBuild(e.target.value));
-  document.getElementById('btn-make-active').addEventListener('click', makeActiveCharacter);
+  document.getElementById('btn-make-active').addEventListener('click', () => { makeActiveCharacter(); closePanel(); });
   document.getElementById('btn-save-template').addEventListener('click', saveAsTemplate);
   ['ch-name', 'ch-species', 'ch-archetype', 'ch-wounds', 'ch-woundsmax', 'ch-ap', 'ch-flow', 'ch-recovery', 'ch-power', 'ch-quickness', 'ch-resilience', 'ch-lightning', 'ch-lava', 'ch-focus', 'ch-control', 'ch-attunement', 'ch-life',
    'ch-tech-flowPowers', 'ch-tech-focusPowers', 'ch-tech-lightningCrafts', 'ch-tech-lavaCrafts']

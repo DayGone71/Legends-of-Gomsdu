@@ -1,6 +1,6 @@
 import { AppState } from './state.js';
 
-const PANEL_IDS = ['character', 'combat', 'dm', 'dmtest', 'character-view', 'stats', 'techniques', 'party', 'technique-use'];
+const PANEL_IDS = ['character', 'combat', 'dm', 'dmtest', 'character-view', 'stats', 'techniques', 'party', 'technique-use', 'help'];
 
 // Attack/Block/Essence submenus otherwise remember whatever open/closed state
 // they were left in — force them collapsed every time the panel opens instead.

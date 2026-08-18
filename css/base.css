@@ -33,6 +33,20 @@ body{
   background:var(--ink); color:var(--text-light);
   font-family:'Inter',sans-serif; min-height:100vh;
   -webkit-font-smoothing:antialiased;
+  /* renderAll() in js/main.js unconditionally rebuilds every major
+     container's innerHTML (Ledger, Roster, Map, ...) on every single table
+     mutation, not just the piece that actually changed — so on every move,
+     chat message, or combat action, large swaths of the DOM get destroyed
+     and recreated. Browsers' default scroll anchoring (overflow-anchor:auto)
+     tries to keep the viewport visually stable when content shifts, but its
+     heuristics get confused when the DOM nodes it was anchored to are torn
+     down and rebuilt wholesale rather than genuinely resized in place — the
+     real, most likely cause of dDd's 2026-08-17 report that the page keeps
+     jumping back to the Party section on ordinary actions ("in a bunch of
+     areas," not just movement, which matches a page-wide render pattern
+     rather than one specific action). Turning it off is the standard fix for
+     this exact symptom in apps that re-render this way. */
+  overflow-anchor:none;
 }
 .hidden{display:none !important;}
 a{color:var(--brass-bright);}

@@ -2,8 +2,13 @@ import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
 import { escapeHtml, isDeathWounded, isDown } from './utils.js';
 
-const DEFAULT_WIDTH = 9;
-const DEFAULT_HEIGHT = 9;
+// 14x14 (was 9x9) — 2026-08-17, dDd's View 1 spec: Tiles shrunk and the grid
+// deliberately made bigger than fits the visible area without scrolling
+// ("it's fine to break the 9x9 we have"). Picked as a reasonable first-pass
+// size, not a precisely-derived number — revisit if it reads as too big/small
+// once seen live.
+const DEFAULT_WIDTH = 14;
+const DEFAULT_HEIGHT = 14;
 
 export function defaultMap(){
   return {
@@ -66,15 +71,32 @@ export function getDistance(posA, posB){
 // living Characters are split by side since blocking is Friend/Foe-aware
 // (2026-08-16, per dDd) — only movement always starts from a Player's own
 // click, so "ally" always means "another Player," "enemy" always means an
-// Enemy. Mini-Party members aren't counted — they have no position of their
-// own yet (see reference/ROADMAP.md, Movement System item H).
+// Enemy. **Corrected 2026-08-17** — Mini-Party members now count too. dDd's
+// own clarification, after this being missed twice: the Ally-crowding effect
+// ("Shield") and Ally Movement Blocking are the same thing, not two — "3
+// Allied Characters" always meant the Player Character, other Party
+// Characters sharing the Tile, AND all their Mini-Party Characters, not just
+// top-level Players. A statted-or-not Mini-Party member still physically
+// occupies the Tile even without combat stats to track, so it counts here
+// regardless (an un-statted stub's isDown() naturally reads false — no
+// wounds data means "not Down" by construction, so it correctly counts as
+// active without special-casing). Possessed Mini-Party members are excluded
+// here (sourceEnemyId) — they're a real Enemy entity with their own
+// position, already counted once via the main loop below; counting them
+// again here would double them up.
 function tileOccupancy(table, x, y){
   let down = 0, activeAllies = 0, activeEnemies = 0;
   Object.entries(table.positions || {}).forEach(([id, pos]) => {
     if(pos.x !== x || pos.y !== y) return;
     const player = table.players && table.players[id];
     const enemy = table.enemies && table.enemies[id];
-    if(player){ if(isDown(player)) down++; else activeAllies++; }
+    if(player){
+      if(isDown(player)) down++; else activeAllies++;
+      (player.miniParty || []).forEach(mp => {
+        if(mp.sourceEnemyId) return;
+        if(isDown(mp)) down++; else activeAllies++;
+      });
+    }
     else if(enemy){ if(isDown(enemy)) down++; else activeEnemies++; }
   });
   return { down, activeAllies, activeEnemies };
@@ -246,15 +268,64 @@ export function renderMap(){
 
   // Header row (compass corner + column numbers) and header column (row
   // letters) frame the actual tile grid — one extra row/column overall.
-  el.style.gridTemplateColumns = 'auto repeat(' + map.width + ', 1fr)';
+  // minmax(0,1fr), not a plain 1fr (2026-08-17 fix) — a bare 1fr column
+  // defaults to minmax(auto,1fr), which refuses to shrink a column below
+  // its content's own min-content width. That's what was actually causing
+  // the Map/toolbar overlap bug's real root: the grid just ignored however
+  // small its flex-box parent tried to make it and rendered at its natural
+  // size regardless, silently overflowing into the neighboring toolbar.
+  // Floor is 34px (2026-08-17, "shrink the Tiles a little bit... make sure
+  // there are too many Tiles to fit without scrolling") rather than 0 — a
+  // real minimum Tiles stay legible at, so a big enough map (14x14 default,
+  // see DEFAULT_WIDTH/HEIGHT above) genuinely overflows its container and
+  // scrolls in both axes instead of just shrinking forever.
+  // Two dedicated leading columns/rows (2026-08-17, dDd's own ASCII layout
+  // sketch) for the compass + axis lines/heads, kept fully separate from the
+  // actual tile grid's own corner/column-headers/row-headers rather than
+  // sharing those cells — everything shifts down-right by one row/column
+  // (COL_OFFSET/ROW_OFFSET below) to make room. Still one CSS Grid (dDd:
+  // "they can all be part of the Tiles, but set aside somehow") — every
+  // cell, including the header-block ones, is explicitly grid-placed rather
+  // than relying on source-order auto-flow, since a grid this sparse (most
+  // of row 1/column 1 is empty) can't be filled correctly by auto-flow alone.
+  const COL_OFFSET = 3; // data tiles start at grid-column 3+1=4; column 3 is the row-letter header
+  const ROW_OFFSET = 3; // data tiles start at grid-row 3+1=4; row 3 is the column-number header
+  el.style.gridTemplateColumns = 'auto auto auto repeat(' + map.width + ', minmax(34px, 1fr))';
+  // Tile rows are plain `auto`, NOT minmax(34px,1fr) (2026-08-17 fix) —
+  // giving rows their own independent 1fr sizing fought .map-tile's own
+  // aspect-ratio:1: the tile wants height to equal its (column-driven)
+  // width, but the row track was being forced to a *different* size by its
+  // own separate 1fr distribution, so tiles rendered taller than their row
+  // and visibly bled into the next one. `auto` lets each row size itself
+  // to its tallest content instead — which, since every tile in it wants to
+  // be exactly as tall as the column made it wide, naturally comes out
+  // square with zero conflict.
+  el.style.gridTemplateRows = 'auto auto auto repeat(' + map.height + ', auto)';
 
-  let html = '<div class="map-corner" title="8-directional compass">🧭</div>';
+  // Compass + axis lines: N/W sit right by the compass (row2/col2), lines
+  // run the full length of the tile grid, S/E land at the far edges — see
+  // reference/CHANGELOG.md 2026-08-17 for the fix history. Rotation
+  // (pressing the compass to cycle N/E/S/W and re-map the grid) is an
+  // explicit reach item, not built yet — see reference/ROADMAP.md, Movement
+  // System.
+  let html =
+    '<div class="map-corner" title="8-directional compass" style="grid-column:2; grid-row:2;"><span class="map-compass-icon">🧭</span></div>' +
+    '<span class="map-axis-head n" style="grid-column:2; grid-row:1;">N</span>' +
+    '<span class="map-axis-head w" style="grid-column:1; grid-row:2;">W</span>' +
+    '<span class="map-axis-head e" style="grid-column:' + (COL_OFFSET + map.width) + '; grid-row:2;">E</span>' +
+    '<span class="map-axis-head s" style="grid-column:2; grid-row:' + (ROW_OFFSET + map.height) + ';">S</span>' +
+    '<div class="map-axis-line horizontal" style="grid-row:2; grid-column:3 / ' + (COL_OFFSET + map.width) + ';"></div>' +
+    '<div class="map-axis-line vertical" style="grid-column:2; grid-row:3 / ' + (ROW_OFFSET + map.height) + ';"></div>' +
+    // The tile grid's own corner — a bare "0", the placeholder this spot
+    // used before the compass existed at all, now that the compass has its
+    // own separate cell above.
+    '<div class="map-corner map-corner-zero" style="grid-column:' + COL_OFFSET + '; grid-row:' + ROW_OFFSET + ';">0</div>';
   for(let x = 0; x < map.width; x++){
-    html += '<div class="map-col-header">' + columnLabel(map, x) + '</div>';
+    html += '<div class="map-col-header" style="grid-column:' + (COL_OFFSET + 1 + x) + '; grid-row:' + ROW_OFFSET + ';">' + columnLabel(map, x) + '</div>';
   }
 
   for(let y = 0; y < map.height; y++){
-    html += '<div class="map-row-header">' + rowLabel(map, y) + '</div>';
+    html += '<div class="map-row-header" style="grid-column:' + COL_OFFSET + '; grid-row:' + (ROW_OFFSET + 1 + y) + ';">' + rowLabel(map, y) + '</div>';
     for(let x = 0; x < map.width; x++){
       const idx = tileIndex(map, x, y);
       const blocked = !map.tiles[idx];
@@ -272,7 +343,8 @@ export function renderMap(){
       const styleParts = [];
       if(dTier){ styleParts.push('--down-color:' + DOWN_GRADIENT[dTier - 1]); styleParts.push('--down-reach:' + DOWN_REACH[dTier - 1] + '%'); }
       if(cTier){ styleParts.push('--chunk-color:' + PINK_GRADIENT[cTier - 1]); styleParts.push('--chunk-reach:' + CHUNK_REACH[cTier - 1] + '%'); }
-      const style = styleParts.length ? ' style="' + styleParts.join(';') + '"' : '';
+      styleParts.push('grid-column:' + (COL_OFFSET + 1 + x), 'grid-row:' + (ROW_OFFSET + 1 + y));
+      const style = ' style="' + styleParts.join(';') + '"';
 
       const label = here.length ? escapeHtml(here.map(n => n.name[0]).join(',')) : '';
       const titleBits = here.map(n => n.name + (n.dead ? ' (dead)' : '')).join(', ');

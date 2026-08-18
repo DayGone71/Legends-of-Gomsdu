@@ -239,19 +239,39 @@ export function renderDMCounters(){
   dmRenderToggleStates();
 }
 
+// Mirrors combat.js's renderAllyRange() — Mini-Party Characters weren't part
+// of the original Ally Targeting System's three concrete changes (Combat's
+// Ally Range, DM's Acting-As self-target, DM Test's Players list all got it;
+// this picker didn't), reconfirmed live 2026-08-17 (dDd: "Enemies need to be
+// able to target Mini-Parties"). Same row-building shape as Ally Range, just
+// with no "(You)" sub-label since the DM isn't a Player at the table.
 export function renderDMTargetRange(){
   const el = document.getElementById('dm-target-range');
   if(!el) return;
-  const players = (AppState.table && AppState.table.players) || {};
-  const list = Object.entries(players);
-  if(!list.length){ el.innerHTML = '<div class="log-empty">No players to target.</div>'; return; }
+  const table = AppState.table;
+  if(!table){ el.innerHTML = ''; return; }
 
-  el.innerHTML = list.map(([id, p]) => {
-    const defeated = isDeathWounded(p);
+  const rows = [];
+  Object.entries(table.players || {}).forEach(([pid, p]) => {
+    rows.push({ id: pid, name: p.name || 'Unnamed', dead: isDeathWounded(p) });
+    (p.miniParty || []).forEach((mp, idx) => {
+      if(mp.sourceEnemyId){
+        const src = table.enemies && table.enemies[mp.sourceEnemyId];
+        if(src) rows.push({ id: mp.sourceEnemyId, name: src.name, dead: isDeathWounded(src), sub: '(' + (p.name || '?') + '’s Mini-Party)' });
+      }else if(mp.woundsMax != null){
+        rows.push({ id: 'mp:' + pid + ':' + idx, name: mp.name || 'Follower', dead: isDeathWounded(mp), sub: '(' + (p.name || '?') + '’s Mini-Party)' });
+      }
+    });
+  });
+
+  if(!rows.length){ el.innerHTML = '<div class="log-empty">No players to target.</div>'; return; }
+
+  el.innerHTML = rows.map(r => {
     let cls = 'target-chip';
-    if(id === AppState.dmSelectedTargetId) cls += ' selected';
-    if(defeated) cls += ' defeated';
-    return '<div class="' + cls + '" data-id="' + id + '">' + escapeHtml(p.name || 'Player') + ' &mdash; ' + Math.max(0, p.wounds ?? 0) + '/' + (p.woundsMax ?? 0) + '</div>';
+    if(r.id === AppState.dmSelectedTargetId) cls += ' selected';
+    if(r.dead) cls += ' defeated';
+    return '<div class="' + cls + '" data-id="' + r.id + '">' + escapeHtml(r.name) +
+      (r.sub ? ' <span class="chip-sub">' + escapeHtml(r.sub) + '</span>' : '') + '</div>';
   }).join('');
 
   el.querySelectorAll('.target-chip').forEach(chip => {
@@ -260,8 +280,8 @@ export function renderDMTargetRange(){
 }
 
 export function selectDMTarget(id){
-  const p = AppState.table && AppState.table.players && AppState.table.players[id];
-  if(!p || isDeathWounded(p)) return;
+  const target = resolveEntityRef(AppState.table, id);
+  if(!target || isDeathWounded(target)) return;
   AppState.dmSelectedTargetId = id;
   renderDMTargetRange();
   renderDMEnemyPicker(); // clears any self-targeted highlight on the Acting As chip

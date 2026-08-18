@@ -12,6 +12,7 @@
 // (only state.js/utils.js) avoids that entirely.
 import { AppState } from './state.js';
 import { escapeHtml } from './utils.js';
+import { MAX_MINI_PARTY } from './possession.js';
 
 // Gom/Kulkrow's ambient Tier-5 default always renders as the topmost row —
 // it isn't tracked as data, only manually-added Tier 2-5 possessors are. The
@@ -28,7 +29,18 @@ import { escapeHtml } from './utils.js';
 // a-Character and the read-only Character Sheet never do, since you're
 // intentionally inspecting/editing that specific Character there, not
 // scanning the Party at a glance through the fog.
-export function possessorGridHtml(player, playerId, hideShadow){
+// canManage (2026-08-17, dDd's Party Panel redesign — was "showAddButtons",
+// renamed since it now gates removal too): only the live Roster passes
+// this, and only for the viewer's own Player Group, or anyone's Group once
+// Veil Vision is on (see ledger.js's renderRoster()) — an empty *manual*
+// possessor slot (never the Gom/Kulkrow default, which isn't something you
+// add or remove) renders as a real "+Add Possessor" button instead of an
+// invisible placeholder, and a real manually-added entry gets the same
+// hover-reveals-a-red-X removal affordance already used for defeated Enemy
+// chips (.chip-remove-x). Create-a-Character and the read-only Character
+// Sheet never pass it — the former already has its own separate add-flow,
+// the latter is read-only.
+export function possessorGridHtml(player, playerId, hideShadow, canManage){
   const defaultShadowHidden = hideShadow;
   const defaultPossessorHtml = defaultShadowHidden
     ? '<div class="roster-possessor empty">&nbsp;</div><div class="roster-possessor empty">&nbsp;</div>'
@@ -36,31 +48,47 @@ export function possessorGridHtml(player, playerId, hideShadow){
       '<div class="roster-possessor shadow"><span class="roster-icon">●</span> Kulkrow (Tier 5)</div>';
   const possessorEntries = player.possessors || [];
   const possessorSorted = possessorEntries.map((pos, i) => ({ pos, i })).sort((a, b) => a.pos.tier - b.pos.tier);
+  const emptySlotHtml = canManage
+    ? '<button class="roster-possessor empty roster-add-slot" data-player-id="' + playerId + '" data-kind="possessor" title="Add Possessor">+ Possessor</button>'
+    : '<div class="roster-possessor empty">&nbsp;</div>';
   const possessorHtml = possessorSorted.map(({ pos, i }) => {
     const isShadow = pos.type === 'shadow';
     if(isShadow && hideShadow) return '<div class="roster-possessor empty">&nbsp;</div>';
+    const removeX = canManage ? '<span class="chip-remove-x roster-remove-x" data-player-id="' + playerId + '" data-kind="possessor" data-index="' + i + '">✕</span>' : '';
     return '<div class="roster-possessor' + (isShadow ? ' shadow' : '') + '" data-player-id="' + playerId + '" data-possessor-index="' + i + '">' +
-      '<span class="roster-icon">' + (isShadow ? '●' : '○') + '</span> ' + escapeHtml(pos.name) + ' (Tier ' + pos.tier + ')</div>';
-  }).join('') + '<div class="roster-possessor empty">&nbsp;</div>'.repeat(Math.max(0, 2 - possessorEntries.length));
+      '<span class="roster-icon">' + (isShadow ? '●' : '○') + '</span> ' + escapeHtml(pos.name) + ' (Tier ' + pos.tier + ')' + removeX + '</div>';
+  }).join('') + emptySlotHtml.repeat(Math.max(0, 2 - possessorEntries.length));
   return '<div class="roster-possessor-grid">' + defaultPossessorHtml + possessorHtml + '</div>';
 }
 
 // A Possessed member (from the Possess Technique) reflects a real Enemy
 // still living in table.enemies — hexagon icon, distinct color, and its
 // current live name (not the frozen name from the moment it was possessed).
-// Returns '' when empty — callers that want an explicit empty-state message
-// (Create-a-Character/Character Sheet, which always show a "Mini Party"
-// header) supply their own via `|| '<div class="log-empty">...</div>'`.
-export function miniPartyGridHtml(player, playerId){
+// Always reserves MAX_MINI_PARTY slots (empty ones padded, invisible) —
+// added 2026-08-17, matching possessorGridHtml's own reserved-slot pattern
+// above. Previously returned '' when a Character had zero Mini-Party
+// members, so the grid box didn't exist at all — that's what was actually
+// causing the Roster's "+ Add AI Party Member" button to shift position
+// depending on how many members a Character had (dDd's spacing complaint):
+// a fixed slot count, not a variable one, is what makes a Character's whole
+// block the same height regardless of what's actually in it.
+export function miniPartyGridHtml(player, playerId, canManage){
   const miniPartyEntries = player.miniParty || [];
-  if(!miniPartyEntries.length) return '';
+  const emptySlotHtml = canManage
+    ? '<button class="roster-miniparty-member empty roster-add-slot" data-player-id="' + playerId + '" data-kind="miniparty" title="Add Mini-Party Character">+ Mini-Party</button>'
+    : '<div class="roster-miniparty-member empty">&nbsp;</div>';
   const miniPartyHtml = miniPartyEntries.map((mp, i) => {
     const sourceEnemy = mp.sourceEnemyId && AppState.table.enemies && AppState.table.enemies[mp.sourceEnemyId];
     const isPossessed = !!mp.possessed;
     const displayName = sourceEnemy ? sourceEnemy.name : mp.name;
+    // A Possessed member is a live Enemy reflected here, not a real entry in
+    // this Player's own miniParty array in the removable sense — removing
+    // it isn't "delete this Group Character," it's undoing a live Possess
+    // Technique effect, a different action entirely. No remove-X for those.
+    const removeX = (canManage && !isPossessed) ? '<span class="chip-remove-x roster-remove-x" data-player-id="' + playerId + '" data-kind="miniparty" data-index="' + i + '">✕</span>' : '';
     return '<div class="roster-miniparty-member' + (isPossessed ? ' possessed' : '') + '" data-player-id="' + playerId + '" data-miniparty-index="' + i + '">' +
-      '<span class="roster-icon">' + (isPossessed ? '⬢' : '⊙') + '</span> ' + escapeHtml(displayName) + '</div>';
-  }).join('');
+      '<span class="roster-icon">' + (isPossessed ? '⬢' : '⊙') + '</span> ' + escapeHtml(displayName) + removeX + '</div>';
+  }).join('') + emptySlotHtml.repeat(Math.max(0, MAX_MINI_PARTY - miniPartyEntries.length));
   return '<div class="roster-miniparty-grid">' + miniPartyHtml + '</div>';
 }
 

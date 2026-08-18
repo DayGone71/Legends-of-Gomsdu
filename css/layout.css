@@ -195,7 +195,11 @@
   padding:10px 16px; border-radius:8px; font-size:13.5px;
 }
 .toolbar button.active, .side-toolbar button.active{border-color:var(--brass); color:var(--brass-bright);}
-.side-toolbar{display:flex; flex-direction:column; gap:10px; justify-content:center; flex-shrink:0;}
+/* Fixed, non-shrinking (2026-08-17) — dDd's call: these are "more of a
+   temporary thing" (likely folded into the Sequencer surface later, see
+   ROADMAP.md's Sequencer Panel "deeper merge" item), they just need to
+   reliably stay left/right. The Map, not these, is what should flex. */
+.side-toolbar{display:flex; flex-direction:column; gap:10px; justify-content:center; flex:0 0 148px;}
 .side-toolbar button{width:148px;}
 
 /* Sequencer divider — decorative strip left behind by the old horizontal
@@ -311,9 +315,25 @@
    rows in AP order (beeswarm/jitter-plot style — the standard fix for
    overplotting) so adjacent close-together moments don't visually collide;
    dot size scales with how many actions landed at that exact tick. */
+/* Battle Report placeholder line (2026-08-17, View 1 spec) — literal
+   placeholder text for now (the real feature is ROADMAP.md's Sequencer
+   Panel "Battle Report" item, not built yet); same full-bleed 90vw width as
+   the Sequencer bar above, per dDd's spec. */
+.battle-report-line{
+  position:relative; left:50%; width:90vw; margin-left:-45vw;
+  text-align:center; font-family:'IBM Plex Mono',monospace; font-size:11px;
+  letter-spacing:.08em; color:var(--text-dim); text-transform:uppercase;
+  padding:6px 0; border-top:1px solid var(--ink-line); border-bottom:1px solid var(--ink-line);
+  margin-top:10px; margin-bottom:4px;
+}
+
 .sequencer-blood-drops{
   position:relative; left:50%; width:90vw; margin-left:-45vw;
   height:38px; margin-top:2px;
+  /* Backdrop (2026-08-17, dDd's View 1 ask: "so I can clearly tell") — a
+     subtle bounded zone marking where Blood Drops appear even when there
+     are none staged yet, rather than an unmarked empty strip. */
+  background:rgba(191,82,127,.05); border-radius:6px;
 }
 .sequencer-blood-drops.seq-scrubbable{cursor:crosshair;}
 .seq-drop{
@@ -353,14 +373,72 @@
 .sequencer-hover-popover-row.ally{color:#22D3EE;}
 .sequencer-hover-popover-row.enemy{color:#F5C518;}
 
+/* View 1 = header through the Map row, pinned to exactly one screen height
+   (2026-08-17) — "It's two fixed views. There is zero reason why the
+   Headers for Party and the Ledger should be visible." Party+Ledger
+   (.persistent-grid, View 2) start immediately after, entirely below the
+   fold until the Player actually scrolls — no bleed-through either way.
+   Everything in here that ISN'T the Map row has a fixed/intrinsic height;
+   .map-row is the one flexible piece, stretching to claim whatever's left. */
+/* calc(100vh - 28px), not a flat 100vh — #app's own top padding (see its
+   rule at the top of this file) sits above .view1 and isn't part of the
+   viewport height itself, so a flat 100vh here always overshot the visible
+   window by exactly that padding, pushing the Map toolbar buttons and the
+   spacer partly below the fold. */
+.view1{height:calc(100vh - 28px); display:flex; flex-direction:column; min-height:0;}
+.view1 .table-header{flex-shrink:0;}
+.view1 #banner-error{flex-shrink:0;}
+.view1 .sequencer-divider, .view1 .sequencer-marks, .view1 .sequencer-blood-drops,
+.view1 .battle-report-line{flex-shrink:0;}
+.view1 .map-row{flex:1; min-height:0; align-items:stretch;}
+/* TEMP calibration marker (2026-08-17) — see index.html's comment. Bright/
+   ugly on purpose so it's unmistakable and easy to find-and-delete later. */
+.view-calibration-line{
+  height:2px; background:#FF2D55; position:relative;
+  font-size:10px; color:#FF2D55; text-align:center; overflow:visible;
+}
+.view-calibration-line::after{
+  content:'View 1 / View 2 boundary';
+  position:absolute; top:4px; left:50%; transform:translateX(-50%);
+  white-space:nowrap; background:var(--ink); padding:0 6px;
+}
+/* Reserved breathing room at the bottom of View 1 (2026-08-17) — dDd's
+   correction after seeing the Map squeezed too short: sized to roughly
+   match the Battle Report line + Blood Drops strip combined, not a generic
+   20vh guess. */
+.view1-spacer{height:60px; flex-shrink:0;}
+
 /* Persistent area: Party + Ledger, always visible, side by side */
-.persistent-grid{display:grid; grid-template-columns:.9fr 1.1fr; gap:22px;}
-@media(max-width:860px){ .persistent-grid{grid-template-columns:1fr;} }
+/* View 2, pinned to a full screen height same as .view1 (2026-08-17) — see
+   css/panels.css's #roster/#ledger comment for the full reasoning. */
+.persistent-grid{display:grid; grid-template-columns:.9fr 1.1fr; gap:22px; height:calc(100vh - 28px); min-height:0;}
+.persistent-grid .panel-static{display:flex; flex-direction:column; min-height:0;}
+.persistent-grid .panel-static h2{flex-shrink:0;}
+.persistent-grid .chat-row{flex-shrink:0;}
+@media(max-width:860px){ .persistent-grid{grid-template-columns:1fr; height:auto;} }
 
 /* Map sits in its own centered row, flanked by the Stats/Techniques/Party
-   stack on the left and Combat/Dungeon Master on the right. */
-.map-row{display:flex; justify-content:center; align-items:center; gap:24px; flex-wrap:wrap;}
-.map-panel{width:100%; max-width:420px;}
+   stack on the left and Combat/Dungeon Master on the right — always in
+   those positions, never restacked. First attempt at the narrow-viewport
+   fix (2026-08-17) switched to a stacked column layout below 860px, which
+   dDd correctly called out as its own glitch on review ("They should stay
+   in their positions but shrink or whatever") — restacking read as broken
+   on phone-sized screens too. Real fix: no wrap at all (`flex-wrap:nowrap`)
+   — every flex item (both .side-toolbars above, .map-panel here) is allowed
+   to actually shrink instead, each with its own floor (.side-toolbar's
+   `min-width:60px` above, map-panel's `min-width` below) so the row
+   compresses proportionally rather than either wrapping or overflowing. */
+.map-row{display:flex; justify-content:center; align-items:flex-start; gap:24px; flex-wrap:nowrap;}
+/* The Map as the dominant, reactive element (2026-08-17, dDd's redesign —
+   "the most reactive thing to the page"), replacing the earlier fixed
+   max-width:420px. 60% of the row, real flex-shrink as a last-resort floor
+   for extremely narrow viewports (the side toolbars are fixed-width and
+   protected, see .side-toolbar above — the Map gives way, not them). Height
+   is deliberately NOT unbounded — #map-grid below caps it and scrolls
+   internally, so a big Map reads as a landscape rectangle (dDd's own
+   preference, "probably be better than square") rather than growing into a
+   tall square that pushes everything else down the page. */
+.map-panel{width:60%; flex:1 1 60%; min-width:0; display:flex; flex-direction:column; min-height:0;}
 
 .panel-static{background:var(--ink-soft); border:1px solid var(--ink-line); border-radius:10px; padding:20px;}
 .panel-static h2{font-size:15px; text-transform:uppercase; letter-spacing:.08em; font-weight:600; color:var(--text-dim); margin-bottom:14px;}
