@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Personality Pillar — bare bones prototype</title>
+<style>
+  body { font-family: 'Segoe UI', sans-serif; background:#1b1b1f; color:#eee; padding:32px; margin:0; }
+  .nav-row { text-align:center; margin-bottom:16px; }
+  .nav-row a { color:#6fa8dc; font-size:12px; text-decoration:none; }
+  .nav-row a:hover { text-decoration:underline; }
+  .char-tag { text-align:center; font-size:12px; color:#888; margin-bottom:18px; }
+  .char-tag b { color:#dcb96f; }
+  h2 { text-align:center; font-weight:600; margin:0 0 6px; color:#ccc; }
+  .subhead { text-align:center; font-size:12.5px; color:#888; margin-bottom:22px; }
+
+  .arc-row { display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:28px; }
+  .arc-row label { font-size:12.5px; color:#999; }
+  .arc-row select {
+    background:#2a2a30; border:1px solid #444; color:#ddd; border-radius:5px;
+    padding:7px 10px; font-size:13px;
+  }
+
+  .columns { display:flex; gap:28px; justify-content:center; align-items:flex-start; }
+  .col { flex:1; max-width:340px; }
+  .col-label { text-align:center; font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:#888; margin-bottom:14px; }
+  .col-list:empty::before { content:"— empty —"; display:block; text-align:center; color:#555; font-size:12px; padding:10px 0; }
+
+  .axis { background:#242429; border:1px solid #3a3a42; border-radius:6px; padding:10px 12px; margin-bottom:10px; }
+  .axis-name { font-size:12.5px; font-weight:600; color:#ddd; margin-bottom:8px; }
+  .axis-3way { display:flex; gap:4px; }
+  .pole-btn {
+    flex:1; background:#2a2a30; border:1px solid #444; color:#999; border-radius:5px;
+    padding:8px 4px; font-size:11px; cursor:pointer; text-align:center;
+  }
+  .pole-btn:hover { border-color:#777; }
+  .pole-btn.active { background:#3a4a5a; border-color:#6fa8dc; color:#dceaf7; }
+  .pole-btn.mid { font-style:italic; }
+
+  .add-axis { margin-top:10px; display:flex; flex-direction:column; gap:6px; }
+  .add-axis input {
+    background:#2a2a30; border:1px solid #444; color:#ddd; border-radius:5px;
+    padding:6px 9px; font-size:12px;
+  }
+  .add-axis button {
+    background:#2a2a30; border:1px solid #444; color:#ddd; border-radius:5px;
+    padding:7px; font-size:12px; cursor:pointer;
+  }
+  .add-axis button:hover { background:#35353d; border-color:#888; }
+</style>
+</head>
+<body>
+
+<div class="nav-row"><a href="chemistry-pillar.html">&larr; Chemistry</a></div>
+<div class="char-tag">Character A: <b id="char-name">&mdash;</b></div>
+
+<h2>Personality Pillar — bare bones prototype</h2>
+<div class="subhead">Heart / Stomach / Head — the three domains, empty for now; which Axes belong where is still open</div>
+
+<div class="arc-row">
+  <label>Arc / mutability:</label>
+  <select id="arc-type">
+    <option value="static">Static</option>
+    <option value="sponge">Sponge</option>
+    <option value="gambler">Gambler</option>
+  </select>
+</div>
+
+<div class="columns" id="columns"></div>
+
+<script>
+  // Personality Pillar, corrected 2026-08-18 — dDd's fix: Heart/Stomach/
+  // Head are the three domain containers and stay; the previously-seeded
+  // Axes (Compassion, Reactivity, Consideration, Transparency, Wit) come
+  // out. Empty on purpose — which Axes actually belong to which domain
+  // is still open (see the Genesis-material discussion on Era-gating —
+  // a first-Era being would only have Head at all), so seeding examples
+  // here would presume an answer nobody's settled yet.
+  const DOMAINS = { heart: { label: 'Heart' }, stomach: { label: 'Stomach' }, head: { label: 'Head' } };
+
+  function renderAxis(list, axis){
+    const el = document.createElement('div');
+    el.className = 'axis';
+    el.innerHTML =
+      '<div class="axis-name">' + axis.name + '</div>' +
+      '<div class="axis-3way">' +
+        '<button class="pole-btn left" data-val="0">' + axis.left + '</button>' +
+        '<button class="pole-btn mid" data-val="1">Mid</button>' +
+        '<button class="pole-btn right" data-val="2">' + axis.right + '</button>' +
+      '</div>';
+    const buttons = el.querySelectorAll('.pole-btn');
+    function setActive(v){
+      axis.value = v;
+      buttons.forEach(b => b.classList.toggle('active', Number(b.dataset.val) === v));
+    }
+    buttons.forEach(b => b.addEventListener('click', () => setActive(Number(b.dataset.val))));
+    setActive(axis.value);
+    list.appendChild(el);
+  }
+
+  function renderColumn(domainKey){
+    const domain = DOMAINS[domainKey];
+    const col = document.createElement('div');
+    col.className = 'col';
+    col.innerHTML = '<div class="col-label">' + domain.label + '</div>';
+    const list = document.createElement('div');
+    list.className = 'col-list';
+    list.id = 'list-' + domainKey;
+    col.appendChild(list);
+
+    const addForm = document.createElement('div');
+    addForm.className = 'add-axis';
+    addForm.innerHTML =
+      '<input placeholder="Axis name" class="new-name" />' +
+      '<input placeholder="Left pole" class="new-left" />' +
+      '<input placeholder="Right pole" class="new-right" />' +
+      '<button>+ Add Axis</button>';
+    addForm.querySelector('button').addEventListener('click', () => {
+      const name = addForm.querySelector('.new-name').value.trim();
+      const left = addForm.querySelector('.new-left').value.trim() || 'Pole A';
+      const right = addForm.querySelector('.new-right').value.trim() || 'Pole B';
+      if(!name) return;
+      renderAxis(list, { name, left, right, value: 1 });
+      addForm.querySelector('.new-name').value = '';
+      addForm.querySelector('.new-left').value = '';
+      addForm.querySelector('.new-right').value = '';
+    });
+    col.appendChild(addForm);
+    return col;
+  }
+
+  const columns = document.getElementById('columns');
+  Object.keys(DOMAINS).forEach(key => columns.appendChild(renderColumn(key)));
+
+  try {
+    const c = JSON.parse(localStorage.getItem('gomsdu-chemistry-character') || 'null');
+    if(c && c.name) document.getElementById('char-name').textContent = c.name;
+  } catch(e){}
+</script>
+
+</body>
+</html>

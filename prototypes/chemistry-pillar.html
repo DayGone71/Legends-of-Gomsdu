@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Chemistry — bare bones prototype</title>
+<style>
+  body { font-family: 'Segoe UI', sans-serif; background:#1b1b1f; color:#eee; padding:32px; margin:0; }
+  .nav-row { text-align:center; margin-bottom:16px; display:flex; gap:16px; justify-content:center; }
+  .nav-row a { color:#6fa8dc; font-size:12px; text-decoration:none; }
+  .nav-row a:hover { text-decoration:underline; }
+  h2 { text-align:center; font-weight:600; margin:0 0 6px; color:#ccc; }
+  .subhead { text-align:center; font-size:12.5px; color:#888; margin-bottom:6px; }
+  .warn { text-align:center; font-size:11.5px; color:#c99; margin-bottom:24px; }
+
+  .create-row { display:flex; gap:8px; justify-content:center; margin-bottom:30px; flex-wrap:wrap; }
+  .create-row input, .create-row select, .create-row button {
+    background:#2a2a30; border:1px solid #444; color:#ddd; border-radius:5px;
+    padding:8px 12px; font-size:13px;
+  }
+  .create-row button { cursor:pointer; }
+  .create-row button:hover { background:#35353d; border-color:#888; }
+  .create-hint { text-align:center; font-size:11px; color:#666; margin-top:-22px; margin-bottom:24px; }
+
+  .grid { display:grid; grid-template-columns: 1fr 1fr; gap:24px; max-width:900px; margin:0 auto; }
+  .card { background:#242429; border:1px solid #3a3a42; border-radius:8px; padding:18px 20px; }
+  .card-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:#888; margin-bottom:14px; text-align:center; }
+
+  .info-row { display:flex; justify-content:space-between; font-size:12.5px; padding:6px 0; border-bottom:1px dashed #3a3a42; }
+  .info-row:last-child { border-bottom:none; }
+  .info-row .tag { color:#9fd0ff; }
+  .info-row .scope { color:#777; font-size:10.5px; text-transform:uppercase; }
+
+  .pers-domain { margin-bottom:12px; }
+  .pers-domain-label { font-size:10.5px; color:#777; text-transform:uppercase; letter-spacing:.06em; margin-bottom:5px; }
+  .pers-axis-row { display:flex; justify-content:space-between; align-items:center; font-size:12.5px; padding:3px 0; }
+  .pers-axis-row .name { color:#ccc; }
+  .pers-axis-row .state { color:#6fa8dc; font-weight:600; }
+
+  .rel-value { text-align:center; font-size:13px; margin:6px 0; }
+  .rel-value b { font-size:20px; color:#ddd; display:block; }
+  .rel-beat { text-align:center; font-size:11.5px; color:#8fd6a0; margin-top:8px; }
+
+  .exch-line { font-size:12.5px; padding:6px 0; border-bottom:1px dashed #3a3a42; }
+  .exch-line:last-child { border-bottom:none; }
+  .exch-label { color:#888; text-transform:uppercase; font-size:10.5px; letter-spacing:.06em; display:block; margin-bottom:3px; }
+  .exch-pieces { color:#dcb96f; }
+  .exch-meta { text-align:center; font-size:11px; color:#666; margin-top:10px; }
+
+  .chem-card { grid-column: 1 / -1; }
+  .chem-active { text-align:center; font-size:13px; color:#ccc; padding:10px; }
+  .chem-active .pair { color:#dcb96f; font-weight:600; }
+  .chem-active .emotion { color:#dcb96f; }
+</style>
+</head>
+<body>
+
+<div class="nav-row">
+  <a href="dialogue-line.html">Exchange</a>
+  <a href="information-pillar.html">Information</a>
+  <a href="personality-pillar.html">Personality</a>
+  <a href="relationships-pillar.html">Relationships</a>
+</div>
+
+<h2>Chemistry — bare bones prototype</h2>
+<div class="subhead">A snapshot of the other four Pillars, gathered in one place</div>
+<div class="warn">Cards below still placeholder data — only Character Creation actually persists (localStorage), read by the other four Pillar pages as Character A.</div>
+
+<div class="create-row">
+  <input id="char-name-input" placeholder="Name" />
+  <select id="char-template">
+    <option value="">— template —</option>
+    <option value="living-stone">Living Stone</option>
+    <option value="human">Human</option>
+    <option value="custom">Custom</option>
+  </select>
+  <button id="btn-save-char">Save</button>
+</div>
+<div class="create-hint">Character A — this Save is what the other four Pillar pages read on load</div>
+
+<div class="grid">
+
+  <div class="card">
+    <div class="card-title">Information</div>
+    <div class="info-row"><span class="tag">((Shield Fragment))</span><span class="scope">global</span></div>
+    <div class="info-row"><span class="tag">((the north gate))</span><span class="scope">local</span></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Relationships — Stranger 1 &harr; Stranger 2</div>
+    <div class="rel-value">Temporary<b>7</b></div>
+    <div class="rel-value">Final<b>0</b></div>
+    <div class="rel-beat">— threshold crossed: favorable —</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Personality</div>
+    <div class="pers-domain">
+      <div class="pers-domain-label">Heart</div>
+      <div class="pers-axis-row" style="color:#666;">&mdash; empty &mdash;</div>
+    </div>
+    <div class="pers-domain">
+      <div class="pers-domain-label">Stomach</div>
+      <div class="pers-axis-row" style="color:#666;">&mdash; empty &mdash;</div>
+    </div>
+    <div class="pers-domain">
+      <div class="pers-domain-label">Head</div>
+      <div class="pers-axis-row" style="color:#666;">&mdash; empty &mdash;</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Exchange</div>
+    <div class="exch-line"><span class="exch-label">Call</span><span class="exch-pieces">[Stakes] [Reason]</span></div>
+    <div class="exch-line"><span class="exch-label">Response</span><span class="exch-pieces">[The Ask] [Consequence]</span></div>
+    <div class="exch-meta">Snippet 1 of 1 — "Untitled"</div>
+  </div>
+
+  <div class="card chem-card">
+    <div class="card-title">Chemistry — what the snapshot above implies</div>
+    <div class="chem-active">
+      Once Personality actually has Axes set, whichever pair is active would
+      point at that pair's Emotion field on the Relationships Pillar — that's
+      what a given moment would be "about."
+      <div style="margin-top:8px; color:#777; font-size:11.5px;">
+        No logic actually connects these cards together yet — this card is
+        describing what the connection *would* read as, once it exists.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Character Creation — the one piece of this page that's actually real.
+  // Shared localStorage key, same pattern as dialogue-line.html's own
+  // Save/Load. Represents Character A specifically (there are two, per
+  // Exchange's A/B split) — read-only on the other four Pillar pages.
+  const KEY = 'gomsdu-chemistry-character';
+  const nameInput = document.getElementById('char-name-input');
+  const templateSelect = document.getElementById('char-template');
+
+  try {
+    const existing = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if(existing){
+      nameInput.value = existing.name || '';
+      templateSelect.value = existing.template || '';
+    }
+  } catch(e){}
+
+  document.getElementById('btn-save-char').addEventListener('click', () => {
+    const name = nameInput.value.trim();
+    if(!name) return;
+    localStorage.setItem(KEY, JSON.stringify({ name, template: templateSelect.value }));
+  });
+</script>
+
+</body>
+</html>

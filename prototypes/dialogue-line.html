@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Dialogue Line — bare bones prototype</title>
+<style>
+  body { font-family: 'Segoe UI', sans-serif; background:#1b1b1f; color:#eee; padding:32px; margin:0; }
+  h2 { text-align:center; font-weight:600; margin:0 0 24px; color:#ccc; }
+
+  .toolbar { display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+  .toolbar button, .toolbar input, .toolbar select {
+    background:#2a2a30; border:1px solid #444; color:#ddd; border-radius:5px;
+    padding:8px 12px; font-size:13px;
+  }
+  .toolbar button { cursor:pointer; }
+  .toolbar button:hover { background:#35353d; border-color:#888; }
+  #exchange-name { width:120px; }
+  #exchange-select { min-width:160px; }
+  #snippet-count { width:52px; text-align:center; }
+
+  .snippet-nav { display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:28px; }
+  .snippet-nav button {
+    background:#2a2a30; border:1px solid #444; color:#ddd; border-radius:5px;
+    padding:6px 14px; font-size:14px; cursor:pointer;
+  }
+  .snippet-nav button:hover:not(:disabled) { background:#35353d; border-color:#888; }
+  .snippet-nav button:disabled { opacity:.35; cursor:default; }
+  .snippet-nav span { font-size:12.5px; color:#999; letter-spacing:.04em; }
+
+  .stage { display:flex; gap:48px; justify-content:center; align-items:flex-start; }
+  .side { flex:1; max-width:420px; }
+  .side-label { text-align:center; font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:#888; margin-bottom:10px; }
+  .side-label b { color:#dcb96f; text-transform:none; letter-spacing:normal; }
+  .nav-row { text-align:center; margin-bottom:16px; }
+  .nav-row a { color:#6fa8dc; font-size:12px; text-decoration:none; }
+  .nav-row a:hover { text-decoration:underline; }
+  .line-row { display:flex; gap:8px; align-items:stretch; margin-bottom:20px; }
+  .line { flex:1; min-height:44px; border:2px dashed #555; border-radius:6px; display:flex; gap:6px; align-items:center; padding:8px; flex-wrap:wrap; background:#242429; }
+  .line:empty::before { content:"— empty —"; color:#555; font-size:13px; padding-left:4px; }
+  .line-chip { background:#3a3a44; border:1px solid #666; border-radius:4px; padding:6px 11px; font-size:13px; cursor:pointer; white-space:nowrap; }
+  .line-chip:hover { background:#4a4a55; border-color:#999; }
+  select.placeholder { background:#242429; color:#ccc; border:1px solid #555; border-radius:4px; padding:8px; font-size:13px; }
+  .pieces { display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; }
+  .piece-btn { background:#2a2a30; border:1px solid #444; color:#ddd; border-radius:5px; padding:11px 6px; font-size:12.5px; cursor:pointer; text-align:center; }
+  .piece-btn:hover { background:#35353d; border-color:#888; }
+  .piece-btn:active { background:#40404a; }
+</style>
+</head>
+<body>
+
+<div class="nav-row"><a href="chemistry-pillar.html">&larr; Chemistry</a></div>
+
+<h2>Dialogue Line — bare bones prototype</h2>
+
+<div class="toolbar">
+  <button id="btn-print">Print</button>
+  <input id="exchange-name" placeholder="Name" />
+  <select id="exchange-select"><option value="">— Exchanges —</option></select>
+  <button id="btn-save">Save</button>
+  <input id="snippet-count" type="number" min="1" max="10" value="1" />
+</div>
+
+<div class="snippet-nav">
+  <button id="btn-prev">&#9664;</button>
+  <span id="snippet-label">Snippet 1 of 1</span>
+  <button id="btn-next">&#9654;</button>
+</div>
+
+<div class="stage">
+  <div class="side">
+    <div class="side-label">A — <b id="char-name">&mdash;</b></div>
+    <div class="line-row">
+      <div class="line" id="line-a"></div>
+      <select class="placeholder"><option>— placeholder —</option></select>
+    </div>
+    <div class="pieces" id="pieces-a"></div>
+  </div>
+
+  <div class="side">
+    <div class="side-label">B</div>
+    <div class="line-row">
+      <div class="line" id="line-b"></div>
+      <select class="placeholder"><option>— placeholder —</option></select>
+    </div>
+    <div class="pieces" id="pieces-b"></div>
+  </div>
+</div>
+
+<script>
+  // Placeholder Set Piece labels — the abstract bracket-types from the
+  // design conversation, not authored Pool content. One "Snippet" is one
+  // A/B Line+Pieces pair; an "Exchange" is a named, saved sequence of 1-10
+  // Snippets, persisted to localStorage since this file has no backend and
+  // is meant to stay fully standalone.
+  const PIECES = [
+    'Stakes', 'Challenge', 'Condition', 'Consequence',
+    'Address', 'The Ask', 'Stance', 'Reason',
+    'Quote', 'Contradiction', 'Offer', 'Tag'
+  ];
+  const STORAGE_KEY = 'gomsdu-dialogue-exchanges';
+
+  function makeSnippet(){ return { a: [], b: [] }; }
+  let snippets = [ makeSnippet() ];
+  let currentIndex = 0;
+
+  function loadExchanges(){
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
+    catch(e){ return {}; }
+  }
+  function saveExchanges(data){ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+
+  function renderPieceButtons(containerId, side){
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    PIECES.forEach(name => {
+      const btn = document.createElement('button');
+      btn.className = 'piece-btn';
+      btn.textContent = name;
+      btn.addEventListener('click', () => {
+        snippets[currentIndex][side].push(name);
+        renderLine(side);
+      });
+      container.appendChild(btn);
+    });
+  }
+
+  function renderLine(side){
+    const line = document.getElementById('line-' + side);
+    line.innerHTML = '';
+    snippets[currentIndex][side].forEach((name, i) => {
+      const chip = document.createElement('span');
+      chip.className = 'line-chip';
+      chip.textContent = name;
+      chip.title = 'Click to remove';
+      chip.addEventListener('click', () => {
+        snippets[currentIndex][side].splice(i, 1);
+        renderLine(side);
+      });
+      line.appendChild(chip);
+    });
+  }
+
+  function renderSnippetNav(){
+    document.getElementById('snippet-label').textContent =
+      'Snippet ' + (currentIndex + 1) + ' of ' + snippets.length;
+    document.getElementById('btn-prev').disabled = currentIndex === 0;
+    document.getElementById('btn-next').disabled = currentIndex === snippets.length - 1;
+  }
+
+  function renderAll(){
+    renderLine('a');
+    renderLine('b');
+    renderSnippetNav();
+  }
+
+  document.getElementById('snippet-count').addEventListener('change', (e) => {
+    let n = Math.max(1, Math.min(10, Number(e.target.value) || 1));
+    e.target.value = n;
+    while(snippets.length < n) snippets.push(makeSnippet());
+    while(snippets.length > n) snippets.pop();
+    if(currentIndex > snippets.length - 1) currentIndex = snippets.length - 1;
+    renderAll();
+  });
+
+  document.getElementById('btn-prev').addEventListener('click', () => {
+    if(currentIndex > 0){ currentIndex--; renderAll(); }
+  });
+  document.getElementById('btn-next').addEventListener('click', () => {
+    if(currentIndex < snippets.length - 1){ currentIndex++; renderAll(); }
+  });
+
+  function formatSnippet(snip){
+    return 'Call: ' + snip.a.map(p => '[' + p + ']').join(' ') +
+      '\nResponse: ' + snip.b.map(p => '[' + p + ']').join(' ');
+  }
+
+  document.getElementById('btn-print').addEventListener('click', () => {
+    const text = snippets.map(formatSnippet).join('\n\n');
+    window.prompt('Exchange — copy below:', text);
+  });
+
+  function refreshExchangeSelect(selectName){
+    const select = document.getElementById('exchange-select');
+    const data = loadExchanges();
+    select.innerHTML = '<option value="">— Exchanges —</option>';
+    Object.keys(data).forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      select.appendChild(opt);
+    });
+    if(selectName) select.value = selectName;
+  }
+
+  document.getElementById('btn-save').addEventListener('click', () => {
+    const name = document.getElementById('exchange-name').value.trim() || 'Untitled';
+    const data = loadExchanges();
+    data[name] = JSON.parse(JSON.stringify(snippets));
+    saveExchanges(data);
+    refreshExchangeSelect(name);
+  });
+
+  document.getElementById('exchange-select').addEventListener('change', (e) => {
+    const name = e.target.value;
+    if(!name) return;
+    const data = loadExchanges();
+    if(!data[name]) return;
+    snippets = JSON.parse(JSON.stringify(data[name]));
+    currentIndex = 0;
+    document.getElementById('exchange-name').value = name;
+    document.getElementById('snippet-count').value = snippets.length;
+    renderAll();
+  });
+
+  renderPieceButtons('pieces-a', 'a');
+  renderPieceButtons('pieces-b', 'b');
+  refreshExchangeSelect();
+  renderAll();
+
+  try {
+    const c = JSON.parse(localStorage.getItem('gomsdu-chemistry-character') || 'null');
+    if(c && c.name) document.getElementById('char-name').textContent = c.name;
+  } catch(e){}
+</script>
+
+</body>
+</html>
