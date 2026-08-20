@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gomsdu Glyph Designer</title>
+<style>
+  :root {
+    --bg: #faf8f3;
+    --card: #ffffff;
+    --border: #ddd6c8;
+    --text: #2b2620;
+    --text-muted: #7a7266;
+    --accent: #8a5a2e;
+    --grid-line: #e3ddce;
+    --grid-line-strong: #cfc6b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1a16;
+      --card: #26221c;
+      --border: #3a352c;
+      --text: #e9e4d8;
+      --text-muted: #a89f8d;
+      --accent: #d0a466;
+      --grid-line: #332f27;
+      --grid-line-strong: #443f34;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 28px;
+  }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+  h2 { font-size: 15px; font-weight: 600; margin: 30px 0 10px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+  .intro { font-size: 13px; color: var(--text-muted); margin: 0 0 18px; max-width: 640px; }
+  .controls { margin: 12px 0 20px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .controls input[type="file"] { font-size: 13px; color: var(--text); }
+  .status { font-size: 13px; color: var(--text-muted); }
+  .nav-links { display: flex; gap: 14px; margin-left: auto; flex-wrap: wrap; }
+  .nav-link { font-size: 13px; color: var(--accent); text-decoration: none; }
+  .nav-link:hover { text-decoration: underline; }
+
+  .workspace { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start; }
+
+  .canvas-wrap { flex: 0 0 auto; }
+  svg#canvas {
+    width: 520px;
+    height: 520px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: crosshair;
+    touch-action: none;
+  }
+  .grid-line { stroke: var(--grid-line); stroke-width: 0.3; }
+  .grid-line-strong { stroke: var(--grid-line-strong); stroke-width: 0.5; }
+  .path-stroke { fill: none; stroke: var(--text); stroke-width: 2.2; stroke-linecap: square; stroke-linejoin: miter; }
+  .path-stroke.live { stroke: var(--accent); }
+  .point-dot { fill: var(--accent); }
+  .point-dot.first { fill: var(--text); stroke: var(--accent); stroke-width: 1; }
+  .hover-readout { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+
+  .panel { flex: 1 1 260px; min-width: 260px; max-width: 340px; display: flex; flex-direction: column; gap: 14px; }
+  .field label { display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .field input[type="text"], .field select, .field textarea {
+    width: 100%; font-family: inherit; font-size: 13px; padding: 7px 9px;
+    border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--text);
+  }
+  .field textarea { resize: vertical; min-height: 50px; }
+
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  button {
+    font-family: inherit; font-size: 13px; padding: 8px 12px;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--text); cursor: pointer;
+  }
+  button:not(:disabled):hover { border-color: var(--accent); }
+  button:disabled { opacity: 0.4; cursor: default; }
+
+  .point-list { font-size: 12px; color: var(--text-muted); word-break: break-word; }
+  pre.output {
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 12px; white-space: pre-wrap; word-break: break-word;
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px; margin: 0; max-height: 260px; overflow: auto;
+  }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 8px; text-align: center; color: var(--text); font-family: inherit; cursor: pointer;
+  }
+  .card:disabled { opacity: 0.4; cursor: default; }
+  .card:not(:disabled):hover { border-color: var(--accent); }
+  .card svg { width: 100%; height: auto; aspect-ratio: 1; display: block; color: var(--text); }
+  .card .label { font-size: 12px; font-weight: 600; margin-top: 6px; }
+  .empty-state { font-size: 13px; color: var(--text-muted); padding: 10px 0; }
+
+  .comp-row {
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px; margin-bottom: 8px; font-size: 12px;
+  }
+  .comp-row .ref-label { font-weight: 600; flex: 1 1 100%; }
+  .comp-row input[type="number"] {
+    width: 58px; font-family: inherit; font-size: 12px; padding: 4px 6px;
+    border: 1px solid var(--border); border-radius: 5px; background: var(--card); color: var(--text);
+  }
+  .comp-row .remove-btn { margin-left: auto; padding: 4px 8px; font-size: 11px; }
+  #addComponentId {
+    flex: 1; min-width: 140px; font-family: inherit; font-size: 13px; padding: 7px 9px;
+    border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--text);
+  }
+  #addComponentId:disabled { opacity: 0.6; }
+  #wordPreview { width: 520px; height: 520px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
+  #wordManualJSON { min-height: 140px; font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<h1>Gomsdu Glyph Designer</h1>
+<p class="intro">Click the grid to place points — straight lines only, connected in order. Click near the first point of the current shape to close it. Use "New sub-path" for a disconnected second stroke (like the jagged-circle's horns). The exact JSON to paste into a primitive's <code>render</code> field builds live on the right.</p>
+
+<div class="controls">
+  <button id="connectFileBtn" type="button">Open file for direct editing&hellip;</button>
+  <span class="hover-readout">or</span>
+  <input type="file" id="fileInput" accept="application/json,.json">
+  <span class="status" id="status">No file loaded — you can still draw and export without one.</span>
+  <div class="nav-links">
+    <a class="nav-link" href="gomsdu-glyph-viewer.html">Open the Glyph Viewer &rarr;</a>
+    <a class="nav-link" href="gomsdu-glyph-arranger.html">Open the Glyph Arranger &rarr;</a>
+  </div>
+</div>
+<p class="intro" id="connectFileExplainer">"Open file for direct editing" (Chrome/Edge only) picks a real file on disk once, then Save writes straight back to it — no download, no moving files around afterward. "Choose File" next to it is the fallback: works in any browser, but Save downloads a fresh copy each time instead of overwriting.</p>
+
+<div class="workspace">
+  <div class="canvas-wrap">
+    <svg id="canvas" viewBox="0 0 100 100"></svg>
+    <div class="hover-readout" id="hoverReadout">x: —, y: —</div>
+  </div>
+
+  <div class="panel">
+    <div class="field">
+      <label for="idInput">id</label>
+      <input type="text" id="idInput" placeholder="e.g. new-shape">
+    </div>
+    <div class="field">
+      <label for="roleInput">role</label>
+      <select id="roleInput">
+        <option value="lexical-base">lexical-base</option>
+        <option value="marker">marker</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="descInput">description</label>
+      <textarea id="descInput" placeholder="What this shape is and why."></textarea>
+    </div>
+    <div class="field">
+      <label for="snapInput">grid snap</label>
+      <select id="snapInput">
+        <option value="5" selected>5 units</option>
+        <option value="10">10 units</option>
+        <option value="1">1 unit (fine)</option>
+      </select>
+    </div>
+
+    <div class="btn-row">
+      <button id="newSubpathBtn" type="button" disabled>New sub-path</button>
+      <button id="closeBtn" type="button" disabled>Close path</button>
+      <button id="undoBtn" type="button" disabled>Undo</button>
+      <button id="clearBtn" type="button" disabled>Clear points</button>
+      <button id="newSymbolBtn" type="button">New Glyph</button>
+    </div>
+
+    <div class="point-list" id="pointList">No points placed yet.</div>
+
+    <div class="field">
+      <label>ready to paste</label>
+      <pre class="output" id="output">{}</pre>
+      <div class="btn-row" style="margin-top:8px;">
+        <button id="copyBtn" type="button">Copy JSON</button>
+        <button id="saveBtn" type="button" disabled>Save Primitive</button>
+      </div>
+      <p class="hover-readout" id="saveBtnHint" style="margin-top:8px;">Greyed out until a JSON is loaded via "Choose File" up top — it's not hidden, just inactive.</p>
+    </div>
+  </div>
+</div>
+
+<h2>Existing primitives (click to load for viewing or editing)</h2>
+<div class="grid" id="refGrid"><div class="empty-state">Load a JSON file above to browse existing primitives.</div></div>
+
+<h2>Words</h2>
+<p class="intro">Load a JSON file above, then click an existing Word below to edit it, or click "New Word" to start one. Add a component by typing a Primitive or Word id (existing ones autocomplete) and adjusting its position/scale/rotation. The manual JSON box always reflects the current draft and can be edited directly too — click "Apply manual edit" to pull changes back into the fields above it.</p>
+
+<div class="workspace">
+  <div class="canvas-wrap">
+    <svg id="wordPreview" viewBox="0 0 100 100"></svg>
+  </div>
+
+  <div class="panel">
+    <div class="field">
+      <label for="wordIdInput">id</label>
+      <input type="text" id="wordIdInput" placeholder="e.g. NEW_WORD">
+    </div>
+    <div class="field">
+      <label for="wordSoundInput">sound</label>
+      <input type="text" id="wordSoundInput" placeholder="e.g. zin">
+    </div>
+    <div class="field">
+      <label for="wordMeaningInput">meaning</label>
+      <textarea id="wordMeaningInput" placeholder="What this Word means."></textarea>
+    </div>
+    <div class="field">
+      <label for="wordCategoryInput">category</label>
+      <select id="wordCategoryInput">
+        <option value="root">root</option>
+        <option value="derived">derived</option>
+        <option value="compound">compound</option>
+        <option value="sentence">sentence</option>
+        <option value="forbidden">forbidden</option>
+        <option value="meta">meta</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>composition</label>
+      <div id="compositionRows"></div>
+      <div class="btn-row">
+        <select id="addComponentId"><option value="">Load a file to see options&hellip;</option></select>
+        <button id="addComponentBtn" type="button" disabled>Add component</button>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button id="newWordBtn" type="button">New Word</button>
+      <button id="saveWordBtn" type="button" disabled>Save Word</button>
+    </div>
+    <p class="hover-readout" id="saveWordBtnHint">Greyed out until a JSON is loaded via "Choose File" up top — it's not hidden, just inactive. This is separate from the Primitive save button above; each downloads and updates its own kind of entry.</p>
+
+    <div class="field">
+      <label>manual edit (full Word JSON)</label>
+      <textarea id="wordManualJSON"></textarea>
+      <div class="btn-row" style="margin-top:8px;">
+        <button id="applyManualBtn" type="button">Apply manual edit</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2>Existing words (click to load for editing)</h2>
+<div class="grid" id="wordRefGrid"><div class="empty-state">Load a JSON file above to browse existing words.</div></div>
+
+<script>
+let DATA = null;
+let sourceFileName = 'gomsdu-glyphic-system.json';
+let fileHandle = null; // FileSystemFileHandle when connected via "Open file for direct editing" — Save writes straight to it, no download
+const CACHE_KEY = 'gomsduGlyphicSystemJSON';
+const NS = 'http://www.w3.org/2000/svg';
+
+document.getElementById('connectFileBtn').addEventListener('click', async function () {
+  const statusEl = document.getElementById('status');
+  if (!window.showOpenFilePicker) {
+    statusEl.textContent = 'Your browser doesn\'t support direct file editing (Chrome or Edge only) — use "Choose File" instead; Save will download a copy each time.';
+    return;
+  }
+  let handle;
+  try {
+    [handle] = await window.showOpenFilePicker({
+      types: [{ description: 'Gomsdu Glyphic System JSON', accept: { 'application/json': ['.json'] } }]
+    });
+  } catch (err) {
+    return; // user cancelled the picker
+  }
+  try {
+    const perm = await handle.requestPermission({ mode: 'readwrite' });
+    if (perm !== 'granted') {
+      statusEl.textContent = 'Write permission not granted — Save will download a copy instead of writing to ' + handle.name + '.';
+      return;
+    }
+    const file = await handle.getFile();
+    const text = await file.text();
+    const result = normalizeLoadedJSON(JSON.parse(text));
+    DATA = result.data;
+    fileHandle = handle;
+    sourceFileName = handle.name;
+    statusEl.textContent = 'Connected to ' + handle.name + ' — Save now writes straight to this file, no download needed.';
+    renderRefGrid();
+    renderWordRefGrid();
+    refreshIdsDatalist();
+    document.getElementById('saveBtn').disabled = false;
+    document.getElementById('saveWordBtn').disabled = false;
+    document.getElementById('addComponentBtn').disabled = false;
+    try { localStorage.setItem(CACHE_KEY, text); } catch (err) {}
+  } catch (err) {
+    statusEl.textContent = 'Could not open that file: ' + err.message;
+  }
+});
+
+// actions: {type:'point', x, y} | {type:'newSubpath'} | {type:'close'}
+let actions = [];
+
+// Accepts a full Glyphic System file, OR a bare single primitive/word object, OR a bare
+// array of them — so pasting/loading just one thing you're drafting previews it
+// directly instead of crashing on DATA.primitives being undefined. A snippet load
+// never enables Save, since there's no real file underneath it to merge into.
+function normalizeLoadedJSON(parsed) {
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) &&
+      (Array.isArray(parsed.primitives) || Array.isArray(parsed.words))) {
+    if (!Array.isArray(parsed.primitives)) parsed.primitives = [];
+    if (!Array.isArray(parsed.words)) parsed.words = [];
+    return { data: parsed, wasSnippet: false };
+  }
+  const items = Array.isArray(parsed) ? parsed : [parsed];
+  const primitives = [];
+  const words = [];
+  items.forEach(function (item) {
+    if (!item || typeof item !== 'object') return;
+    const isWord = ('sound' in item) || ('composition' in item) || ('category' in item);
+    (isWord ? words : primitives).push(item);
+  });
+  return { data: { primitives: primitives, words: words }, wasSnippet: true };
+}
+
+document.getElementById('fileInput').addEventListener('change', function (e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (ev) {
+    try {
+      const result = normalizeLoadedJSON(JSON.parse(ev.target.result));
+      DATA = result.data;
+      fileHandle = null; // this path never has a writable handle — Save will download a copy
+      if (result.wasSnippet) {
+        document.getElementById('status').textContent =
+          'Previewing a pasted snippet (not a full file) — ' + DATA.primitives.length + ' primitive(s), ' + DATA.words.length + ' word(s). Save is disabled until a real file is loaded.';
+        document.getElementById('saveBtn').disabled = true;
+        document.getElementById('saveWordBtn').disabled = true;
+        document.getElementById('addComponentBtn').disabled = true;
+      } else {
+        sourceFileName = file.name;
+        document.getElementById('status').textContent =
+          'Loaded ' + file.name + ' — ' + DATA.primitives.length + ' primitives, ' + DATA.words.length + ' words.';
+        document.getElementById('saveBtn').disabled = false;
+        document.getElementById('saveWordBtn').disabled = false;
+        document.getElementById('addComponentBtn').disabled = false;
+        try { localStorage.setItem(CACHE_KEY, ev.target.result); } catch (err) {}
+      }
+      renderRefGrid();
+      renderWordRefGrid();
+      refreshIdsDatalist();
+    } catch (err) {
+      document.getElementById('status').textContent = 'Could not parse JSON: ' + err.message;
+    }
+  };
+  reader.readAsText(file);
+});
+
+(function tryLoadFromCache() {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (!cached) return;
+    const result = normalizeLoadedJSON(JSON.parse(cached));
+    DATA = result.data;
+    document.getElementById('status').textContent =
+      'Loaded from browser cache — ' + DATA.primitives.length + ' primitives, ' + DATA.words.length + ' words. Pick a file to refresh.';
+    renderRefGrid();
+    renderWordRefGrid();
+    refreshIdsDatalist();
+    document.getElementById('saveBtn').disabled = false;
+    document.getElementById('saveWordBtn').disabled = false;
+    document.getElementById('addComponentBtn').disabled = false;
+  } catch (err) {}
+})();
+
+// ---- parsing an existing M/L/Z-only render back into actions, for editing ----
+function parsePathToActions(d) {
+  const out = [];
+  const tokens = d.match(/[MLZ]|-?\d*\.?\d+/g) || [];
+  let i = 0;
+  while (i < tokens.length) {
+    const t = tokens[i];
+    if (t === 'M' || t === 'L') { i++; continue; }
+    if (t === 'Z') { out.push({ type: 'close' }); i++; continue; }
+    const x = parseFloat(tokens[i]);
+    const y = parseFloat(tokens[i + 1]);
+    out.push({ type: 'point', x: x, y: y });
+    i += 2;
+  }
+  return out;
+}
+function parseRenderToActions(render) {
+  if (!render) return [];
+  if (render.type === 'path') return parsePathToActions(render.d);
+  if (render.type === 'multipath') {
+    let out = [];
+    render.d.forEach(function (d, idx) {
+      const sub = parsePathToActions(d);
+      const endsClosed = sub.length && sub[sub.length - 1].type === 'close';
+      out = out.concat(sub);
+      if (!endsClosed && idx < render.d.length - 1) out.push({ type: 'newSubpath' });
+    });
+    return out;
+  }
+  return null; // rect / line-with-dot / no render — not editable as points
+}
+
+// ---- static primitive rendering, for the reference gallery (mirrors the viewer) ----
+function staticPrimitiveMarkup(prim) {
+  const r = prim.render;
+  if (!r) return '<text x="50" y="54" text-anchor="middle" font-size="11" fill="var(--text-muted)">' + (prim.status || 'pending') + '</text>';
+  const attrs = 'fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="square" stroke-linejoin="miter"';
+  if (r.type === 'rect') return '<rect x="' + r.x + '" y="' + r.y + '" width="' + r.width + '" height="' + r.height + '" rx="' + (r.rx || 0) + '" ' + attrs + '/>';
+  if (r.type === 'path') return '<path d="' + r.d + '" ' + attrs + '/>';
+  if (r.type === 'multipath') return r.d.map(function (d) { return '<path d="' + d + '" ' + attrs + '/>'; }).join('');
+  if (r.type === 'line-with-dot') return '<path d="' + r.d + '" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/><circle cx="' + r.dot.cx + '" cy="' + r.dot.cy + '" r="' + r.dot.r + '" fill="currentColor"/>';
+  if (r.type === 'dots') return r.points.map(function (pt) { return '<circle cx="' + pt.cx + '" cy="' + pt.cy + '" r="' + pt.r + '" fill="currentColor"/>'; }).join('');
+  return '';
+}
+
+function renderRefGrid() {
+  const grid = document.getElementById('refGrid');
+  grid.innerHTML = '';
+  DATA.primitives.forEach(function (p) {
+    const editable = parseRenderToActions(p.render) !== null;
+    const btn = document.createElement('button');
+    btn.className = 'card';
+    btn.type = 'button';
+    btn.title = editable ? 'Click to load onto the canvas' : 'Not editable here (rect / dot type)';
+    btn.disabled = !editable;
+    btn.innerHTML = '<svg viewBox="0 0 100 100">' + staticPrimitiveMarkup(p) + '</svg><div class="label">' + p.id + '</div>';
+    btn.addEventListener('click', function () {
+      const parsed = parseRenderToActions(p.render);
+      if (!parsed) return;
+      actions = parsed.slice();
+      document.getElementById('idInput').value = p.id + '-copy';
+      document.getElementById('roleInput').value = p.role || 'lexical-base';
+      document.getElementById('descInput').value = p.description || '';
+      render();
+    });
+    grid.appendChild(btn);
+  });
+}
+
+// ==== Word editor ====
+let wordDraft = { composition: [] };
+
+function lookupPrimitive(id) { return DATA && DATA.primitives.find(function (p) { return p.id === id; }); }
+function lookupWord(id) { return DATA && DATA.words.find(function (w) { return w.id === id; }); }
+
+// Recursively resolves a word's composition into nested, transformed <g> groups — mirrors the viewer.
+function wordMarkup(word, depth) {
+  depth = depth || 0;
+  if (depth > 6) return '<text x="50" y="50" text-anchor="middle" font-size="9" fill="#c0392b">too deeply nested</text>';
+  if (!word.composition || word.composition.length === 0) return '<text x="50" y="54" text-anchor="middle" font-size="11" fill="var(--text-muted)">no symbol yet</text>';
+  let out = '';
+  word.composition.forEach(function (entry) {
+    const pos = entry.position || [0.5, 0.5];
+    const scale = (entry.scale === undefined) ? 1 : entry.scale;
+    const rotation = entry.rotation || 0;
+    const fx = pos[0] * 100;
+    const fy = pos[1] * 100;
+    const transform = 'translate(' + fx + ',' + fy + ') rotate(' + rotation + ') scale(' + scale + ') translate(-50,-50)';
+    let inner = '';
+    if (entry.primitive) {
+      const prim = lookupPrimitive(entry.primitive);
+      inner = prim ? staticPrimitiveMarkup(prim) : '<text x="50" y="50" text-anchor="middle" font-size="9" fill="#c0392b">missing: ' + entry.primitive + '</text>';
+    } else if (entry.word) {
+      const w = lookupWord(entry.word);
+      inner = w ? wordMarkup(w, depth + 1) : '<text x="50" y="50" text-anchor="middle" font-size="9" fill="#c0392b">missing: ' + entry.word + '</text>';
+    }
+    out += '<g transform="' + transform + '">' + inner + '</g>';
+  });
+  return out;
+}
+
+function refreshIdsDatalist() {
+  const sel = document.getElementById('addComponentId');
+  if (!DATA || (DATA.primitives.length === 0 && DATA.words.length === 0)) {
+    sel.innerHTML = '<option value="">Load a file to see options&hellip;</option>';
+    return;
+  }
+  const primOptions = DATA.primitives.map(function (p) { return '<option value="' + p.id + '">' + p.id + '</option>'; }).join('');
+  const wordOptions = DATA.words.map(function (w) { return '<option value="' + w.id + '">' + w.id + '</option>'; }).join('');
+  sel.innerHTML =
+    '<optgroup label="Primitives">' + primOptions + '</optgroup>' +
+    '<optgroup label="Words">' + wordOptions + '</optgroup>';
+}
+
+function renderWordRefGrid() {
+  const grid = document.getElementById('wordRefGrid');
+  grid.innerHTML = '';
+  DATA.words.forEach(function (w) {
+    const btn = document.createElement('button');
+    btn.className = 'card';
+    btn.type = 'button';
+    btn.title = 'Click to load for editing';
+    btn.innerHTML = '<svg viewBox="0 0 100 100">' + wordMarkup(w) + '</svg><div class="label">' + w.id + '</div>';
+    btn.addEventListener('click', function () { loadWordForEditing(w); });
+    grid.appendChild(btn);
+  });
+}
+
+function loadWordForEditing(w) {
+  wordDraft = JSON.parse(JSON.stringify(w));
+  if (!Array.isArray(wordDraft.composition)) wordDraft.composition = [];
+  document.getElementById('wordIdInput').value = w.id || '';
+  document.getElementById('wordSoundInput').value = w.sound || '';
+  document.getElementById('wordMeaningInput').value = w.meaning || '';
+  document.getElementById('wordCategoryInput').value = w.category || 'root';
+  renderCompositionRows();
+  renderWordPreview();
+  syncManualJSON();
+}
+
+function renderCompositionRows() {
+  const container = document.getElementById('compositionRows');
+  container.innerHTML = '';
+  if (!wordDraft.composition.length) {
+    container.innerHTML = '<div class="empty-state">No components yet — add one below.</div>';
+    return;
+  }
+  wordDraft.composition.forEach(function (entry, idx) {
+    const refType = entry.primitive ? 'primitive' : 'word';
+    const refId = entry.primitive || entry.word || '?';
+    const pos = entry.position || [0.5, 0.5];
+    const row = document.createElement('div');
+    row.className = 'comp-row';
+    row.innerHTML =
+      '<span class="ref-label">' + refType + ': ' + refId + '</span>' +
+      '<label>x <input type="number" step="0.01" min="0" max="1" data-field="x" value="' + pos[0] + '"></label>' +
+      '<label>y <input type="number" step="0.01" min="0" max="1" data-field="y" value="' + pos[1] + '"></label>' +
+      '<label>scale <input type="number" step="0.01" min="0" max="2" data-field="scale" value="' + (entry.scale === undefined ? 1 : entry.scale) + '"></label>' +
+      '<label>rot <input type="number" step="1" data-field="rotation" value="' + (entry.rotation || 0) + '"></label>' +
+      '<button type="button" class="remove-btn" data-idx="' + idx + '">Remove</button>';
+    row.querySelectorAll('input').forEach(function (inp) {
+      inp.addEventListener('input', function () {
+        const field = inp.dataset.field;
+        const val = parseFloat(inp.value);
+        entry.position = entry.position || [0.5, 0.5];
+        if (field === 'x') entry.position[0] = val;
+        else if (field === 'y') entry.position[1] = val;
+        else if (field === 'scale') entry.scale = val;
+        else if (field === 'rotation') entry.rotation = val;
+        renderWordPreview();
+        syncManualJSON();
+      });
+    });
+    row.querySelector('.remove-btn').addEventListener('click', function () {
+      wordDraft.composition.splice(idx, 1);
+      renderCompositionRows();
+      renderWordPreview();
+      syncManualJSON();
+    });
+    container.appendChild(row);
+  });
+}
+
+function renderWordPreview() {
+  document.getElementById('wordPreview').innerHTML = wordMarkup(wordDraft);
+}
+
+function syncManualJSON() {
+  const obj = Object.assign({}, wordDraft.extra || {}, {
+    id: document.getElementById('wordIdInput').value || 'unnamed',
+    sound: document.getElementById('wordSoundInput').value,
+    meaning: document.getElementById('wordMeaningInput').value,
+    category: document.getElementById('wordCategoryInput').value,
+    composition: wordDraft.composition
+  });
+  const ordered = { id: obj.id, sound: obj.sound, meaning: obj.meaning, category: obj.category, composition: obj.composition };
+  Object.keys(obj).forEach(function (k) { if (!(k in ordered)) ordered[k] = obj[k]; });
+  document.getElementById('wordManualJSON').value = JSON.stringify(ordered, null, 2);
+}
+
+document.getElementById('addComponentBtn').addEventListener('click', function () {
+  const statusEl = document.getElementById('status');
+  const id = document.getElementById('addComponentId').value;
+  if (!id || !DATA) return;
+  const isWordRef = !!lookupWord(id);
+  const isPrimRef = !!lookupPrimitive(id);
+  if (!isWordRef && !isPrimRef) { statusEl.textContent = 'No primitive or word with id "' + id + '" found.'; return; }
+  const entry = { position: [0.5, 0.5], scale: 1, rotation: 0 };
+  if (isPrimRef) entry.primitive = id; else entry.word = id;
+  wordDraft.composition.push(entry);
+  renderCompositionRows();
+  renderWordPreview();
+  syncManualJSON();
+});
+
+document.getElementById('newWordBtn').addEventListener('click', function () {
+  wordDraft = { composition: [] };
+  document.getElementById('wordIdInput').value = '';
+  document.getElementById('wordSoundInput').value = '';
+  document.getElementById('wordMeaningInput').value = '';
+  document.getElementById('wordCategoryInput').value = 'root';
+  renderCompositionRows();
+  renderWordPreview();
+  syncManualJSON();
+});
+
+['wordIdInput', 'wordSoundInput', 'wordMeaningInput', 'wordCategoryInput'].forEach(function (elId) {
+  document.getElementById(elId).addEventListener('input', function () {
+    syncManualJSON();
+    if (elId === 'wordIdInput') return;
+    renderWordPreview();
+  });
+});
+
+document.getElementById('applyManualBtn').addEventListener('click', function () {
+  const statusEl = document.getElementById('status');
+  try {
+    const obj = JSON.parse(document.getElementById('wordManualJSON').value);
+    document.getElementById('wordIdInput').value = obj.id || '';
+    document.getElementById('wordSoundInput').value = obj.sound || '';
+    document.getElementById('wordMeaningInput').value = obj.meaning || '';
+    document.getElementById('wordCategoryInput').value = obj.category || 'root';
+    wordDraft.composition = Array.isArray(obj.composition) ? obj.composition : [];
+    wordDraft.extra = {};
+    Object.keys(obj).forEach(function (k) {
+      if (['id', 'sound', 'meaning', 'category', 'composition'].indexOf(k) === -1) wordDraft.extra[k] = obj[k];
+    });
+    renderCompositionRows();
+    renderWordPreview();
+    statusEl.textContent = 'Manual edit applied.';
+  } catch (err) {
+    statusEl.textContent = 'Could not parse manual JSON: ' + err.message;
+  }
+});
+
+document.getElementById('saveWordBtn').addEventListener('click', async function () {
+  const statusEl = document.getElementById('status');
+  if (!DATA) { statusEl.textContent = 'Load a JSON file first — nothing to save into.'; return; }
+  const id = document.getElementById('wordIdInput').value;
+  if (!id) { statusEl.textContent = 'Give it an id before saving.'; return; }
+  if (!wordDraft.composition.length) { statusEl.textContent = 'Add at least one component before saving.'; return; }
+
+  const obj = Object.assign({}, wordDraft.extra || {}, {
+    id: id,
+    sound: document.getElementById('wordSoundInput').value,
+    meaning: document.getElementById('wordMeaningInput').value,
+    category: document.getElementById('wordCategoryInput').value,
+    composition: wordDraft.composition
+  });
+  const ordered = { id: obj.id, sound: obj.sound, meaning: obj.meaning, category: obj.category, composition: obj.composition };
+  Object.keys(obj).forEach(function (k) { if (!(k in ordered)) ordered[k] = obj[k]; });
+
+  const existingIndex = DATA.words.findIndex(function (w) { return w.id === id; });
+  const wasReplace = existingIndex !== -1;
+  if (wasReplace) DATA.words[existingIndex] = ordered;
+  else DATA.words.push(ordered);
+
+  const json = JSON.stringify(DATA, null, 2);
+  let wordSaveMsg;
+
+  if (fileHandle) {
+    try {
+      const writable = await fileHandle.createWritable();
+      await writable.write(json);
+      await writable.close();
+      wordSaveMsg = (wasReplace ? 'Replaced' : 'Added') + ' Word "' + id + '" and saved directly to ' + fileHandle.name + '.';
+    } catch (err) {
+      statusEl.textContent = 'Could not write to ' + fileHandle.name + ': ' + err.message;
+      return;
+    }
+  } else {
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = sourceFileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    wordSaveMsg = (wasReplace ? 'Replaced' : 'Added') + ' Word "' + id + '" and downloaded a new ' + sourceFileName + ' — check your Downloads. Review it, then move it over your real file yourself.';
+  }
+
+  try { localStorage.setItem(CACHE_KEY, json); } catch (err) {}
+  renderRefGrid();
+  renderWordRefGrid();
+  refreshIdsDatalist();
+  statusEl.textContent = wordSaveMsg;
+  document.getElementById('saveWordBtnHint').textContent = '✓ ' + wordSaveMsg;
+});
+
+renderCompositionRows();
+renderWordPreview();
+syncManualJSON();
+
+// ---- state derivation ----
+function computeState() {
+  const subpaths = []; // array of {points: [[x,y],...], closed: bool}
+  let current = [];
+  actions.forEach(function (a) {
+    if (a.type === 'point') current.push([a.x, a.y]);
+    else if (a.type === 'close') {
+      if (current.length) { subpaths.push({ points: current, closed: true }); current = []; }
+    } else if (a.type === 'newSubpath') {
+      if (current.length) { subpaths.push({ points: current, closed: false }); current = []; }
+    }
+  });
+  return { subpaths: subpaths, current: current };
+}
+function pointsToD(points, closed) {
+  const d = points.map(function (p, i) { return (i === 0 ? 'M' : 'L') + p[0] + ',' + p[1]; }).join(' ');
+  return closed ? d + ' Z' : d;
+}
+
+// ---- canvas interaction ----
+const svg = document.getElementById('canvas');
+const GRID_MAX = 100;
+
+function drawGrid() {
+  const step = parseFloat(document.getElementById('snapInput').value) === 1 ? 10 : parseFloat(document.getElementById('snapInput').value);
+  let out = '';
+  for (let i = 0; i <= GRID_MAX; i += step) {
+    const strong = (i === 0 || i === 50 || i === 100);
+    const cls = strong ? 'grid-line-strong' : 'grid-line';
+    out += '<line x1="' + i + '" y1="0" x2="' + i + '" y2="100" class="' + cls + '"/>';
+    out += '<line x1="0" y1="' + i + '" x2="100" y2="' + i + '" class="' + cls + '"/>';
+  }
+  return out;
+}
+
+function snap(v) {
+  const s = parseFloat(document.getElementById('snapInput').value);
+  return Math.max(0, Math.min(100, Math.round(v / s) * s));
+}
+
+function clientToGrid(evt) {
+  const rect = svg.getBoundingClientRect();
+  const x = ((evt.clientX - rect.left) / rect.width) * 100;
+  const y = ((evt.clientY - rect.top) / rect.height) * 100;
+  return { x: x, y: y };
+}
+
+svg.addEventListener('mousemove', function (evt) {
+  const g = clientToGrid(evt);
+  document.getElementById('hoverReadout').textContent = 'x: ' + Math.round(g.x) + ', y: ' + Math.round(g.y);
+});
+
+svg.addEventListener('click', function (evt) {
+  const raw = clientToGrid(evt);
+  const state = computeState();
+
+  // Click near the first point of the current (unfinished) sub-path closes it instead.
+  if (state.current.length >= 3) {
+    const first = state.current[0];
+    const dist = Math.hypot(raw.x - first[0], raw.y - first[1]);
+    if (dist <= 3.5) {
+      actions.push({ type: 'close' });
+      render();
+      return;
+    }
+  }
+
+  const x = snap(raw.x);
+  const y = snap(raw.y);
+  actions.push({ type: 'point', x: x, y: y });
+  render();
+});
+
+document.getElementById('newSubpathBtn').addEventListener('click', function () {
+  actions.push({ type: 'newSubpath' });
+  render();
+});
+document.getElementById('closeBtn').addEventListener('click', function () {
+  actions.push({ type: 'close' });
+  render();
+});
+document.getElementById('undoBtn').addEventListener('click', function () {
+  actions.pop();
+  render();
+});
+document.getElementById('clearBtn').addEventListener('click', function () {
+  actions = [];
+  render();
+});
+document.getElementById('newSymbolBtn').addEventListener('click', function () {
+  actions = [];
+  document.getElementById('idInput').value = '';
+  document.getElementById('roleInput').value = 'lexical-base';
+  document.getElementById('descInput').value = '';
+  render();
+});
+document.getElementById('snapInput').addEventListener('change', render);
+document.getElementById('idInput').addEventListener('input', updateOutput);
+document.getElementById('roleInput').addEventListener('input', updateOutput);
+document.getElementById('descInput').addEventListener('input', updateOutput);
+
+document.getElementById('copyBtn').addEventListener('click', function () {
+  const text = document.getElementById('output').textContent;
+  const statusEl = document.getElementById('status');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function () {
+      statusEl.textContent = 'Copied to clipboard.';
+    }).catch(function () {
+      statusEl.textContent = 'Could not copy automatically — select the text below and copy by hand.';
+    });
+  } else {
+    statusEl.textContent = 'Clipboard not available — select the text below and copy by hand.';
+  }
+});
+
+document.getElementById('saveBtn').addEventListener('click', async function () {
+  const statusEl = document.getElementById('status');
+  if (!DATA) { statusEl.textContent = 'Load a JSON file first — nothing to save into.'; return; }
+  const built = buildCurrentPrimitive();
+  const primitive = built.obj;
+  if (!document.getElementById('idInput').value) { statusEl.textContent = 'Give it an id before saving.'; return; }
+  if (!primitive.render) { statusEl.textContent = 'No finished shape yet — click "New sub-path" or "Close path" first.'; return; }
+  if (built.openPoints > 0) { statusEl.textContent = built.openPoints + ' point(s) still open — finish or discard that sub-path before saving.'; return; }
+
+  const existingIndex = DATA.primitives.findIndex(function (p) { return p.id === primitive.id; });
+  const wasReplace = existingIndex !== -1;
+  if (wasReplace) DATA.primitives[existingIndex] = primitive;
+  else DATA.primitives.push(primitive);
+
+  const json = JSON.stringify(DATA, null, 2);
+  let primSaveMsg;
+
+  if (fileHandle) {
+    try {
+      const writable = await fileHandle.createWritable();
+      await writable.write(json);
+      await writable.close();
+      primSaveMsg = (wasReplace ? 'Replaced' : 'Added') + ' "' + primitive.id + '" and saved directly to ' + fileHandle.name + '.';
+    } catch (err) {
+      statusEl.textContent = 'Could not write to ' + fileHandle.name + ': ' + err.message;
+      return;
+    }
+  } else {
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = sourceFileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    primSaveMsg = (wasReplace ? 'Replaced' : 'Added') + ' "' + primitive.id +
+      '" and downloaded a new ' + sourceFileName + ' — check your Downloads. Review it, then move it over your real file yourself.';
+  }
+
+  try { localStorage.setItem(CACHE_KEY, json); } catch (err) {}
+  renderRefGrid();
+  renderWordRefGrid();
+  refreshIdsDatalist();
+  statusEl.textContent = primSaveMsg;
+  document.getElementById('saveBtnHint').textContent = '✓ ' + primSaveMsg;
+});
+
+function buildCurrentPrimitive() {
+  const state = computeState();
+  const finished = state.subpaths.map(function (sp) { return pointsToD(sp.points, sp.closed); });
+  let renderObj = null;
+  if (finished.length === 1) renderObj = { type: 'path', d: finished[0] };
+  else if (finished.length > 1) renderObj = { type: 'multipath', d: finished };
+  return {
+    obj: {
+      id: document.getElementById('idInput').value || 'unnamed',
+      role: document.getElementById('roleInput').value,
+      description: document.getElementById('descInput').value || '',
+      render: renderObj
+    },
+    openPoints: state.current.length
+  };
+}
+
+function updateOutput() {
+  const built = buildCurrentPrimitive();
+  let text = JSON.stringify(built.obj, null, 2);
+  if (built.openPoints > 0) {
+    text += '\n\n// ' + built.openPoints + ' point(s) still open in the current sub-path —\n' +
+      '// click "New sub-path" or "Close path" to fold them into the export above.';
+  }
+  document.getElementById('output').textContent = text;
+}
+
+function render() {
+  const state = computeState();
+
+  let svgContent = drawGrid();
+  state.subpaths.forEach(function (sp) {
+    svgContent += '<path d="' + pointsToD(sp.points, sp.closed) + '" class="path-stroke"/>';
+  });
+  if (state.current.length > 1) {
+    svgContent += '<path d="' + pointsToD(state.current, false) + '" class="path-stroke live"/>';
+  }
+  state.current.forEach(function (p, i) {
+    svgContent += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="1.6" class="point-dot' + (i === 0 ? ' first' : '') + '"/>';
+  });
+  svg.innerHTML = svgContent;
+
+  const pointListEl = document.getElementById('pointList');
+  if (state.current.length === 0 && state.subpaths.length === 0) {
+    pointListEl.textContent = 'No points placed yet.';
+  } else {
+    const parts = [];
+    if (state.subpaths.length) parts.push(state.subpaths.length + ' finished sub-path' + (state.subpaths.length > 1 ? 's' : ''));
+    if (state.current.length) parts.push(state.current.length + ' point(s) in progress: ' + state.current.map(function (p) { return '(' + p[0] + ',' + p[1] + ')'; }).join(' '));
+    pointListEl.textContent = parts.join(' — ');
+  }
+
+  document.getElementById('newSubpathBtn').disabled = state.current.length < 2;
+  document.getElementById('closeBtn').disabled = state.current.length < 3;
+  document.getElementById('undoBtn').disabled = actions.length === 0;
+  document.getElementById('clearBtn').disabled = actions.length === 0;
+
+  updateOutput();
+}
+
+render();
+</script>
+
+</body>
+</html>

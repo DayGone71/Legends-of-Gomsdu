@@ -48,6 +48,15 @@ Character *does* with Information (which is what Axes are, functionally);
 personality develops as a *reaction to* Information. Start there, then work
 backward into the Stats — not the other way around.
 
+**Addendum, 2026-08-20 — not a change to the order above, a note on what
+"item 1" currently means in practice.** English/human-personality density
+stalled the direct approach (see `dialogue-system.md`'s 2026-08-19/20
+pivot section). Current path: build **Wimbis**, the world's own Language,
+as a real system first — a whole `language/` toolchain and a growing
+Glyphic System now exist — with English as the translation layer handed
+to the player, not the thing being formalized. Still squarely item 1, just
+arrived at from underneath rather than head-on.
+
 **2 — Personality/Dialogue Stats.** Downstream of 1 by construction.
 
 **3 — NPC Creation.** Needs somewhere to put the Stats.

@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gomsdu Glyph Arranger</title>
+<style>
+  :root {
+    --bg: #faf8f3;
+    --card: #ffffff;
+    --border: #ddd6c8;
+    --text: #2b2620;
+    --text-muted: #7a7266;
+    --accent: #8a5a2e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1a16;
+      --card: #26221c;
+      --border: #3a352c;
+      --text: #e9e4d8;
+      --text-muted: #a89f8d;
+      --accent: #d0a466;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 28px;
+  }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+  .intro { font-size: 13px; color: var(--text-muted); margin: 0 0 18px; }
+  h2 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-top: 30px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+  }
+  .controls {
+    margin: 12px 0 20px;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .controls input[type="file"] {
+    font-size: 13px;
+    color: var(--text);
+  }
+  .status { font-size: 13px; color: var(--text-muted); }
+  .nav-link {
+    font-size: 13px;
+    color: var(--accent);
+    text-decoration: none;
+    margin-left: auto;
+  }
+  .nav-link:hover { text-decoration: underline; }
+
+  /* --- the Line itself: 3 boxes + 2 marker-lines, stacked, invisible until filled --- */
+  .line-stack {
+    width: 130px;
+    margin: 26px auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .slot { width: 100%; }
+  .slot.box { height: 110px; }
+  .slot.line { height: 32px; }
+  .slot svg { width: 100%; height: 100%; display: block; color: var(--text); }
+
+  .output-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    max-width: 520px;
+    margin: 22px auto;
+  }
+  .output-lines { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .output-line { font-size: 14px; display: flex; gap: 10px; align-items: baseline; }
+  .output-label {
+    flex: 0 0 auto;
+    width: 108px;
+    color: var(--text-muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .output-value { word-break: break-word; }
+  #undoBtn {
+    flex: 0 0 auto;
+    padding: 9px 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  #undoBtn:disabled { opacity: 0.4; cursor: default; }
+  #undoBtn:not(:disabled):hover { border-color: var(--accent); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 14px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    text-align: center;
+    color: var(--text);
+  }
+  button.card {
+    font-family: inherit;
+    cursor: pointer;
+    width: 100%;
+  }
+  button.card:not(:disabled):hover { border-color: var(--accent); }
+  button.card:disabled { opacity: 0.4; cursor: default; }
+  .card svg {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    display: block;
+    color: var(--text);
+  }
+  .card .label {
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 6px;
+    word-break: break-word;
+  }
+  .card .sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    word-break: break-word;
+  }
+  .placeholder-text { font-size: 11px; fill: var(--text-muted); }
+  .missing-text { font-size: 9px; fill: #c0392b; }
+  .empty-state { font-size: 13px; color: var(--text-muted); padding: 20px 0; }
+</style>
+</head>
+<body>
+
+<h1>Gomsdu Glyph Arranger</h1>
+<p class="intro">Click Words and Markers below to build a stacked Line — 3 Word slots and 2 Marker slots between them, read top to bottom. Empty slots stay invisible; they just hold their place.</p>
+
+<div class="controls">
+  <input type="file" id="fileInput" accept="application/json,.json">
+  <span class="status" id="status">No file loaded yet.</span>
+  <a class="nav-link" href="gomsdu-glyph-viewer.html">Open the Glyph Viewer &rarr;</a>
+  <a class="nav-link" href="gomsdu-glyph-designer.html">Open the Glyph Designer &rarr;</a>
+</div>
+
+<div class="line-stack" id="lineStack">
+  <div class="slot box" id="slot-box-0"></div>
+  <div class="slot line" id="slot-line-0"></div>
+  <div class="slot box" id="slot-box-1"></div>
+  <div class="slot line" id="slot-line-1"></div>
+  <div class="slot box" id="slot-box-2"></div>
+</div>
+
+<div class="output-row">
+  <div class="output-lines">
+    <div class="output-line"><span class="output-label">Transliteration</span><span class="output-value" id="translit">&mdash;</span></div>
+    <div class="output-line"><span class="output-label">Translation</span><span class="output-value" id="translation">&mdash;</span></div>
+  </div>
+  <button id="undoBtn" disabled>Undo</button>
+</div>
+
+<h2>Words</h2>
+<div class="grid" id="wordPicker"><div class="empty-state">Load a JSON file to see Words.</div></div>
+
+<h2>Markers</h2>
+<div class="grid" id="markerPicker"><div class="empty-state">Load a JSON file to see Markers.</div></div>
+
+<script>
+let DATA = null;
+const CACHE_KEY = 'gomsduGlyphicSystemJSON';
+
+const boxes = [null, null, null];   // word ids, filled first-empty-slot in order
+const lines = [null, null];          // marker primitive ids, filled first-empty-slot in order
+const history = [];                  // { kind: 'box'|'line', index } — most recent last
+
+const MARKER_GLOSS = {
+  'ownership-line': { translit: '[ownership marker]', translation: 'owns' },
+  'next-idea-line': { translit: '[next-idea marker]', translation: 'then' }
+};
+
+document.getElementById('fileInput').addEventListener('change', function (e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (ev) {
+    try {
+      DATA = JSON.parse(ev.target.result);
+      document.getElementById('status').textContent =
+        'Loaded ' + file.name + ' — ' + DATA.primitives.length + ' primitives, ' + DATA.words.length + ' words.';
+      renderPickers();
+      render();
+      try { localStorage.setItem(CACHE_KEY, ev.target.result); } catch (err) {}
+    } catch (err) {
+      document.getElementById('status').textContent = 'Could not parse JSON: ' + err.message;
+    }
+  };
+  reader.readAsText(file);
+});
+
+// Best-effort: pick up whatever the Glyph Viewer (or a previous visit here) last
+// cached, so the two pages can hand off without re-picking the file every time.
+// Silently does nothing if the browser keeps file:// pages on separate storage —
+// the file picker above always still works either way.
+(function tryLoadFromCache() {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (!cached) return;
+    DATA = JSON.parse(cached);
+    document.getElementById('status').textContent =
+      'Loaded from browser cache — ' + DATA.primitives.length + ' primitives, ' + DATA.words.length + ' words. Pick a file to refresh.';
+    renderPickers();
+    render();
+  } catch (err) {}
+})();
+
+document.getElementById('undoBtn').addEventListener('click', undo);
+
+function lookupPrimitive(id) {
+  return DATA.primitives.find(function (p) { return p.id === id; });
+}
+function lookupWord(id) {
+  return DATA.words.find(function (w) { return w.id === id; });
+}
+
+function primitiveMarkup(prim) {
+  const r = prim.render;
+  if (!r) {
+    return '<rect x="10" y="10" width="80" height="80" fill="none" stroke="var(--text-muted)" stroke-dasharray="4 4" rx="0"/>' +
+      '<text x="50" y="54" text-anchor="middle" class="placeholder-text">' + (prim.status || 'pending') + '</text>';
+  }
+  const strokeAttrs = 'fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="square" stroke-linejoin="miter"';
+  if (r.type === 'rect') {
+    return '<rect x="' + r.x + '" y="' + r.y + '" width="' + r.width + '" height="' + r.height +
+      '" rx="' + (r.rx || 0) + '" ' + strokeAttrs + '/>';
+  }
+  if (r.type === 'path') {
+    return '<path d="' + r.d + '" ' + strokeAttrs + '/>';
+  }
+  if (r.type === 'multipath') {
+    return r.d.map(function (d) { return '<path d="' + d + '" ' + strokeAttrs + '/>'; }).join('');
+  }
+  if (r.type === 'line-with-dot') {
+    return '<path d="' + r.d + '" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/>' +
+      '<circle cx="' + r.dot.cx + '" cy="' + r.dot.cy + '" r="' + r.dot.r + '" fill="currentColor"/>';
+  }
+  if (r.type === 'dots') {
+    return r.points.map(function (pt) { return '<circle cx="' + pt.cx + '" cy="' + pt.cy + '" r="' + pt.r + '" fill="currentColor"/>'; }).join('');
+  }
+  return '<text x="50" y="50" text-anchor="middle" class="missing-text">unknown render type</text>';
+}
+
+// Recursively resolve a word's composition into nested, transformed <g> groups.
+function wordMarkup(word, depth) {
+  depth = depth || 0;
+  if (depth > 6) {
+    return '<text x="50" y="50" text-anchor="middle" class="missing-text">too deeply nested</text>';
+  }
+  if (!word.composition || word.composition.length === 0) {
+    return '<text x="50" y="54" text-anchor="middle" class="placeholder-text">no symbol yet</text>';
+  }
+  let out = '';
+  word.composition.forEach(function (entry) {
+    const pos = entry.position || [0.5, 0.5];
+    const scale = (entry.scale === undefined) ? 1 : entry.scale;
+    const rotation = entry.rotation || 0;
+    const fx = pos[0] * 100;
+    const fy = pos[1] * 100;
+    const transform = 'translate(' + fx + ',' + fy + ') rotate(' + rotation + ') scale(' + scale + ') translate(-50,-50)';
+    let inner = '';
+    if (entry.primitive) {
+      const prim = lookupPrimitive(entry.primitive);
+      inner = prim ? primitiveMarkup(prim)
+        : '<text x="50" y="50" text-anchor="middle" class="missing-text">missing: ' + entry.primitive + '</text>';
+    } else if (entry.word) {
+      const w = lookupWord(entry.word);
+      inner = w ? wordMarkup(w, depth + 1)
+        : '<text x="50" y="50" text-anchor="middle" class="missing-text">missing: ' + entry.word + '</text>';
+    }
+    out += '<g transform="' + transform + '">' + inner + '</g>';
+  });
+  return out;
+}
+
+function svgWrap(innerMarkup) {
+  return '<svg viewBox="0 0 100 100">' + innerMarkup + '</svg>';
+}
+
+function renderPickers() {
+  const wordPicker = document.getElementById('wordPicker');
+  const markerPicker = document.getElementById('markerPicker');
+  wordPicker.innerHTML = '';
+  markerPicker.innerHTML = '';
+
+  DATA.words.forEach(function (w) {
+    const hasGlyph = Array.isArray(w.composition) ? w.composition.length > 0 : !!w.composition;
+    if (!hasGlyph) return;
+    const btn = document.createElement('button');
+    btn.className = 'card';
+    btn.type = 'button';
+    btn.innerHTML = svgWrap(wordMarkup(w)) +
+      '<div class="label">' + w.id + '</div>' +
+      '<div class="sub">' + w.meaning + '</div>';
+    btn.addEventListener('click', function () { placeWord(w.id); });
+    wordPicker.appendChild(btn);
+  });
+
+  DATA.primitives.forEach(function (p) {
+    if (p.role !== 'marker') return;
+    const btn = document.createElement('button');
+    btn.className = 'card';
+    btn.type = 'button';
+    btn.innerHTML = svgWrap(primitiveMarkup(p)) +
+      '<div class="label">' + p.id + '</div>' +
+      '<div class="sub">' + (p.description || '') + '</div>';
+    btn.addEventListener('click', function () { placeMarker(p.id); });
+    markerPicker.appendChild(btn);
+  });
+}
+
+function placeWord(id) {
+  const i = boxes.indexOf(null);
+  if (i === -1) return;
+  boxes[i] = id;
+  history.push({ kind: 'box', index: i });
+  render();
+}
+
+function placeMarker(id) {
+  const i = lines.indexOf(null);
+  if (i === -1) return;
+  lines[i] = id;
+  history.push({ kind: 'line', index: i });
+  render();
+}
+
+function undo() {
+  const last = history.pop();
+  if (!last) return;
+  if (last.kind === 'box') boxes[last.index] = null;
+  else lines[last.index] = null;
+  render();
+}
+
+function renderSlot(elId, value, kind) {
+  const el = document.getElementById(elId);
+  if (!value) { el.innerHTML = ''; return; }
+  el.innerHTML = kind === 'word'
+    ? svgWrap(wordMarkup(lookupWord(value)))
+    : svgWrap(primitiveMarkup(lookupPrimitive(value)));
+}
+
+function renderOutputs() {
+  const sequence = [
+    { kind: 'box', value: boxes[0] },
+    { kind: 'line', value: lines[0] },
+    { kind: 'box', value: boxes[1] },
+    { kind: 'line', value: lines[1] },
+    { kind: 'box', value: boxes[2] }
+  ];
+  const translitParts = [];
+  const translationParts = [];
+  sequence.forEach(function (s) {
+    if (!s.value) return;
+    if (s.kind === 'box') {
+      const w = lookupWord(s.value);
+      translitParts.push(w.sound || w.id);
+      translationParts.push(w.meaning);
+    } else {
+      const gloss = MARKER_GLOSS[s.value] || { translit: '[' + s.value + ']', translation: s.value };
+      translitParts.push(gloss.translit);
+      translationParts.push(gloss.translation);
+    }
+  });
+  document.getElementById('translit').textContent = translitParts.length ? translitParts.join(', ') : '—';
+  document.getElementById('translation').textContent = translationParts.length ? translationParts.join(' ') : '—';
+}
+
+function updatePickerStates() {
+  const boxesFull = boxes.every(function (b) { return b !== null; });
+  const linesFull = lines.every(function (l) { return l !== null; });
+  document.querySelectorAll('#wordPicker button').forEach(function (b) { b.disabled = boxesFull; });
+  document.querySelectorAll('#markerPicker button').forEach(function (b) { b.disabled = linesFull; });
+}
+
+function render() {
+  if (!DATA) return;
+  renderSlot('slot-box-0', boxes[0], 'word');
+  renderSlot('slot-line-0', lines[0], 'marker');
+  renderSlot('slot-box-1', boxes[1], 'word');
+  renderSlot('slot-line-1', lines[1], 'marker');
+  renderSlot('slot-box-2', boxes[2], 'word');
+  renderOutputs();
+  document.getElementById('undoBtn').disabled = history.length === 0;
+  updatePickerStates();
+}
+</script>
+
+</body>
+</html>

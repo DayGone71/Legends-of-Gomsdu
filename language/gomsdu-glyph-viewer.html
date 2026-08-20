@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gomsdu Glyph Viewer</title>
+<style>
+  :root {
+    --bg: #faf8f3;
+    --card: #ffffff;
+    --border: #ddd6c8;
+    --text: #2b2620;
+    --text-muted: #7a7266;
+    --accent: #8a5a2e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1a16;
+      --card: #26221c;
+      --border: #3a352c;
+      --text: #e9e4d8;
+      --text-muted: #a89f8d;
+      --accent: #d0a466;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 28px;
+  }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+  .intro { font-size: 13px; color: var(--text-muted); margin: 0 0 18px; }
+  h2 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-top: 30px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+  }
+  .controls {
+    margin: 12px 0 20px;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .controls input[type="file"] {
+    font-size: 13px;
+    color: var(--text);
+  }
+  .status { font-size: 13px; color: var(--text-muted); }
+  .nav-link {
+    font-size: 13px;
+    color: var(--accent);
+    text-decoration: none;
+    margin-left: auto;
+  }
+  .nav-link:hover { text-decoration: underline; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 14px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    text-align: center;
+    color: var(--text);
+  }
+  .card svg {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    display: block;
+    color: var(--text);
+  }
+  .card .label {
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 6px;
+    word-break: break-word;
+  }
+  .card .sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    word-break: break-word;
+  }
+  .card .status-tag {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+  .placeholder-text { font-size: 11px; fill: var(--text-muted); }
+  .missing-text { font-size: 9px; fill: #c0392b; }
+  .empty-state {
+    font-size: 13px;
+    color: var(--text-muted);
+    padding: 20px 0;
+  }
+</style>
+</head>
+<body>
+
+<h1>Gomsdu Glyph Viewer</h1>
+<p class="intro">Loads gomsdu-glyphic-system.json and draws every primitive and word directly from its render / composition data. Edit the JSON in a text editor, save, then re-pick the file below to refresh.</p>
+
+<div class="controls">
+  <input type="file" id="fileInput" accept="application/json,.json">
+  <span class="status" id="status">No file loaded yet.</span>
+  <a class="nav-link" href="gomsdu-glyph-arranger.html">Open the Glyph Arranger &rarr;</a>
+  <a class="nav-link" href="gomsdu-glyph-designer.html">Open the Glyph Designer &rarr;</a>
+</div>
+
+<h2>Primitives</h2>
+<div class="grid" id="primGrid"><div class="empty-state">Load a JSON file to see primitives.</div></div>
+
+<h2>Words</h2>
+<div class="grid" id="wordGrid"><div class="empty-state">Load a JSON file to see words.</div></div>
+
+<script>
+let DATA = null;
+const CACHE_KEY = 'gomsduGlyphicSystemJSON';
+
+// Accepts a full Glyphic System file, OR a bare single primitive/word object, OR a bare
+// array of them — so pasting/loading just one thing you're drafting previews it
+// directly instead of crashing on DATA.primitives being undefined.
+function normalizeLoadedJSON(parsed) {
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) &&
+      (Array.isArray(parsed.primitives) || Array.isArray(parsed.words))) {
+    if (!Array.isArray(parsed.primitives)) parsed.primitives = [];
+    if (!Array.isArray(parsed.words)) parsed.words = [];
+    return { data: parsed, wasSnippet: false };
+  }
+  const items = Array.isArray(parsed) ? parsed : [parsed];
+  const primitives = [];
+  const words = [];
+  items.forEach(function (item) {
+    if (!item || typeof item !== 'object') return;
+    const isWord = ('sound' in item) || ('composition' in item) || ('category' in item);
+    (isWord ? words : primitives).push(item);
+  });
+  return { data: { primitives: primitives, words: words }, wasSnippet: true };
+}
+
+document.getElementById('fileInput').addEventListener('change', function (e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (ev) {
+    try {
+      const result = normalizeLoadedJSON(JSON.parse(ev.target.result));
+      DATA = result.data;
+      document.getElementById('status').textContent =
+        (result.wasSnippet ? 'Previewing a pasted snippet (not a full file) — ' : 'Loaded ' + file.name + ' — ') +
+        DATA.primitives.length + ' primitives, ' + DATA.words.length + ' words.';
+      renderAll();
+      if (!result.wasSnippet) { try { localStorage.setItem(CACHE_KEY, ev.target.result); } catch (err) {} }
+    } catch (err) {
+      document.getElementById('status').textContent = 'Could not parse JSON: ' + err.message;
+    }
+  };
+  reader.readAsText(file);
+});
+
+// Best-effort: pick up whatever the Glyph Arranger (or a previous visit here) last cached,
+// so the two pages can hand off without re-picking the file every time. Silently does
+// nothing if the browser keeps file:// pages on separate storage — the file picker
+// above always still works either way.
+(function tryLoadFromCache() {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (!cached) return;
+    DATA = JSON.parse(cached);
+    document.getElementById('status').textContent =
+      'Loaded from browser cache — ' + DATA.primitives.length + ' primitives, ' + DATA.words.length + ' words. Pick a file to refresh.';
+    renderAll();
+  } catch (err) {}
+})();
+
+function lookupPrimitive(id) {
+  return DATA.primitives.find(function (p) { return p.id === id; });
+}
+function lookupWord(id) {
+  return DATA.words.find(function (w) { return w.id === id; });
+}
+
+function primitiveMarkup(prim) {
+  const r = prim.render;
+  if (!r) {
+    return '<rect x="10" y="10" width="80" height="80" fill="none" stroke="var(--text-muted)" stroke-dasharray="4 4" rx="0"/>' +
+      '<text x="50" y="54" text-anchor="middle" class="placeholder-text">' + (prim.status || 'pending') + '</text>';
+  }
+  const strokeAttrs = 'fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="square" stroke-linejoin="miter"';
+  if (r.type === 'rect') {
+    return '<rect x="' + r.x + '" y="' + r.y + '" width="' + r.width + '" height="' + r.height +
+      '" rx="' + (r.rx || 0) + '" ' + strokeAttrs + '/>';
+  }
+  if (r.type === 'path') {
+    return '<path d="' + r.d + '" ' + strokeAttrs + '/>';
+  }
+  if (r.type === 'multipath') {
+    return r.d.map(function (d) { return '<path d="' + d + '" ' + strokeAttrs + '/>'; }).join('');
+  }
+  if (r.type === 'line-with-dot') {
+    return '<path d="' + r.d + '" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/>' +
+      '<circle cx="' + r.dot.cx + '" cy="' + r.dot.cy + '" r="' + r.dot.r + '" fill="currentColor"/>';
+  }
+  if (r.type === 'dots') {
+    return r.points.map(function (pt) { return '<circle cx="' + pt.cx + '" cy="' + pt.cy + '" r="' + pt.r + '" fill="currentColor"/>'; }).join('');
+  }
+  return '<text x="50" y="50" text-anchor="middle" class="missing-text">unknown render type</text>';
+}
+
+// Recursively resolve a word's composition into nested, transformed <g> groups.
+function wordMarkup(word, depth) {
+  depth = depth || 0;
+  if (depth > 6) {
+    return '<text x="50" y="50" text-anchor="middle" class="missing-text">too deeply nested</text>';
+  }
+  if (!word.composition || word.composition.length === 0) {
+    return '<text x="50" y="54" text-anchor="middle" class="placeholder-text">no symbol yet</text>';
+  }
+  let out = '';
+  word.composition.forEach(function (entry) {
+    const pos = entry.position || [0.5, 0.5];
+    const scale = (entry.scale === undefined) ? 1 : entry.scale;
+    const rotation = entry.rotation || 0;
+    const fx = pos[0] * 100;
+    const fy = pos[1] * 100;
+    const transform = 'translate(' + fx + ',' + fy + ') rotate(' + rotation + ') scale(' + scale + ') translate(-50,-50)';
+    let inner = '';
+    if (entry.primitive) {
+      const prim = lookupPrimitive(entry.primitive);
+      inner = prim ? primitiveMarkup(prim)
+        : '<text x="50" y="50" text-anchor="middle" class="missing-text">missing: ' + entry.primitive + '</text>';
+    } else if (entry.word) {
+      const w = lookupWord(entry.word);
+      inner = w ? wordMarkup(w, depth + 1)
+        : '<text x="50" y="50" text-anchor="middle" class="missing-text">missing: ' + entry.word + '</text>';
+    }
+    out += '<g transform="' + transform + '">' + inner + '</g>';
+  });
+  return out;
+}
+
+function svgWrap(innerMarkup) {
+  return '<svg viewBox="0 0 100 100">' + innerMarkup + '</svg>';
+}
+
+function renderAll() {
+  if (!DATA) return;
+  const primGrid = document.getElementById('primGrid');
+  const wordGrid = document.getElementById('wordGrid');
+  primGrid.innerHTML = '';
+  wordGrid.innerHTML = '';
+
+  DATA.primitives.forEach(function (p) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = svgWrap(primitiveMarkup(p)) +
+      '<div class="label">' + p.id + '</div>' +
+      '<div class="sub">' + (p.role || '') + '</div>';
+    primGrid.appendChild(card);
+  });
+
+  DATA.words.forEach(function (w) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    const soundLine = w.sound ? (w.sound + ' — ') : '';
+    const statusTag = w.status ? '<div class="status-tag">' + w.status.split(';')[0].slice(0, 40) + '</div>' : '';
+    card.innerHTML = svgWrap(wordMarkup(w)) +
+      '<div class="label">' + w.id + '</div>' +
+      '<div class="sub">' + soundLine + w.meaning + '</div>' +
+      statusTag;
+    wordGrid.appendChild(card);
+  });
+}
+</script>
+
+</body>
+</html>

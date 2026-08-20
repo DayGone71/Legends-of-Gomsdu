@@ -650,6 +650,115 @@ scenario from the logic-check pass likely sits in a different, non-amused
 emotional register entirely — not a failure, just a different mechanic with
 its own honest arc, per dDd's own read).
 
+## 2026-08-19 to 2026-08-20 — The pivot to Wimbis: building the Language for real
+
+Everything above this point is the Dialogue Engine's own design track — Set
+Pieces, Call/Response, the Four Pillars. This section is a pivot away from
+it, not a continuation of it. dDd's own framing: "Human Personalities and
+English is sort of dense and abstract, it was a lot to think about...
+instead of doing that, I just went to the start, with Gom and the Living
+Stone." Rather than keep forcing English into a game-mechanical grammar,
+the new goal is to build **Wimbis** — the world's own Language — as a
+real, internally-consistent system first, with English demoted to a
+translation layer for the player rather than the thing being formalized.
+Also, per dDd: a language he's personally wanted to design for two years,
+now folded directly into the game rather than staying a side project.
+
+### The toolchain — `language/`
+Four files, self-contained disposable-prototype HTML/JS in the same style
+as `prototypes/`, sharing one data file:
+- [gomsdu-glyphic-system.json](gomsdu-glyphic-system.json) — the actual
+  language data: Primitives (reusable geometric shapes), Words (sound +
+  meaning + a Glyph composed from Primitives/other Words via position/
+  scale/rotation), grammar rules, and a dated correction log with the full
+  reasoning behind every fix — fuller detail than reproduced here.
+- [gomsdu-glyph-viewer.html](gomsdu-glyph-viewer.html) — renders every
+  Primitive and Word directly from the JSON.
+- [gomsdu-glyph-arranger.html](gomsdu-glyph-arranger.html) — click Words
+  and Markers to build a stacked Totem (a sentence), Transliteration and
+  Translation building live underneath, full linear Undo.
+- [gomsdu-glyph-designer.html](gomsdu-glyph-designer.html) — a point-and-
+  click grid tool for drawing new Primitives (straight lines only, matching
+  the writing system's own in-world constraint — "Gom can only draw
+  straight lines"), plus a full Word editor (compose from existing
+  Primitives/Words, adjust position/scale/rotation, live preview, manual
+  JSON edit). Supports direct local-disk saving via the File System Access
+  API (Chrome/Edge) — connect the real file once, Save writes straight
+  back to it, no download-and-move step.
+
+### What the Glyphic System turned out to be
+- **Logographic, not alphabetic** — a Glyph is a whole concept, composed
+  geometrically, not spelled out phonetically. Closer to cuneiform/hanzi/
+  hieroglyphs than to an alphabet.
+- **The same shape does grammar by rotating.** One `chevron` Primitive: an
+  arrowhead on KUL/OG, a presence-marker completing KROW/GOM (empty
+  container vs. animated), a relation when two overlap (WIM), a stacked
+  pair at different scales (BIS). Rotation/scale/position *are* the
+  grammar — the same "shared grammar over bespoke systems" principle the
+  Vibe Doc already commits to for the game's mechanical systems, found
+  again independently at the language layer.
+- **Reading is vertical; horizontal carries no grammar.** A sentence is a
+  **Totem** — a stack read top to bottom, markers (`ownership-line`,
+  `next-idea-line`) declaring the relation between what's above and below.
+  Totems can **branch** (one column forking into two, each still strictly
+  ordered), and a **Connector** lets a Totem's bottom link to an adjacent
+  Totem's top purely as a physical-space workaround, no grammar attached.
+  BIS read backward as SIB is equally valid — horizontal mirroring is
+  cosmetic only.
+- **The system describes itself, natively.** GI ("a Word," one Glyph),
+  GeKA ("a Diglyph," two), GeKARAP ("a Triglyph," three) are real Words
+  the language uses to talk about its own units — not English labels
+  bolted on. GI sits at the Center of a five-point grid (Center plus four
+  outer positions); GeKA/GeKARAP occupy combinations of the four outer
+  ones. ZON ("Self") turned out to be the outline connecting those same
+  four positions, Center empty; ZIN ("I," Crystal Being secret
+  translation "Heart") is the same outline with the Center — GI itself —
+  filled in. Same completion-marks-presence rule KRO/KROW and GO/GOM
+  already used, rediscovered applying to Self.
+
+### Second Era: Crystal Beings, and the shape of their elitism
+Per dDd: in the First Era, "I" existed only as GI, a full Word and nothing
+more. The Second Era is when GI additionally gains a function as a
+Primitive — the exact moment the Crystal Beings connect it to the wider
+position-grid pattern and build ZIN/ZON. Most people in this Era were Mud
+People (Gom's own creations, mirroring Kulkrow's Molten Ones) without a
+Heart; ZIN/ZON were introduced as a genuinely unifying act, teaching
+everyone they had more self-awareness than assumed. The Crystal Beings
+knew what Language had already done to the First Era's people (see
+`gomsdu-codex.md`'s new cosmology section, below) and were trying to make
+that erasure impossible to repeat — but folded a second, secret meaning
+in underneath the public one anyway, reserved for the only beings who
+actually have a Heart (a Rainbow Sliver). Per dDd, plainly: "basically a
+form of Elitism." Made literal in **WIMZIN** ("Perfected Language") — the
+Crystal Beings' own refinement of **WIMBIS** (Language itself, renamed
+from the placeholder id LANGUAGE) with GI ("Soul") added beneath it,
+oversized. Ordinary Language, plus the one thing the original was built
+to strip out.
+
+### New cosmology, `gomsdu-codex.md`
+Two additions this pass, cross-referenced rather than repeated here:
+**Yom** ("Star Father") named as the Sun-being, and a new section, "Sound
+and Shape, and the Name that never formed" — the missing answer to the
+Codex's own long-standing open question about what "flipped" between
+Kulkrow waking first and Gom ending up devouring everything. Short
+version: Sound and Shape both predate Gom, inherited from Yom; Gom's
+Black-Hole nature (his body is whatever falls inside his Event Horizon,
+at every scale) is what closes over Kulkrow's true Name the instant
+GOMGOM shows him what a Name can do — not a premeditated plan, an
+inevitable one.
+
+### Current status
+19 Words, 12 Primitives, First and Second Era material both represented.
+Vowels not yet worked out. Third Era ("the real goal," per dDd) not yet
+started. **Nothing here is wired into actual game mechanics yet** — no
+Character field checks which Glyphs someone knows, nothing gates dialogue
+on it. The natural hook already exists, unbuilt: WIMBIS/WIMZIN's public/
+secret duality is structurally identical to the Information ladder and
+Fog of War already designed above for Call/Response (Unknown → Rumored →
+Confirmed → Misunderstood) — "who has access to which Glyph" could plug
+directly into "what does this Character know" whenever this thread and
+the Dialogue Engine thread above it meet back up.
+
 ## Closing framing
 
 The goal was never to simulate an infinite conversation — that's the LLM
