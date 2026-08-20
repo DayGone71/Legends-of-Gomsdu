@@ -57,6 +57,14 @@ Glyphic System now exist — with English as the translation layer handed
 to the player, not the thing being formalized. Still squarely item 1, just
 arrived at from underneath rather than head-on.
 
+**Addendum, 2026-08-19 (later the same day) — the underneath approach paid
+off concretely.** The Arranger's `follow`/`goto`/`wildcard`/`yield` Line
+markers, added for an unrelated exercise, produced a Composition that's
+structurally a branching dialogue/ritual graph — see `dialogue-system.md`'s
+"The Composition format turns out to already be a Call/Response graph."
+Wimbis isn't just a translation layer sitting under future Dialogue work
+anymore; its own grammar can plausibly carry the branch logic directly.
+
 **2 — Personality/Dialogue Stats.** Downstream of 1 by construction.
 
 **3 — NPC Creation.** Needs somewhere to put the Stats.

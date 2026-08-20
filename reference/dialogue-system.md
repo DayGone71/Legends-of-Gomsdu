@@ -759,6 +759,30 @@ Confirmed → Misunderstood) — "who has access to which Glyph" could plug
 directly into "what does this Character know" whenever this thread and
 the Dialogue Engine thread above it meet back up.
 
+### The Composition format turns out to already be a Call/Response graph
+2026-08-19, same day as the pivot above, later still. The Arranger gained
+a 9-Expression grid (3 rows of 3) plus `follow-N-line`/`goto-N-line`/
+`wildcard-above-line`/`wildcard-below-line`/`yield-line` markers — added
+for a creator-requested exercise, not designed with Dialogue in mind. The
+first real Composition written in it (three parallel openings converging
+through one shared gate, forking into three outcomes, one reversed because
+a different subject performs it) turned out to be structurally identical to
+a branching dialogue/ritual graph: multiple Call-equivalents funneling
+through a shared checkpoint into multiple Response-equivalents, with
+`yield-line` marking a terminal outcome per branch. This is the concrete
+version of the "natural hook" flagged just above, arrived at from an
+entirely different direction — the Composition format doesn't need a
+separate branching system layered on top for the Beat/Call-Response work
+above; `follow`/`goto`/`wildcard`/`yield` already give the Language itself
+a graph shape, unprompted by anything in this document.
+
+**Cross-reference:** `gomsdu-codex.md`'s new "Language as the Animating
+Gate" section documents what that specific worked Composition actually
+said, narratively (Gom's verbs on Life stay uncompleted until they cross
+GI, the Word; Kulkrow's Kill reverses exactly that). This section is about
+the graph *shape* the exercise revealed, not its content — genuinely
+separate payoffs from the same eleven lines of JSON.
+
 ## Closing framing
 
 The goal was never to simulate an infinite conversation — that's the LLM

@@ -43,6 +43,22 @@ The Living Stone spontaneously coin **GOMGOM** — Gom's own Name, said twice, e
 
 They cooperated for millions of years.
 
+### Language as the Animating Gate
+*A grammatical discovery, not authored prose — surfaced from `../language/gomsdu-glyphic-system.json`'s own oldest rule (a completing chevron marks presence/animation; its absence marks an unanimated, aura-only form — see the Glyphic System's grammar rules) via a worked Composition built in the Glyph Arranger, 2026-08-19, creator-confirmed as deliberate. Full transcription in the JSON's correctionLog.*
+
+KRO and KROW are the very first two Glyphs this language ever had: the same life-vessel container, present versus absent its animating chevron. A Composition written this session put that oldest distinction to real narrative use. Three of Gom's own verbs acting on Life — Create (OG), Teach (WIM), Maintain (KA) — all left the vessel as KRO, uncompleted, regardless of which verb was used. Completion into KROW happened at exactly one point: passing through **GI**, the Word — this language's own name for its smallest complete unit, not incidental vocabulary. Every branch, whatever its origin, had to cross that single gate.
+
+What came after the gate split three ways. Take and Give both left the vessel KROW — completion preserved. Kill did not — and specifically, the Kill branch's actor was **Kulkrow**, not Gom, the only branch where the subject itself changes. Its result reverts the vessel to KRO: not destroyed, unmade back to what it was before it was ever spoken.
+
+**The reading:** none of Gom's actions animate Life by his own hand alone, whatever the verb. Animation is granted at the moment of Naming — of passing through Language itself. And Kulkrow's kill is the precise inverse of that one specific event, nothing more: it doesn't end the vessel, it un-names it.
+
+This sits directly beside "Sound and Shape, and the Name that never formed," above. Language already does something momentous to a Name there — GOMGOM, and what Gom's Black-Hole nature does to Kulkrow's own unclaimed one. This is the same mechanism read at the general case: not just what Language did to one being's Name, but what it does, structurally, to Life itself, every time. Also consonant with WIMBIS's established character ("the thing that teaches you by making you forget") — Language in this cosmology is never neutral. It's the site where completion, or its reversal, actually happens.
+
+*Not yet confirmed as universal, binding canon beyond this one worked Composition — open thread: does this generalize to every act of creation/destruction in the cosmology, or is it a property of this specific Composition and the Gom/Kulkrow/Life triad specifically? Flagged for creator.*
+
+### A Cultural Footnote: Reading Direction
+Horizontal mirroring carries no grammatical meaning (see the Glyphic System's own grammar rules) — that hasn't stopped anyone from having opinions about it. Humans, on the East Coast, read right-to-left; Orks, in the West, read left-to-right. Structurally meaningless, culturally loaded enough to start a real fight over — the same "everyone gets a convenient version" pattern the rest of this document runs on at cosmic scale, just small enough here to happen at a dinner table instead of a war. **Sibmiw** — Wimbis's own name, read straight backward — is a known derogatory usage, not a neutral dialectal variant.
+
 ### The Founding Rule
 Neither brother creates from nothing. Both act on the Planet's own material — Kulkrow shapes and separates **Matter**, Gom infuses **Life/Essence** — which is why they needed each other to make anything at all, and why the *availability* of raw material gates what either of them can do at any point in history. **Liquid, as a category, doesn't exist until Death does.** Neither brother can produce it directly, only what happens as a consequence of it — this holds all the way through both wars.
 
@@ -371,6 +387,9 @@ If a player figures out how to actually reach him — not yet mechanized, a real
 ---
 
 ## Character Stats & Combat System
+
+### Party Structure
+A **Party** is one Player plus their own **Mini-Party** of 4 Characters — 5 total, run by that one Player. A **Meta-Party** is the full multiplayer table: up to 5 Players, each fielding their own 5-Character Party — 25 Characters in play at once across the whole table. Settled design, per creator, for roughly two weeks prior to this actually being written down (2026-08-19). Names above are working Dev names, deliberately kept separate from World/Wimbis vocabulary — not to be confused with `../language/gomsdu-glyphic-system.json`'s **ZINKARI**, the in-world Glyph for the same Self-plus-four shape, which stays a lore word rather than a UI term.
 
 ### Core Stats
 Two headline stats, directly mirroring the creation myth — both are plain organizational headers now, not numbers in their own right:

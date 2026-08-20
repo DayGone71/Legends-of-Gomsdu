@@ -10,7 +10,15 @@
       "2026-08-19, later — Creator hand-edited this file directly and left it syntactically invalid (three trailing commas); fixed. Per creator's verbal clarification: BIS rebuilt again — it's 4 chevrons, not 2, forming two stacked diamonds (small 'v' above big 'V', same overlapping-pair construction as WIM, tips touching at the seam), not one nested v-in-V sharing an apex. LANGUAGE's dangling reference to the retired id 'WIM_MIW' fixed to 'WIM', and its flanking halves updated to match BIS's new shape. WIM's own notes corrected — word-order-sets-direction is a general rule, not unique to WIM; what's actually unique to WIM is that its meaning names a specific teacher-to-pupil relationship, a more advanced idea deferred past 1st Era Language. GO_KROW and SUU intentionally removed (GO_KROW was a Grammar-Line demonstration superseded by the Line composer; SUU isn't being written down yet) — not accidental. Sound for LANGUAGE settled as 'wimbis'.",
       "2026-08-20 — Added new primitives 'dot' (a real filled circle, round on purpose — the one shape allowed to break the straight-lines-only rule) and 'compass' (the four-outer-position rhombus outline). Added five new words: GI (a Word/single Glyph), GeKA (a Diglyph), GeKARAP (a Triglyph), ZON (Self), and ZIN (I — Crystal Being secret translation: Heart). New 'meta' category introduced for GI/GeKA/GeKARAP. Corrected same day: ZIN's meaning was backward (public meaning is 'I', not 'Heart') and its Era was wrong (Second, not Third); ZIN's Center now composes the Word GI directly rather than the raw 'dot' primitive, since GI is a Primitive only in that one context and otherwise a Word in its own right. Also fixed a real bug in both the viewer and the Glyph designer: loading a single bare primitive/word object (rather than a full file) crashed with 'Cannot read properties of undefined' — both tools now accept a full file, a single object, or an array of objects.",
       "2026-08-20, later — Per creator: in the First Era, 'I' existed only as GI, a full Word and nothing else; the Second Era is when GI additionally gains a function as a Primitive, at the exact moment the Crystal Beings connect it to the wider position-grid pattern (ZIN/ZON) — confirming 'GI is a Primitive within ZIN, but otherwise a Word' is in-world canon, not just a schema convenience. LANGUAGE renamed to WIMBIS (its own settled sound; nothing else referenced the old id) and rebuilt again — six chevrons, WIM's diamond centered, flanked left and right by two matching small+big chevron pairs rather than one BIS split unevenly in half. Added a Word editor to the Glyph designer (compose from existing Primitives/Words, adjust position/scale/rotation, live preview, manual JSON edit, save); fixed a bug where a newly-saved Primitive didn't show up as an option for composing into a Word until an unrelated reload; replaced the original text-plus-autocomplete 'add component' field with a real dropdown after it proved unreliable for finding existing entries.",
-      "2026-08-20, even later — BIS rebuilt again, per creator: two side-by-side mirrored columns (each a big-upright/small-inverted chevron pair), not one stacked pair down the center — this is the exact motif WIMBIS echoes twice, flanking WIM, so WIMBIS turns out to reuse BIS's whole shape twice rather than splitting it in half. New Primitive 'GI' added ('Soul', role marker) — deliberately shares its id with the Word GI. Its render was defined with type 'path' on a degenerate zero-length d string, which renders as a small square (square linecap) rather than a circle; fixed to type 'dots', matching the existing 'dot' primitive. Added WIMZIN ('Perfected Language') — WIMBIS's own glyph with the (now-fixed) Primitive GI added beneath it, oversized; the visual-patch 'dot' creator had stacked on top to hide the square-rendering bug was removed since it's no longer needed."
+      "2026-08-20, even later — BIS rebuilt again, per creator: two side-by-side mirrored columns (each a big-upright/small-inverted chevron pair), not one stacked pair down the center — this is the exact motif WIMBIS echoes twice, flanking WIM, so WIMBIS turns out to reuse BIS's whole shape twice rather than splitting it in half. New Primitive 'GI' added ('Soul', role marker) — deliberately shares its id with the Word GI. Its render was defined with type 'path' on a degenerate zero-length d string, which renders as a small square (square linecap) rather than a circle; fixed to type 'dots', matching the existing 'dot' primitive. Added WIMZIN ('Perfected Language') — WIMBIS's own glyph with the (now-fixed) Primitive GI added beneath it, oversized; the visual-patch 'dot' creator had stacked on top to hide the square-rendering bug was removed since it's no longer needed.",
+      "2026-08-21 — Schema rename, per creator: the top-level 'words' array is now 'glyphs', and composition entries reference 'glyph' instead of 'word' — carried through the JSON, all three tools' code, and their UI labels, since the old terms had already caused real confusion more than once. 'dot' primitive deleted as a pure duplicate of the 'GI' primitive (identical geometry) — every former reference to 'dot' (GI-the-Glyph's own composition, GeKA, GeKARAP) now points at 'GI' instead, confirmed visually unchanged. 'teepee' deleted outright — already unused since BIS's 2026-08-19 rebuild. Both 'dot' and 'GI' had role 'marker', which is why they were showing up in the Arranger's Lines picker; corrected to 'lexical-base' (fixed 2026-08-20 for 'dot' before its deletion, same day for 'GI'). WIMZIN's Primitive-GI scale changed from 1.4 to 0.3, per creator. Glyph Designer: Primitives with render type 'rect' are now point-editable (converted to a 4-corner closed path on load — loses the distinct rect type and any corner radius, harmless today since every rect here has rx 0); 'dots'/'line-with-dot' types remain genuinely unsupported since they aren't point-sequences, now explained clearly in the tooltip instead of a generic 'not editable' note. The Designer's primitive-creation button was confusingly named 'New Glyph' even though it starts a new Primitive draft, not a Glyph — renamed to 'New Primitive' to stop colliding with the new terminology. \"Open file for direct editing\" is now visually the primary/recommended action (styled distinctly) with \"Choose File\" demoted to a clearly-labeled fallback, after creator used Choose File out of habit and got a downloaded copy instead of the in-place save they expected.",
+      "2026-08-21, later — Glyph Designer: every placed point (including ones loaded from an existing Primitive, not just freshly drawn ones) is now a real dot you can drag to move or double-click to remove, tied directly to its position in the underlying path data — verified against rect-container specifically. Category dropdown narrowed to glyph/diglyph/triglyph/tetglyph (tetglyph added for WIMZIN); a Glyph whose stored category doesn't match any of the four now shows as a clearly-labeled '(legacy)' option instead of silently snapping to the first one on save. New 'era' field added alongside category — First Era / Second Era / Third Era — with the same legacy-preserving behavior. All 19 existing Glyphs assigned both fields per creator: Glyphs — KROW, KRO, GOM, GO, GI, ZON, MO, OR; Diglyphs — KUL, OG, KULKROW, WIM, BIS, GOMGOM, GeKA, ZIN; Triglyphs — WIMBIS, GeKARAP; Tetglyph — WIMZIN (the meta-term for a 4-Glyph compound is 'GeKARI', not yet built as its own entry). First Era — everything except ZON, ZIN, WIMZIN, which are Second Era. MO and OR both settled as Glyphs despite MO's composition using two Primitives — per creator, a symmetry choice, not two combined concepts, 'admittedly deceiving' next to GOMGOM which genuinely is a Diglyph. New Primitive 'num_sign' added (the '#' shape, four crossing lines) for OR's composition. MO's composition set to two jagged-circles, rotated 90/-90 so their horns face inward and interlock in the gap between them — verified the horn-pairs actually converge toward center, not just that two circles render.",
+      "2026-08-21, later still — Added 'gom-circle', creator-hand-drawn via the Designer's new drag/remove point editing (a single continuous closed path, horns built into the circle's own outline rather than separate multipath spikes) — added alongside 'jagged-circle', not replacing it; nothing's been rewired to use it yet. Added GeKARI (spelling corrected from an initial 'GeKARAI' typo) — the Tetglyph meta-word, same construction as GI/GeKA/GeKARAP, all four outer positions filled since a Tetglyph doesn't leave one empty the way a Triglyph does. Era 'Second Era' inferred from creator's own earlier framing that Tetglyphs are a Second Era invention.",
+      "2026-08-19 — Added 6 new Lines to the Arranger, per creator, for use in an exercise: follow-1-line, follow-2-line, follow-3-line (number above the line) and goto-1-line, goto-2-line, goto-3-line (number below), all role \"marker\" so they show up in the Lines picker alongside ownership-line and next-idea-line. New render type \"line-with-number\" ({d, number, numberPosition}) added to support them, wired into all three tools' rendering code (Viewer, Arranger, Designer). A number above a Line means \"follow the Expression at that position in the row (1st/2nd/3rd)\"; a number below means \"go to the Expression at that position\" — intended to read as a forward link vs. a jump/reference, though nothing enforces that meaning yet, it's just the visual convention. A 7th Line was requested but not described — only these 6 were built; asked creator what the 7th should be rather than guessing. Also added a \"Show Composition\" button to the Arranger, dumping all 9 Expressions' slot contents as plain text (Line/Glyph per slot, or \"(empty)\") so the overall flow across Expressions can be read at a glance — deliberately unstyled per creator's \"doesn't need to be pretty\" instruction.",
+      "2026-08-19, later — Integrated 4 items from a hand-edited Downloads-folder copy of the file, per creator: new Primitives 'separate' (three-piece broken vertical line — two point-dots at top/bottom, disconnected from a short middle segment) and 'connect' (one unbroken vertical line); new Glyphs BE (Cut/Separate/Sever) and KA (Fix/Assemble/Maintain), both First Era. Found and fixed a bug in the source file before integrating: BE's composition referenced 'connect' instead of 'separate' — both BE and KA pointed at the same primitive, identical geometry, despite 'separate' and 'connect's own descriptions (\"for BE\" / \"for KA\") saying otherwise. Corrected BE to use 'separate', matching its own semantics and the primitive's stated purpose; flagged to creator rather than assumed silently. Also added 3 more Lines to the Arranger, filling out the set from the same conversation: wildcard-above-line and wildcard-below-line (same follow/goto meaning as the numbered Lines, but for ANY Expression in the row rather than a specific 1st/2nd/3rd — number placeholder is 0 for now), and yield-line (a line with an X through its center, representing Yield). New render type 'line-with-x' ({d, x: {cx, cy, size}}) added to support the latter, wired into all three tools' rendering code alongside 'line-with-number'.",
+      "2026-08-19, later still — Added a 'Yield Results' row to the Arranger: 3 bare Glyph slots (no Lines) below the 3x3 Expression grid, one per column, with a faint accent-colored glow — representing the Glyph a yield-line in that column resolves to. Click-to-open-menu works the same as the Expression grid's slots; Show Composition's text dump now ends with a 'Yield Results' section listing whichever of the 3 columns are filled. No JSON schema changes — this is purely Arranger UI state, not persisted data.",
+      "2026-08-19, evening — First full worked Composition written in the Arranger, per creator, using an earlier draft (all-KROW throughout) then a revised, better version (Row 1 changed from KROW to KRO) — transcribed here since the Arranger itself doesn't persist grid state to this file. Final version: Row 1 (Expr 1-3) = GOM+OG+KRO / GOM+WIM+KRO / GOM+KA+KRO, each next-idea-line-led and goto-2-line-out. Row 2 (Expr 5 only, columns 1 and 3 deliberately empty) = GOM+GI+KROW, wildcard-above-line in and wildcard-below-line out — a single mandatory gate all three Row 1 columns funnel into. Row 3 (Expr 7-9) = GOM+MO+KROW / KULKROW+KUL+KROW / GOM+OR+KROW, each follow-2-line-in and yield-line-out — note Expr 8's subject is KULKROW, not GOM, the only column where the actor changes. Yield Results: KROW, KRO, KROW. Creator-confirmed as deliberate: the KULKROW-as-subject swap on the Kill branch, and the Row-1 KROW-to-KRO change specifically 'to drive the point.' Reading (Claude's interpretation, offered and not corrected by creator beyond a timing correction on how long ago the underlying words were written): none of Gom's three verbs on Life — Create, Teach, Maintain — complete the vessel on their own; every Row 1 branch stays KRO. Completion to KROW happens exactly at GI, the Word, the language's own name for its smallest unit — the single gate every branch must pass through regardless of origin. Take and Give both preserve that completion. Kill, specifically performed by Kulkrow rather than Gom, is the one branch that reverses it, returning the vessel to its pre-Word state rather than destroying it outright. See gomsdu-codex.md's new 'Language as the Animating Gate' section and dialogue-system.md's corresponding dated entry for the cosmological and mechanical write-ups this produced.",
+      "2026-08-19, night — Session wrap-up, several smaller items from conversation rather than JSON edits: (1) GI carries a First Era reading of 'Is', alongside its established 'a Word' meaning — per creator, chevrons were the preferred grammatical tool in the First Era specifically because the whole point was directing action/intent, and 'Gom Takes/Gives Is' (the Take/Give Composition documented above) is plausibly the foundational sentence-pattern the Living Stone's entire First Era thinking runs on. (2) The Living Stone can act and 'think' via Gom's engravings but cannot originate direction, only receive it — mirrors this system's own follow-line/goto-line distinction (receiving a direction that already exists above you, versus dispatching toward one) more precisely than coincidence would explain. (3) Second Era 'gets carried away with GeKARI' per creator — the elaborate GeKA/GeKARAP/GeKARI compounding is Crystal Being overreach on top of the First Era's minimal Take/Give-Is grammar, not a necessary expansion. (4) ZINKARI (Self/ZIN at center, surrounded by GeKARI, the Tetraglyph) is confirmed as the in-world Glyph for the Player-plus-4-Character Party structure — 5 total per Party, which has independently been the settled game design for about two weeks; see gomsdu-codex.md's new 'Party Structure' section under Character Stats & Combat System. (5) The 'compass-copy' primitive shown in chat as a demo of ZINKARI's shape was never added to this file and isn't meant to be — creator plans to draw the real Glyph properly in the Designer directly. (6) Dev-facing system names (Party/Mini-Party/Meta-Party) are deliberately kept separate from World/Wimbis vocabulary (ZINKARI, GeKARI) per creator — don't blend the two even where a Wimbis word would fit the Dev concept neatly."
     ]
   },
   "primitives": [
@@ -63,19 +71,6 @@
       }
     },
     {
-      "id": "teepee",
-      "role": "lexical-base",
-      "description": "A two-legged, open-topped shape — wide at the base, legs not quite meeting at the top (a 'broken' chevron). Originally one unit of the BIS glyph (BIS placed two of these side by side).",
-      "render": {
-        "type": "multipath",
-        "d": [
-          "M5,80 L27,25",
-          "M49,80 L31,30"
-        ]
-      },
-      "status": "deprecated 2026-08-19 — BIS rebuilt from two chevron primitives instead (see BIS word entry); kept here for reference only, no longer used by any word"
-    },
-    {
       "id": "broken-square",
       "role": "lexical-base",
       "description": "Original glyph for OR (Give). Creator has scrapped this design; redesign pending. Kept as a placeholder entry so the word's sound/meaning/derivation stay recorded independent of its visual form.",
@@ -113,21 +108,6 @@
       }
     },
     {
-      "id": "dot",
-      "role": "marker",
-      "description": "A single filled, round dot — deliberately curved, the one shape in the whole system allowed to break the straight-lines-only rule. Represents one Glyph-position when composed (at the Center, or at one of the four positions of a diamond) into GI, GeKA, GeKARAP, and ZIN.",
-      "render": {
-        "type": "dots",
-        "points": [
-          {
-            "cx": 50,
-            "cy": 50,
-            "r": 18
-          }
-        ]
-      }
-    },
-    {
       "id": "compass",
       "role": "lexical-base",
       "description": "A rhombus outline connecting the four outer positions available to a Diglyph or Triglyph's own component dots — Top, Right, Bottom, Left — leaving the fifth position, Center, open inside it. Named separately from BIS's own similarly-shaped 'diamond' (two overlapping chevrons) since this is a different construction — one single closed outline, not two chevrons meeting at a point.",
@@ -138,8 +118,8 @@
     },
     {
       "id": "GI",
-      "role": "marker",
-      "description": "\"Soul\" — a Primitive, creator-authored 2026-08-20, deliberately sharing an id with the Word GI ('a Word/single Glyph'). Fixed 2026-08-20: was defined with render type 'path' on a degenerate zero-length d string, which renders as a small square (square linecap on a zero-length path) rather than a real circle — corrected to type 'dots', matching the existing 'dot' primitive exactly.",
+      "role": "lexical-base",
+      "description": "\"Soul\" — a Primitive, creator-authored 2026-08-20, deliberately sharing an id with the Glyph GI ('a Word/single Glyph'). Fixed 2026-08-20: was defined with render type 'path' on a degenerate zero-length d string, which renders as a small square (square linecap on a zero-length path) rather than a real circle — corrected to type 'dots'. Role corrected from 'marker' to 'lexical-base' 2026-08-21 — it isn't a grammatical Line. The separate 'dot' Primitive it was originally matching against was deleted 2026-08-21 as a duplicate (identical geometry) — every former 'dot' reference (GI-the-Glyph's own composition, GeKA, GeKARAP) now points at this Primitive instead.",
       "render": {
         "type": "dots",
         "points": [
@@ -150,14 +130,162 @@
           }
         ]
       }
+    },
+    {
+      "id": "num_sign",
+      "role": "lexical-base",
+      "description": "For OR — the '#' shape, two verticals crossing two horizontals.",
+      "render": {
+        "type": "multipath",
+        "d": [
+          "M60,30 L60,70",
+          "M40,30 L40,70",
+          "M30,60 L70,60",
+          "M30,40 L70,40"
+        ]
+      }
+    },
+    {
+      "id": "gom-circle",
+      "role": "lexical-base",
+      "description": "Goms Circle",
+      "render": {
+        "type": "path",
+        "d": "M54,6 L52,11 L46,15 L37,18 L25,25 L18,38 L15,50 L18,63 L25,75 L37,82 L50,85 L63,82 L75,75 L83,64 L85,50 L82,37 L75,25 L63,18 L54,15 L47,11 L45,6 L47,11 L52,11 Z"
+      }
+    },
+    {
+      "id": "follow-1-line",
+      "role": "marker",
+      "description": "Placeholder marker, creator-authored 2026-08-21 for an exercise. A horizontal line with the number 1 above it. Meaning (not yet enforced by any tool): follow — continue reading into — the 1st Expression in this Row.",
+      "render": {
+        "type": "line-with-number",
+        "d": "M10,50 L90,50",
+        "number": 1,
+        "numberPosition": "above"
+      }
+    },
+    {
+      "id": "follow-2-line",
+      "role": "marker",
+      "description": "Placeholder marker, creator-authored 2026-08-21 for an exercise. A horizontal line with the number 2 above it. Meaning (not yet enforced by any tool): follow — continue reading into — the 2nd Expression in this Row.",
+      "render": {
+        "type": "line-with-number",
+        "d": "M10,50 L90,50",
+        "number": 2,
+        "numberPosition": "above"
+      }
+    },
+    {
+      "id": "follow-3-line",
+      "role": "marker",
+      "description": "Placeholder marker, creator-authored 2026-08-21 for an exercise. A horizontal line with the number 3 above it. Meaning (not yet enforced by any tool): follow — continue reading into — the 3rd Expression in this Row.",
+      "render": {
+        "type": "line-with-number",
+        "d": "M10,50 L90,50",
+        "number": 3,
+        "numberPosition": "above"
+      }
+    },
+    {
+      "id": "goto-1-line",
+      "role": "marker",
+      "description": "Placeholder marker, creator-authored 2026-08-21 for an exercise. A horizontal line with the number 1 below it. Meaning (not yet enforced by any tool): go to Expression 1. Ideally pairs with a matching follow-line, though nothing requires it — illustrative for the exercise, not enforced.",
+      "render": {
+        "type": "line-with-number",
+        "d": "M10,50 L90,50",
+        "number": 1,
+        "numberPosition": "below"
+      }
+    },
+    {
+      "id": "goto-2-line",
+      "role": "marker",
+      "description": "Placeholder marker, creator-authored 2026-08-21 for an exercise. A horizontal line with the number 2 below it. Meaning (not yet enforced by any tool): go to Expression 2. Ideally pairs with a matching follow-line, though nothing requires it — illustrative for the exercise, not enforced.",
+      "render": {
+        "type": "line-with-number",
+        "d": "M10,50 L90,50",
+        "number": 2,
+        "numberPosition": "below"
+      }
+    },
+    {
+      "id": "goto-3-line",
+      "role": "marker",
+      "description": "Placeholder marker, creator-authored 2026-08-21 for an exercise. A horizontal line with the number 3 below it. Meaning (not yet enforced by any tool): go to Expression 3. Ideally pairs with a matching follow-line, though nothing requires it — illustrative for the exercise, not enforced.",
+      "render": {
+        "type": "line-with-number",
+        "d": "M10,50 L90,50",
+        "number": 3,
+        "numberPosition": "below"
+      }
+    },
+    {
+      "id": "separate",
+      "role": "lexical-base",
+      "description": "for BE",
+      "render": {
+        "type": "multipath",
+        "d": [
+          "M50,20 L50,20",
+          "M50,80 L50,80",
+          "M50,35 L50,65"
+        ]
+      }
+    },
+    {
+      "id": "connect",
+      "role": "lexical-base",
+      "description": "for KA",
+      "render": {
+        "type": "path",
+        "d": "M50,80 L50,20"
+      }
+    },
+    {
+      "id": "wildcard-above-line",
+      "role": "marker",
+      "description": "A horizontal line with a 0 above it. Wildcard form of follow-N-line — follow the Expression at ANY position in the row, rather than a specific 1st/2nd/3rd.",
+      "render": {
+        "type": "line-with-number",
+        "d": "M10,50 L90,50",
+        "number": 0,
+        "numberPosition": "above"
+      }
+    },
+    {
+      "id": "wildcard-below-line",
+      "role": "marker",
+      "description": "A horizontal line with a 0 below it. Wildcard form of goto-N-line — go to the Expression at ANY position in the row, rather than a specific 1st/2nd/3rd.",
+      "render": {
+        "type": "line-with-number",
+        "d": "M10,50 L90,50",
+        "number": 0,
+        "numberPosition": "below"
+      }
+    },
+    {
+      "id": "yield-line",
+      "role": "marker",
+      "description": "A horizontal line with an X through its center. Represents Yield.",
+      "render": {
+        "type": "line-with-x",
+        "d": "M10,50 L90,50",
+        "x": {
+          "cx": 50,
+          "cy": 50,
+          "size": 12
+        }
+      }
     }
   ],
-  "words": [
+  "glyphs": [
     {
       "id": "KROW",
       "sound": "krow",
       "meaning": "Life",
-      "category": "root",
+      "category": "glyph",
+      "era": "First Era",
       "composition": [
         {
           "primitive": "rect-container",
@@ -185,7 +313,8 @@
       "id": "KRO",
       "sound": "kro",
       "meaning": "(inferred) unanimated life-vessel — the base container without the life-force present",
-      "category": "root",
+      "category": "glyph",
+      "era": "First Era",
       "composition": [
         {
           "primitive": "rect-container",
@@ -204,7 +333,8 @@
       "id": "GOM",
       "sound": "gom",
       "meaning": "Gom (the being himself)",
-      "category": "root",
+      "category": "glyph",
+      "era": "First Era",
       "composition": [
         {
           "primitive": "jagged-circle",
@@ -232,7 +362,8 @@
       "id": "GO",
       "sound": "go",
       "meaning": "Gom's aura / domain — that which is his without Gom's full self present",
-      "category": "root",
+      "category": "glyph",
+      "era": "First Era",
       "composition": [
         {
           "primitive": "jagged-circle",
@@ -251,7 +382,8 @@
       "id": "KUL",
       "sound": "kul",
       "meaning": "Kill / Destroy",
-      "category": "root",
+      "category": "diglyph",
+      "era": "First Era",
       "composition": [
         {
           "primitive": "cross-core",
@@ -291,7 +423,8 @@
       "id": "OG",
       "sound": "og",
       "meaning": "Birth / Create",
-      "category": "root",
+      "category": "diglyph",
+      "era": "First Era",
       "composition": [
         {
           "primitive": "cross-core",
@@ -332,7 +465,8 @@
       "id": "KULKROW",
       "sound": "kulkrow (pronunciation of the compound is an open thread — see openThreads)",
       "meaning": "Kulkrow, 'Life-Killer'",
-      "category": "compound",
+      "category": "diglyph",
+      "era": "First Era",
       "composition": [
         {
           "primitive": "rect-container",
@@ -345,7 +479,7 @@
           "note": "No chevron — the life-vessel is not completed/animated."
         },
         {
-          "word": "KUL",
+          "glyph": "KUL",
           "position": [
             0.5,
             0.5
@@ -362,25 +496,57 @@
       "id": "OR",
       "sound": "or",
       "meaning": "Give",
-      "category": "derived",
-      "composition": [],
-      "status": "meaning and derivation settled; glyph is identical to '#'",
+      "category": "glyph",
+      "era": "First Era",
+      "composition": [
+        {
+          "primitive": "num_sign",
+          "position": [
+            0.5,
+            0.5
+          ],
+          "scale": 1,
+          "rotation": 0
+        }
+      ],
+      "status": "settled 2026-08-21, per creator — glyph is the '#' shape (num_sign primitive)",
       "etymology": "Derived from KROW by taking its 2nd and 3rd letters (R, O) and reversing them: RO -> OR. Give is named from what is given (Life's own letters), not from the giver."
     },
     {
       "id": "MO",
       "sound": "mo",
       "meaning": "Take",
-      "category": "derived",
-      "composition": [],
-      "status": "meaning and derivation settled; glyph is rotated GOMGOM",
+      "category": "glyph",
+      "era": "First Era",
+      "composition": [
+        {
+          "primitive": "jagged-circle",
+          "position": [
+            0.35,
+            0.5
+          ],
+          "scale": 0.6,
+          "rotation": 90
+        },
+        {
+          "primitive": "jagged-circle",
+          "position": [
+            0.65,
+            0.5
+          ],
+          "scale": 0.6,
+          "rotation": -90
+        }
+      ],
+      "status": "settled 2026-08-21, per creator — two jagged-circles, rotated so their horns face inward and interlock between them. Deliberately still a Glyph (not a Diglyph) despite two composition entries — a symmetry choice, not two combined concepts; per creator, 'admittedly deceiving,' especially next to GOMGOM (which genuinely is a Diglyph).",
       "etymology": "Derived from GOM by taking its 2nd and 3rd letters (O, M) and reversing them: OM -> MO. Take is named from the one who always takes (Gom's own letters), not from the object taken — consistent with 'everything eventually returns to Gom.'"
     },
     {
       "id": "WIM",
       "sound": "wim",
       "meaning": "Teach / Learn",
-      "category": "root",
+      "category": "diglyph",
+      "era": "First Era",
       "composition": [
         {
           "primitive": "chevron",
@@ -411,7 +577,8 @@
       "id": "BIS",
       "sound": "bis",
       "meaning": "Water; also Forget / Lose",
-      "category": "root",
+      "category": "diglyph",
+      "era": "First Era",
       "composition": [
         {
           "primitive": "chevron",
@@ -462,7 +629,8 @@
       "id": "WIMBIS",
       "sound": "wimbis",
       "meaning": "Language",
-      "category": "compound",
+      "category": "triglyph",
+      "era": "First Era",
       "composition": [
         {
           "primitive": "chevron",
@@ -526,10 +694,11 @@
       "id": "GOMGOM",
       "sound": "gomgom",
       "meaning": "Unity with Gom",
-      "category": "forbidden",
+      "category": "diglyph",
+      "era": "First Era",
       "composition": [
         {
-          "word": "GOM",
+          "glyph": "GOM",
           "position": [
             0.5,
             0.35
@@ -539,7 +708,7 @@
           "note": "Rotated so its horns point down, toward the seam where the two GOMs meet."
         },
         {
-          "word": "GOM",
+          "glyph": "GOM",
           "position": [
             0.5,
             0.65
@@ -556,10 +725,11 @@
       "id": "GI",
       "sound": "gi",
       "meaning": "a Word — a single Glyph, Sound and Shape's smallest complete unit. The meta-term the language uses for its own atomic building block.",
-      "category": "meta",
+      "category": "glyph",
+      "era": "First Era",
       "composition": [
         {
-          "primitive": "dot",
+          "primitive": "GI",
           "position": [
             0.5,
             0.5
@@ -576,10 +746,11 @@
       "id": "GeKA",
       "sound": "geka",
       "meaning": "a Diglyph — a compound Word/Sound built from two Glyphs. WIMBIS and KULKROW are both real examples of Diglyphs, though neither uses this dot-diagram itself — this is the abstract category, not a component either of them is literally built from.",
-      "category": "meta",
+      "category": "diglyph",
+      "era": "First Era",
       "composition": [
         {
-          "primitive": "dot",
+          "primitive": "GI",
           "position": [
             0.2,
             0.5
@@ -589,7 +760,7 @@
           "note": "West — one of the four outer positions."
         },
         {
-          "primitive": "dot",
+          "primitive": "GI",
           "position": [
             0.8,
             0.5
@@ -606,10 +777,11 @@
       "id": "GeKARAP",
       "sound": "gekarap",
       "meaning": "a Triglyph — a compound Word/Sound built from three Glyphs.",
-      "category": "meta",
+      "category": "triglyph",
+      "era": "First Era",
       "composition": [
         {
-          "primitive": "dot",
+          "primitive": "GI",
           "position": [
             0.2,
             0.5
@@ -619,7 +791,7 @@
           "note": "West."
         },
         {
-          "primitive": "dot",
+          "primitive": "GI",
           "position": [
             0.8,
             0.5
@@ -629,7 +801,7 @@
           "note": "East."
         },
         {
-          "primitive": "dot",
+          "primitive": "GI",
           "position": [
             0.5,
             0.8
@@ -646,7 +818,8 @@
       "id": "ZON",
       "sound": "zon",
       "meaning": "Self (Crystal Being word for 'I')",
-      "category": "root",
+      "category": "glyph",
+      "era": "Second Era",
       "composition": [
         {
           "primitive": "compass",
@@ -663,7 +836,8 @@
       "id": "ZIN",
       "sound": "zin",
       "meaning": "I (Crystal Being secret translation: Heart)",
-      "category": "root",
+      "category": "diglyph",
+      "era": "Second Era",
       "composition": [
         {
           "primitive": "compass",
@@ -675,7 +849,7 @@
           "rotation": 0
         },
         {
-          "word": "GI",
+          "glyph": "GI",
           "position": [
             0.5,
             0.5
@@ -693,7 +867,8 @@
       "id": "WIMZIN",
       "sound": "wimzin",
       "meaning": "Perfected Language",
-      "category": "compound",
+      "category": "tetglyph",
+      "era": "Second Era",
       "composition": [
         {
           "primitive": "chevron",
@@ -755,14 +930,102 @@
             0.5,
             0.8
           ],
-          "scale": 1.4,
+          "scale": 0.3,
           "rotation": 0,
-          "note": "The Primitive GI ('Soul') — deliberately large, extending past the Glyph's own edges. Now that GI-the-Primitive actually renders as a circle (was a square, fixed 2026-08-20), the small 'dot' primitive creator had stacked on top as a visual patch has been removed — no longer needed."
+          "note": "The Primitive GI ('Soul'). Scale changed 2026-08-21 from 1.4 (deliberately oversized, extending past the Glyph's own edges) to 0.3, per creator."
         }
       ],
       "status": "settled — added 2026-08-20, creator-authored",
       "etymology": "WIMBIS's exact glyph — WIM's diamond flanked by BIS's shape twice — with the Primitive GI ('Soul') added beneath it, oversized, grounding the whole thing. Perfected Language, quite literally: ordinary Language plus the one thing the First Era's version of it was built to take away.",
       "notes": "The Crystal Beings' own refinement of WIMBIS — not a different word for Language, but the same one with something added that only they thought to add. Given everything WIMBIS itself already carries ('the thing that teaches you by making you forget'), naming this specific addition 'Perfected' rather than merely 'different' is worth sitting with."
+    },
+    {
+      "id": "GeKARI",
+      "sound": "gekari",
+      "meaning": "a Tetglyph — a compound Word/Sound built from four Glyphs.",
+      "category": "tetglyph",
+      "era": "Second Era",
+      "composition": [
+        {
+          "primitive": "GI",
+          "position": [
+            0.2,
+            0.5
+          ],
+          "scale": 0.25,
+          "rotation": 0,
+          "note": "West."
+        },
+        {
+          "primitive": "GI",
+          "position": [
+            0.8,
+            0.5
+          ],
+          "scale": 0.25,
+          "rotation": 0,
+          "note": "East."
+        },
+        {
+          "primitive": "GI",
+          "position": [
+            0.5,
+            0.8
+          ],
+          "scale": 0.25,
+          "rotation": 0,
+          "note": "South."
+        },
+        {
+          "primitive": "GI",
+          "position": [
+            0.5,
+            0.2
+          ],
+          "scale": 0.25,
+          "rotation": 0,
+          "note": "North — with West/East/South, all four outer positions filled; unlike GeKARAP, none is left empty, since a Tetglyph uses all four."
+        }
+      ],
+      "status": "settled 2026-08-21, creator-authored",
+      "notes": "Names the Tetglyph category the same way GI/GeKA/GeKARAP name Glyph/Diglyph/Triglyph — per creator, Tetglyphs (and this word for them) are a Second Era invention. Uses the Primitive GI at all four outer positions, same construction as GeKA/GeKARAP."
+    },
+    {
+      "id": "BE",
+      "sound": "be",
+      "meaning": "Cut / Separate / Sever",
+      "category": "glyph",
+      "era": "First Era",
+      "composition": [
+        {
+          "position": [
+            0.5,
+            0.5
+          ],
+          "scale": 1,
+          "rotation": 0,
+          "primitive": "separate"
+        }
+      ],
+      "status": "creator-authored; composition corrected to use the 'separate' primitive (matching its own description, \"for BE\") instead of 'connect', which the source file had assigned to both BE and KA identically — flagged and fixed 2026-08-19, see correctionLog."
+    },
+    {
+      "id": "KA",
+      "sound": "ka",
+      "meaning": "Fix / Assemble / Maintain",
+      "category": "glyph",
+      "era": "First Era",
+      "composition": [
+        {
+          "position": [
+            0.5,
+            0.5
+          ],
+          "scale": 1,
+          "rotation": 0,
+          "primitive": "connect"
+        }
+      ]
     }
   ],
   "grammar": {
@@ -798,7 +1061,7 @@
       },
       {
         "name": "Horizontal mirroring carries no grammatical meaning",
-        "description": "Left-right placement and left-right mirroring are purely spatial/compositional choices, never grammar. A word's sound may itself be read either direction — BIS is equally valid as SIB — and a compound like LANGUAGE can flank its center element with the two halves of another word in either left-right arrangement without changing meaning. Only the vertical axis (stacking order, top-to-bottom) carries grammatical direction."
+        "description": "Left-right placement and left-right mirroring are purely spatial/compositional choices, never grammar. A word's sound may itself be read either direction — BIS is equally valid as SIB — and a compound like LANGUAGE can flank its center element with the two halves of another word in either left-right arrangement without changing meaning. Only the vertical axis (stacking order, top-to-bottom) carries grammatical direction. Structurally neutral is not the same as culturally neutral, per creator: reading direction is a real dialect marker in-world (Humans read right-to-left, Orks left-to-right), and Sibmiw — Wimbis's own name read straight backward — is a known derogatory usage, not a harmless variant. See gomsdu-codex.md's 'A Cultural Footnote: Reading Direction.'"
       }
     ]
   },

@@ -12,6 +12,7 @@
     --text: #2b2620;
     --text-muted: #7a7266;
     --accent: #8a5a2e;
+    --glow: rgba(138, 90, 46, 0.3);
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -21,6 +22,7 @@
       --text: #e9e4d8;
       --text-muted: #a89f8d;
       --accent: #d0a466;
+      --glow: rgba(208, 164, 102, 0.4);
     }
   }
   * { box-sizing: border-box; }
@@ -32,7 +34,7 @@
     padding: 28px;
   }
   h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
-  .intro { font-size: 13px; color: var(--text-muted); margin: 0 0 18px; }
+  .intro { font-size: 13px; color: var(--text-muted); margin: 0 0 18px; max-width: 640px; }
   h2 {
     font-size: 15px;
     font-weight: 600;
@@ -60,51 +62,52 @@
   }
   .nav-link:hover { text-decoration: underline; }
 
-  /* --- the Line itself: 3 boxes + 2 marker-lines, stacked, invisible until filled --- */
-  .line-stack {
-    width: 130px;
-    margin: 26px auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
+  /* --- 9 Expressions, 3 rows of 3 --- */
+  #expressionGrid {
+    display: grid;
+    grid-template-columns: repeat(3, auto);
+    gap: 28px 24px;
+    justify-content: center;
+    margin: 20px 0;
   }
-  .slot { width: 100%; }
-  .slot.box { height: 110px; }
-  .slot.line { height: 32px; }
-  .slot svg { width: 100%; height: 100%; display: block; color: var(--text); }
-
-  .output-row {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    max-width: 520px;
-    margin: 22px auto;
+  .expression-column { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .expression-label {
+    font-size: 11px; color: var(--text-muted); text-transform: uppercase;
+    letter-spacing: 0.05em; margin-bottom: 4px;
   }
-  .output-lines { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-  .output-line { font-size: 14px; display: flex; gap: 10px; align-items: baseline; }
-  .output-label {
-    flex: 0 0 auto;
-    width: 108px;
-    color: var(--text-muted);
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  .output-value { word-break: break-word; }
-  #undoBtn {
-    flex: 0 0 auto;
-    padding: 9px 16px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--card);
-    color: var(--text);
-    font-family: inherit;
-    font-size: 13px;
+  .slot {
+    width: 150px;
     cursor: pointer;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
   }
-  #undoBtn:disabled { opacity: 0.4; cursor: default; }
-  #undoBtn:not(:disabled):hover { border-color: var(--accent); }
+  .slot:hover { border-color: var(--accent); }
+  .slot.glyph-slot { height: 100px; }
+  .slot.line-slot { height: 28px; }
+  .slot svg { width: 100%; height: 100%; display: block; color: var(--text); pointer-events: none; }
+  .slot select {
+    width: 100%; height: 100%;
+    font-family: inherit; font-size: 12px;
+    border: 1px solid var(--accent); border-radius: 6px;
+    background: var(--card); color: var(--text);
+  }
+
+  /* --- Yield Results row: 3 bare Glyph slots below the Expression grid --- */
+  #yieldRow {
+    display: grid;
+    grid-template-columns: repeat(3, auto);
+    gap: 28px 24px;
+    justify-content: center;
+    margin: 4px 0 20px;
+  }
+  .yield-slot {
+    box-shadow: 0 0 14px 2px var(--glow);
+    border-color: var(--accent);
+  }
+  .yield-row-label {
+    font-size: 11px; color: var(--text-muted); text-transform: uppercase;
+    letter-spacing: 0.05em; text-align: center; margin-bottom: 4px;
+  }
 
   .grid {
     display: grid;
@@ -119,13 +122,6 @@
     text-align: center;
     color: var(--text);
   }
-  button.card {
-    font-family: inherit;
-    cursor: pointer;
-    width: 100%;
-  }
-  button.card:not(:disabled):hover { border-color: var(--accent); }
-  button.card:disabled { opacity: 0.4; cursor: default; }
   .card svg {
     width: 100%;
     height: auto;
@@ -153,7 +149,7 @@
 <body>
 
 <h1>Gomsdu Glyph Arranger</h1>
-<p class="intro">Click Words and Markers below to build a stacked Line — 3 Word slots and 2 Marker slots between them, read top to bottom. Empty slots stay invisible; they just hold their place.</p>
+<p class="intro">An <strong>Expression</strong> is up to 3 Glyphs and up to 4 Lines, arranged vertically, read top to bottom. 9 Expressions below, 3 rows of 3, each fully independent. Click any slot — filled or empty — to open a menu and set, replace, or remove what's there. The Glyphs and Lines further down are reference only, not clickable — a reminder of what exists, not a picker.</p>
 
 <div class="controls">
   <input type="file" id="fileInput" accept="application/json,.json">
@@ -162,40 +158,62 @@
   <a class="nav-link" href="gomsdu-glyph-designer.html">Open the Glyph Designer &rarr;</a>
 </div>
 
-<div class="line-stack" id="lineStack">
-  <div class="slot box" id="slot-box-0"></div>
-  <div class="slot line" id="slot-line-0"></div>
-  <div class="slot box" id="slot-box-1"></div>
-  <div class="slot line" id="slot-line-1"></div>
-  <div class="slot box" id="slot-box-2"></div>
+<div id="expressionGrid"></div>
+
+<p class="yield-row-label">Yield Results</p>
+<div id="yieldRow"></div>
+
+<div class="controls">
+  <button id="showCompositionBtn" type="button">Show Composition</button>
 </div>
+<pre id="compositionOutput" style="display:none; white-space:pre-wrap; font-family:'SFMono-Regular',Consolas,monospace; font-size:13px; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:14px; margin:0 0 20px;"></pre>
 
-<div class="output-row">
-  <div class="output-lines">
-    <div class="output-line"><span class="output-label">Transliteration</span><span class="output-value" id="translit">&mdash;</span></div>
-    <div class="output-line"><span class="output-label">Translation</span><span class="output-value" id="translation">&mdash;</span></div>
-  </div>
-  <button id="undoBtn" disabled>Undo</button>
-</div>
+<h2>Glyphs</h2>
+<div class="grid" id="glyphReference"><div class="empty-state">Load a JSON file to see Glyphs.</div></div>
 
-<h2>Words</h2>
-<div class="grid" id="wordPicker"><div class="empty-state">Load a JSON file to see Words.</div></div>
-
-<h2>Markers</h2>
-<div class="grid" id="markerPicker"><div class="empty-state">Load a JSON file to see Markers.</div></div>
+<h2>Lines</h2>
+<div class="grid" id="lineReference"><div class="empty-state">Load a JSON file to see Lines.</div></div>
 
 <script>
 let DATA = null;
 const CACHE_KEY = 'gomsduGlyphicSystemJSON';
+const EXPRESSION_COUNT = 9;
+const SLOT_SEQUENCE = [
+  { kind: 'line', index: 0 }, { kind: 'glyph', index: 0 },
+  { kind: 'line', index: 1 }, { kind: 'glyph', index: 1 },
+  { kind: 'line', index: 2 }, { kind: 'glyph', index: 2 },
+  { kind: 'line', index: 3 }
+];
 
-const boxes = [null, null, null];   // word ids, filled first-empty-slot in order
-const lines = [null, null];          // marker primitive ids, filled first-empty-slot in order
-const history = [];                  // { kind: 'box'|'line', index } — most recent last
+const expressions = [];
+for (let i = 0; i < EXPRESSION_COUNT; i++) {
+  expressions.push({ glyphSlots: [null, null, null], lineSlots: [null, null, null, null] });
+}
 
-const MARKER_GLOSS = {
-  'ownership-line': { translit: '[ownership marker]', translation: 'owns' },
-  'next-idea-line': { translit: '[next-idea marker]', translation: 'then' }
-};
+// A 4th row below the 3x3 Expression grid — 3 bare Glyph slots (no Lines), one per
+// column, representing the Glyph a Yield in that column resolves to.
+const yieldSlots = [null, null, null];
+
+// Accepts a full Glyphic System file, OR a bare single primitive/glyph object, OR a bare
+// array of them — so pasting/loading just one thing you're drafting previews it
+// directly instead of crashing on DATA.primitives being undefined.
+function normalizeLoadedJSON(parsed) {
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) &&
+      (Array.isArray(parsed.primitives) || Array.isArray(parsed.glyphs))) {
+    if (!Array.isArray(parsed.primitives)) parsed.primitives = [];
+    if (!Array.isArray(parsed.glyphs)) parsed.glyphs = [];
+    return parsed;
+  }
+  const items = Array.isArray(parsed) ? parsed : [parsed];
+  const primitives = [];
+  const glyphs = [];
+  items.forEach(function (item) {
+    if (!item || typeof item !== 'object') return;
+    const isGlyph = ('sound' in item) || ('composition' in item) || ('category' in item);
+    (isGlyph ? glyphs : primitives).push(item);
+  });
+  return { primitives: primitives, glyphs: glyphs };
+}
 
 document.getElementById('fileInput').addEventListener('change', function (e) {
   const file = e.target.files[0];
@@ -203,10 +221,10 @@ document.getElementById('fileInput').addEventListener('change', function (e) {
   const reader = new FileReader();
   reader.onload = function (ev) {
     try {
-      DATA = JSON.parse(ev.target.result);
+      DATA = normalizeLoadedJSON(JSON.parse(ev.target.result));
       document.getElementById('status').textContent =
-        'Loaded ' + file.name + ' — ' + DATA.primitives.length + ' primitives, ' + DATA.words.length + ' words.';
-      renderPickers();
+        'Loaded ' + file.name + ' — ' + DATA.primitives.length + ' primitives, ' + DATA.glyphs.length + ' Glyphs.';
+      renderReference();
       render();
       try { localStorage.setItem(CACHE_KEY, ev.target.result); } catch (err) {}
     } catch (err) {
@@ -224,21 +242,19 @@ document.getElementById('fileInput').addEventListener('change', function (e) {
   try {
     const cached = localStorage.getItem(CACHE_KEY);
     if (!cached) return;
-    DATA = JSON.parse(cached);
+    DATA = normalizeLoadedJSON(JSON.parse(cached));
     document.getElementById('status').textContent =
-      'Loaded from browser cache — ' + DATA.primitives.length + ' primitives, ' + DATA.words.length + ' words. Pick a file to refresh.';
-    renderPickers();
+      'Loaded from browser cache — ' + DATA.primitives.length + ' primitives, ' + DATA.glyphs.length + ' Glyphs. Pick a file to refresh.';
+    renderReference();
     render();
   } catch (err) {}
 })();
 
-document.getElementById('undoBtn').addEventListener('click', undo);
-
 function lookupPrimitive(id) {
   return DATA.primitives.find(function (p) { return p.id === id; });
 }
-function lookupWord(id) {
-  return DATA.words.find(function (w) { return w.id === id; });
+function lookupGlyph(id) {
+  return DATA.glyphs.find(function (g) { return g.id === id; });
 }
 
 function primitiveMarkup(prim) {
@@ -265,20 +281,32 @@ function primitiveMarkup(prim) {
   if (r.type === 'dots') {
     return r.points.map(function (pt) { return '<circle cx="' + pt.cx + '" cy="' + pt.cy + '" r="' + pt.r + '" fill="currentColor"/>'; }).join('');
   }
+  if (r.type === 'line-with-number') {
+    const ny = r.numberPosition === 'below' ? 78 : 22;
+    return '<path d="' + r.d + '" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/>' +
+      '<text x="50" y="' + ny + '" text-anchor="middle" dominant-baseline="middle" font-size="28" font-weight="600" fill="currentColor">' + r.number + '</text>';
+  }
+  if (r.type === 'line-with-x') {
+    const half = r.x.size / 2;
+    return '<path d="' + r.d + '" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/>' +
+      '<path d="M' + (r.x.cx - half) + ',' + (r.x.cy - half) + ' L' + (r.x.cx + half) + ',' + (r.x.cy + half) +
+      ' M' + (r.x.cx - half) + ',' + (r.x.cy + half) + ' L' + (r.x.cx + half) + ',' + (r.x.cy - half) +
+      '" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/>';
+  }
   return '<text x="50" y="50" text-anchor="middle" class="missing-text">unknown render type</text>';
 }
 
-// Recursively resolve a word's composition into nested, transformed <g> groups.
-function wordMarkup(word, depth) {
+// Recursively resolve a Glyph's composition into nested, transformed <g> groups.
+function glyphMarkup(glyph, depth) {
   depth = depth || 0;
   if (depth > 6) {
     return '<text x="50" y="50" text-anchor="middle" class="missing-text">too deeply nested</text>';
   }
-  if (!word.composition || word.composition.length === 0) {
+  if (!glyph.composition || glyph.composition.length === 0) {
     return '<text x="50" y="54" text-anchor="middle" class="placeholder-text">no symbol yet</text>';
   }
   let out = '';
-  word.composition.forEach(function (entry) {
+  glyph.composition.forEach(function (entry) {
     const pos = entry.position || [0.5, 0.5];
     const scale = (entry.scale === undefined) ? 1 : entry.scale;
     const rotation = entry.rotation || 0;
@@ -290,10 +318,10 @@ function wordMarkup(word, depth) {
       const prim = lookupPrimitive(entry.primitive);
       inner = prim ? primitiveMarkup(prim)
         : '<text x="50" y="50" text-anchor="middle" class="missing-text">missing: ' + entry.primitive + '</text>';
-    } else if (entry.word) {
-      const w = lookupWord(entry.word);
-      inner = w ? wordMarkup(w, depth + 1)
-        : '<text x="50" y="50" text-anchor="middle" class="missing-text">missing: ' + entry.word + '</text>';
+    } else if (entry.glyph) {
+      const g = lookupGlyph(entry.glyph);
+      inner = g ? glyphMarkup(g, depth + 1)
+        : '<text x="50" y="50" text-anchor="middle" class="missing-text">missing: ' + entry.glyph + '</text>';
     }
     out += '<g transform="' + transform + '">' + inner + '</g>';
   });
@@ -304,114 +332,239 @@ function svgWrap(innerMarkup) {
   return '<svg viewBox="0 0 100 100">' + innerMarkup + '</svg>';
 }
 
-function renderPickers() {
-  const wordPicker = document.getElementById('wordPicker');
-  const markerPicker = document.getElementById('markerPicker');
-  wordPicker.innerHTML = '';
-  markerPicker.innerHTML = '';
-
-  DATA.words.forEach(function (w) {
-    const hasGlyph = Array.isArray(w.composition) ? w.composition.length > 0 : !!w.composition;
-    if (!hasGlyph) return;
-    const btn = document.createElement('button');
-    btn.className = 'card';
-    btn.type = 'button';
-    btn.innerHTML = svgWrap(wordMarkup(w)) +
-      '<div class="label">' + w.id + '</div>' +
-      '<div class="sub">' + w.meaning + '</div>';
-    btn.addEventListener('click', function () { placeWord(w.id); });
-    wordPicker.appendChild(btn);
-  });
-
-  DATA.primitives.forEach(function (p) {
-    if (p.role !== 'marker') return;
-    const btn = document.createElement('button');
-    btn.className = 'card';
-    btn.type = 'button';
-    btn.innerHTML = svgWrap(primitiveMarkup(p)) +
-      '<div class="label">' + p.id + '</div>' +
-      '<div class="sub">' + (p.description || '') + '</div>';
-    btn.addEventListener('click', function () { placeMarker(p.id); });
-    markerPicker.appendChild(btn);
+// Glyphs with a real composition (skips OR/MO, which have none yet).
+function availableGlyphs() {
+  return DATA.glyphs.filter(function (g) {
+    return Array.isArray(g.composition) ? g.composition.length > 0 : !!g.composition;
   });
 }
-
-function placeWord(id) {
-  const i = boxes.indexOf(null);
-  if (i === -1) return;
-  boxes[i] = id;
-  history.push({ kind: 'box', index: i });
-  render();
+// Lines are Primitives with role "marker" — ownership-line, next-idea-line.
+function availableLines() {
+  return DATA.primitives.filter(function (p) { return p.role === 'marker'; });
 }
 
-function placeMarker(id) {
-  const i = lines.indexOf(null);
-  if (i === -1) return;
-  lines[i] = id;
-  history.push({ kind: 'line', index: i });
-  render();
+function renderReference() {
+  const glyphGrid = document.getElementById('glyphReference');
+  const lineGrid = document.getElementById('lineReference');
+  glyphGrid.innerHTML = '';
+  lineGrid.innerHTML = '';
+
+  availableGlyphs().forEach(function (g) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = svgWrap(glyphMarkup(g)) + '<div class="label">' + g.id + '</div>' + '<div class="sub">' + g.meaning + '</div>';
+    glyphGrid.appendChild(card);
+  });
+
+  availableLines().forEach(function (p) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = svgWrap(primitiveMarkup(p)) + '<div class="label">' + p.id + '</div>' + '<div class="sub">' + (p.description || '') + '</div>';
+    lineGrid.appendChild(card);
+  });
 }
 
-function undo() {
-  const last = history.pop();
-  if (!last) return;
-  if (last.kind === 'box') boxes[last.index] = null;
-  else lines[last.index] = null;
-  render();
+function getSlotValue(exprIdx, kind, index) {
+  const expr = expressions[exprIdx];
+  return kind === 'glyph' ? expr.glyphSlots[index] : expr.lineSlots[index];
+}
+function setSlotValue(exprIdx, kind, index, value) {
+  const expr = expressions[exprIdx];
+  if (kind === 'glyph') expr.glyphSlots[index] = value; else expr.lineSlots[index] = value;
 }
 
-function renderSlot(elId, value, kind) {
-  const el = document.getElementById(elId);
+function buildExpressionGrid() {
+  const container = document.getElementById('expressionGrid');
+  container.innerHTML = '';
+  for (let e = 0; e < EXPRESSION_COUNT; e++) {
+    const col = document.createElement('div');
+    col.className = 'expression-column';
+    const label = document.createElement('div');
+    label.className = 'expression-label';
+    label.textContent = 'Expression ' + (e + 1);
+    col.appendChild(label);
+
+    SLOT_SEQUENCE.forEach(function (s) {
+      const slot = document.createElement('div');
+      slot.className = 'slot ' + (s.kind === 'glyph' ? 'glyph-slot' : 'line-slot');
+      slot.dataset.expression = e;
+      slot.dataset.kind = s.kind;
+      slot.dataset.index = s.index;
+      slot.addEventListener('click', function () { openSlotMenu(slot); });
+      col.appendChild(slot);
+    });
+    container.appendChild(col);
+  }
+}
+buildExpressionGrid();
+
+function buildYieldRow() {
+  const container = document.getElementById('yieldRow');
+  container.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'slot glyph-slot yield-slot';
+    slot.dataset.yieldIndex = i;
+    slot.addEventListener('click', function () { openYieldSlotMenu(slot); });
+    container.appendChild(slot);
+  }
+}
+buildYieldRow();
+
+function renderSlot(el) {
+  const exprIdx = parseInt(el.dataset.expression, 10);
+  const kind = el.dataset.kind;
+  const index = parseInt(el.dataset.index, 10);
+  const value = getSlotValue(exprIdx, kind, index);
   if (!value) { el.innerHTML = ''; return; }
-  el.innerHTML = kind === 'word'
-    ? svgWrap(wordMarkup(lookupWord(value)))
+  el.innerHTML = kind === 'glyph'
+    ? svgWrap(glyphMarkup(lookupGlyph(value)))
     : svgWrap(primitiveMarkup(lookupPrimitive(value)));
 }
 
-function renderOutputs() {
-  const sequence = [
-    { kind: 'box', value: boxes[0] },
-    { kind: 'line', value: lines[0] },
-    { kind: 'box', value: boxes[1] },
-    { kind: 'line', value: lines[1] },
-    { kind: 'box', value: boxes[2] }
-  ];
-  const translitParts = [];
-  const translationParts = [];
-  sequence.forEach(function (s) {
-    if (!s.value) return;
-    if (s.kind === 'box') {
-      const w = lookupWord(s.value);
-      translitParts.push(w.sound || w.id);
-      translationParts.push(w.meaning);
-    } else {
-      const gloss = MARKER_GLOSS[s.value] || { translit: '[' + s.value + ']', translation: s.value };
-      translitParts.push(gloss.translit);
-      translationParts.push(gloss.translation);
-    }
+function openSlotMenu(el) {
+  if (!DATA) return;
+  if (el.querySelector('select')) return; // already open
+  const exprIdx = parseInt(el.dataset.expression, 10);
+  const kind = el.dataset.kind;
+  const index = parseInt(el.dataset.index, 10);
+  const current = getSlotValue(exprIdx, kind, index);
+  const options = kind === 'glyph' ? availableGlyphs() : availableLines();
+
+  const select = document.createElement('select');
+
+  if (current) {
+    const removeOpt = document.createElement('option');
+    removeOpt.value = '__remove__';
+    removeOpt.textContent = '— Remove —';
+    select.appendChild(removeOpt);
+  } else {
+    const cancelOpt = document.createElement('option');
+    cancelOpt.value = '';
+    cancelOpt.textContent = '— Cancel —';
+    cancelOpt.selected = true;
+    select.appendChild(cancelOpt);
+  }
+
+  options.forEach(function (opt) {
+    const label = kind === 'glyph' ? opt.meaning : (opt.description || '');
+    const o = document.createElement('option');
+    o.value = opt.id;
+    o.textContent = opt.id + ' — ' + label;
+    if (opt.id === current) o.selected = true;
+    select.appendChild(o);
   });
-  document.getElementById('translit').textContent = translitParts.length ? translitParts.join(', ') : '—';
-  document.getElementById('translation').textContent = translationParts.length ? translationParts.join(' ') : '—';
+
+  select.addEventListener('change', function () {
+    const val = select.value;
+    if (val === '__remove__') setSlotValue(exprIdx, kind, index, null);
+    else if (val !== '') setSlotValue(exprIdx, kind, index, val);
+    render();
+  });
+  select.addEventListener('blur', function () {
+    render();
+  });
+  select.addEventListener('click', function (e) { e.stopPropagation(); });
+
+  el.innerHTML = '';
+  el.appendChild(select);
+  select.focus();
+  try { select.showPicker && select.showPicker(); } catch (err) {}
 }
 
-function updatePickerStates() {
-  const boxesFull = boxes.every(function (b) { return b !== null; });
-  const linesFull = lines.every(function (l) { return l !== null; });
-  document.querySelectorAll('#wordPicker button').forEach(function (b) { b.disabled = boxesFull; });
-  document.querySelectorAll('#markerPicker button').forEach(function (b) { b.disabled = linesFull; });
+function renderYieldSlot(el) {
+  const idx = parseInt(el.dataset.yieldIndex, 10);
+  const value = yieldSlots[idx];
+  if (!value) { el.innerHTML = ''; return; }
+  el.innerHTML = svgWrap(glyphMarkup(lookupGlyph(value)));
+}
+
+function openYieldSlotMenu(el) {
+  if (!DATA) return;
+  if (el.querySelector('select')) return; // already open
+  const idx = parseInt(el.dataset.yieldIndex, 10);
+  const current = yieldSlots[idx];
+  const options = availableGlyphs();
+
+  const select = document.createElement('select');
+
+  if (current) {
+    const removeOpt = document.createElement('option');
+    removeOpt.value = '__remove__';
+    removeOpt.textContent = '— Remove —';
+    select.appendChild(removeOpt);
+  } else {
+    const cancelOpt = document.createElement('option');
+    cancelOpt.value = '';
+    cancelOpt.textContent = '— Cancel —';
+    cancelOpt.selected = true;
+    select.appendChild(cancelOpt);
+  }
+
+  options.forEach(function (opt) {
+    const o = document.createElement('option');
+    o.value = opt.id;
+    o.textContent = opt.id + ' — ' + opt.meaning;
+    if (opt.id === current) o.selected = true;
+    select.appendChild(o);
+  });
+
+  select.addEventListener('change', function () {
+    const val = select.value;
+    if (val === '__remove__') yieldSlots[idx] = null;
+    else if (val !== '') yieldSlots[idx] = val;
+    render();
+  });
+  select.addEventListener('blur', function () {
+    render();
+  });
+  select.addEventListener('click', function (e) { e.stopPropagation(); });
+
+  el.innerHTML = '';
+  el.appendChild(select);
+  select.focus();
+  try { select.showPicker && select.showPicker(); } catch (err) {}
 }
 
 function render() {
-  if (!DATA) return;
-  renderSlot('slot-box-0', boxes[0], 'word');
-  renderSlot('slot-line-0', lines[0], 'marker');
-  renderSlot('slot-box-1', boxes[1], 'word');
-  renderSlot('slot-line-1', lines[1], 'marker');
-  renderSlot('slot-box-2', boxes[2], 'word');
-  renderOutputs();
-  document.getElementById('undoBtn').disabled = history.length === 0;
-  updatePickerStates();
+  document.querySelectorAll('.slot').forEach(function (el) {
+    if (el.dataset.yieldIndex !== undefined) renderYieldSlot(el);
+    else renderSlot(el);
+  });
 }
+
+// Quick, plain-text dump of every Expression's contents, slot by slot, skipping
+// empty ones — not pretty, just enough to read the flow across all 9 at a glance.
+function buildCompositionText() {
+  const out = [];
+  for (let e = 0; e < EXPRESSION_COUNT; e++) {
+    out.push('Expression ' + (e + 1) + ':');
+    let any = false;
+    SLOT_SEQUENCE.forEach(function (s) {
+      const val = getSlotValue(e, s.kind, s.index);
+      if (!val) return;
+      any = true;
+      out.push('  ' + (s.kind === 'glyph' ? 'Glyph' : 'Line') + ' ' + (s.index + 1) + ': ' + val);
+    });
+    if (!any) out.push('  (empty)');
+    out.push('');
+  }
+  out.push('Yield Results:');
+  let anyYield = false;
+  yieldSlots.forEach(function (val, i) {
+    if (!val) return;
+    anyYield = true;
+    out.push('  Column ' + (i + 1) + ': ' + val);
+  });
+  if (!anyYield) out.push('  (empty)');
+  return out.join('\n');
+}
+
+document.getElementById('showCompositionBtn').addEventListener('click', function () {
+  const pre = document.getElementById('compositionOutput');
+  pre.textContent = buildCompositionText();
+  pre.style.display = 'block';
+});
 </script>
 
 </body>

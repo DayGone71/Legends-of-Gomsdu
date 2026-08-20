@@ -112,7 +112,7 @@
 <body>
 
 <h1>Gomsdu Glyph Viewer</h1>
-<p class="intro">Loads gomsdu-glyphic-system.json and draws every primitive and word directly from its render / composition data. Edit the JSON in a text editor, save, then re-pick the file below to refresh.</p>
+<p class="intro">Loads gomsdu-glyphic-system.json and draws every Primitive and Glyph directly from its render / composition data. Edit the JSON in a text editor, save, then re-pick the file below to refresh.</p>
 
 <div class="controls">
   <input type="file" id="fileInput" accept="application/json,.json">
@@ -122,34 +122,34 @@
 </div>
 
 <h2>Primitives</h2>
-<div class="grid" id="primGrid"><div class="empty-state">Load a JSON file to see primitives.</div></div>
+<div class="grid" id="primGrid"><div class="empty-state">Load a JSON file to see Primitives.</div></div>
 
-<h2>Words</h2>
-<div class="grid" id="wordGrid"><div class="empty-state">Load a JSON file to see words.</div></div>
+<h2>Glyphs</h2>
+<div class="grid" id="glyphGrid"><div class="empty-state">Load a JSON file to see Glyphs.</div></div>
 
 <script>
 let DATA = null;
 const CACHE_KEY = 'gomsduGlyphicSystemJSON';
 
-// Accepts a full Glyphic System file, OR a bare single primitive/word object, OR a bare
+// Accepts a full Glyphic System file, OR a bare single primitive/glyph object, OR a bare
 // array of them — so pasting/loading just one thing you're drafting previews it
 // directly instead of crashing on DATA.primitives being undefined.
 function normalizeLoadedJSON(parsed) {
   if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) &&
-      (Array.isArray(parsed.primitives) || Array.isArray(parsed.words))) {
+      (Array.isArray(parsed.primitives) || Array.isArray(parsed.glyphs))) {
     if (!Array.isArray(parsed.primitives)) parsed.primitives = [];
-    if (!Array.isArray(parsed.words)) parsed.words = [];
+    if (!Array.isArray(parsed.glyphs)) parsed.glyphs = [];
     return { data: parsed, wasSnippet: false };
   }
   const items = Array.isArray(parsed) ? parsed : [parsed];
   const primitives = [];
-  const words = [];
+  const glyphs = [];
   items.forEach(function (item) {
     if (!item || typeof item !== 'object') return;
-    const isWord = ('sound' in item) || ('composition' in item) || ('category' in item);
-    (isWord ? words : primitives).push(item);
+    const isGlyph = ('sound' in item) || ('composition' in item) || ('category' in item);
+    (isGlyph ? glyphs : primitives).push(item);
   });
-  return { data: { primitives: primitives, words: words }, wasSnippet: true };
+  return { data: { primitives: primitives, glyphs: glyphs }, wasSnippet: true };
 }
 
 document.getElementById('fileInput').addEventListener('change', function (e) {
@@ -162,7 +162,7 @@ document.getElementById('fileInput').addEventListener('change', function (e) {
       DATA = result.data;
       document.getElementById('status').textContent =
         (result.wasSnippet ? 'Previewing a pasted snippet (not a full file) — ' : 'Loaded ' + file.name + ' — ') +
-        DATA.primitives.length + ' primitives, ' + DATA.words.length + ' words.';
+        DATA.primitives.length + ' primitives, ' + DATA.glyphs.length + ' Glyphs.';
       renderAll();
       if (!result.wasSnippet) { try { localStorage.setItem(CACHE_KEY, ev.target.result); } catch (err) {} }
     } catch (err) {
@@ -180,9 +180,9 @@ document.getElementById('fileInput').addEventListener('change', function (e) {
   try {
     const cached = localStorage.getItem(CACHE_KEY);
     if (!cached) return;
-    DATA = JSON.parse(cached);
+    DATA = normalizeLoadedJSON(JSON.parse(cached)).data;
     document.getElementById('status').textContent =
-      'Loaded from browser cache — ' + DATA.primitives.length + ' primitives, ' + DATA.words.length + ' words. Pick a file to refresh.';
+      'Loaded from browser cache — ' + DATA.primitives.length + ' primitives, ' + DATA.glyphs.length + ' Glyphs. Pick a file to refresh.';
     renderAll();
   } catch (err) {}
 })();
@@ -190,8 +190,8 @@ document.getElementById('fileInput').addEventListener('change', function (e) {
 function lookupPrimitive(id) {
   return DATA.primitives.find(function (p) { return p.id === id; });
 }
-function lookupWord(id) {
-  return DATA.words.find(function (w) { return w.id === id; });
+function lookupGlyph(id) {
+  return DATA.glyphs.find(function (g) { return g.id === id; });
 }
 
 function primitiveMarkup(prim) {
@@ -218,20 +218,32 @@ function primitiveMarkup(prim) {
   if (r.type === 'dots') {
     return r.points.map(function (pt) { return '<circle cx="' + pt.cx + '" cy="' + pt.cy + '" r="' + pt.r + '" fill="currentColor"/>'; }).join('');
   }
+  if (r.type === 'line-with-number') {
+    const ny = r.numberPosition === 'below' ? 78 : 22;
+    return '<path d="' + r.d + '" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/>' +
+      '<text x="50" y="' + ny + '" text-anchor="middle" dominant-baseline="middle" font-size="28" font-weight="600" fill="currentColor">' + r.number + '</text>';
+  }
+  if (r.type === 'line-with-x') {
+    const half = r.x.size / 2;
+    return '<path d="' + r.d + '" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/>' +
+      '<path d="M' + (r.x.cx - half) + ',' + (r.x.cy - half) + ' L' + (r.x.cx + half) + ',' + (r.x.cy + half) +
+      ' M' + (r.x.cx - half) + ',' + (r.x.cy + half) + ' L' + (r.x.cx + half) + ',' + (r.x.cy - half) +
+      '" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/>';
+  }
   return '<text x="50" y="50" text-anchor="middle" class="missing-text">unknown render type</text>';
 }
 
-// Recursively resolve a word's composition into nested, transformed <g> groups.
-function wordMarkup(word, depth) {
+// Recursively resolve a Glyph's composition into nested, transformed <g> groups.
+function glyphMarkup(glyph, depth) {
   depth = depth || 0;
   if (depth > 6) {
     return '<text x="50" y="50" text-anchor="middle" class="missing-text">too deeply nested</text>';
   }
-  if (!word.composition || word.composition.length === 0) {
+  if (!glyph.composition || glyph.composition.length === 0) {
     return '<text x="50" y="54" text-anchor="middle" class="placeholder-text">no symbol yet</text>';
   }
   let out = '';
-  word.composition.forEach(function (entry) {
+  glyph.composition.forEach(function (entry) {
     const pos = entry.position || [0.5, 0.5];
     const scale = (entry.scale === undefined) ? 1 : entry.scale;
     const rotation = entry.rotation || 0;
@@ -243,10 +255,10 @@ function wordMarkup(word, depth) {
       const prim = lookupPrimitive(entry.primitive);
       inner = prim ? primitiveMarkup(prim)
         : '<text x="50" y="50" text-anchor="middle" class="missing-text">missing: ' + entry.primitive + '</text>';
-    } else if (entry.word) {
-      const w = lookupWord(entry.word);
-      inner = w ? wordMarkup(w, depth + 1)
-        : '<text x="50" y="50" text-anchor="middle" class="missing-text">missing: ' + entry.word + '</text>';
+    } else if (entry.glyph) {
+      const g = lookupGlyph(entry.glyph);
+      inner = g ? glyphMarkup(g, depth + 1)
+        : '<text x="50" y="50" text-anchor="middle" class="missing-text">missing: ' + entry.glyph + '</text>';
     }
     out += '<g transform="' + transform + '">' + inner + '</g>';
   });
@@ -260,9 +272,9 @@ function svgWrap(innerMarkup) {
 function renderAll() {
   if (!DATA) return;
   const primGrid = document.getElementById('primGrid');
-  const wordGrid = document.getElementById('wordGrid');
+  const glyphGrid = document.getElementById('glyphGrid');
   primGrid.innerHTML = '';
-  wordGrid.innerHTML = '';
+  glyphGrid.innerHTML = '';
 
   DATA.primitives.forEach(function (p) {
     const card = document.createElement('div');
@@ -273,16 +285,16 @@ function renderAll() {
     primGrid.appendChild(card);
   });
 
-  DATA.words.forEach(function (w) {
+  DATA.glyphs.forEach(function (g) {
     const card = document.createElement('div');
     card.className = 'card';
-    const soundLine = w.sound ? (w.sound + ' — ') : '';
-    const statusTag = w.status ? '<div class="status-tag">' + w.status.split(';')[0].slice(0, 40) + '</div>' : '';
-    card.innerHTML = svgWrap(wordMarkup(w)) +
-      '<div class="label">' + w.id + '</div>' +
-      '<div class="sub">' + soundLine + w.meaning + '</div>' +
+    const soundLine = g.sound ? (g.sound + ' — ') : '';
+    const statusTag = g.status ? '<div class="status-tag">' + g.status.split(';')[0].slice(0, 40) + '</div>' : '';
+    card.innerHTML = svgWrap(glyphMarkup(g)) +
+      '<div class="label">' + g.id + '</div>' +
+      '<div class="sub">' + soundLine + g.meaning + '</div>' +
       statusTag;
-    wordGrid.appendChild(card);
+    glyphGrid.appendChild(card);
   });
 }
 </script>

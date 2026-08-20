@@ -38,7 +38,7 @@
   h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
   h2 { font-size: 15px; font-weight: 600; margin: 30px 0 10px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
   .intro { font-size: 13px; color: var(--text-muted); margin: 0 0 18px; max-width: 640px; }
-  .controls { margin: 12px 0 20px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .controls { margin: 12px 0 4px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
   .controls input[type="file"] { font-size: 13px; color: var(--text); }
   .status { font-size: 13px; color: var(--text-muted); }
   .nav-links { display: flex; gap: 14px; margin-left: auto; flex-wrap: wrap; }
@@ -61,7 +61,8 @@
   .grid-line-strong { stroke: var(--grid-line-strong); stroke-width: 0.5; }
   .path-stroke { fill: none; stroke: var(--text); stroke-width: 2.2; stroke-linecap: square; stroke-linejoin: miter; }
   .path-stroke.live { stroke: var(--accent); }
-  .point-dot { fill: var(--accent); }
+  .point-dot { fill: var(--accent); cursor: grab; }
+  .point-dot:active { cursor: grabbing; }
   .point-dot.first { fill: var(--text); stroke: var(--accent); stroke-width: 1; }
   .hover-readout { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
 
@@ -80,6 +81,10 @@
   }
   button:not(:disabled):hover { border-color: var(--accent); }
   button:disabled { opacity: 0.4; cursor: default; }
+  .primary-btn {
+    background: var(--accent); color: var(--card); border-color: var(--accent); font-weight: 600;
+  }
+  .primary-btn:not(:disabled):hover { opacity: 0.88; border-color: var(--accent); }
 
   .point-list { font-size: 12px; color: var(--text-muted); word-break: break-word; }
   pre.output {
@@ -115,26 +120,30 @@
     border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--text);
   }
   #addComponentId:disabled { opacity: 0.6; }
-  #wordPreview { width: 520px; height: 520px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
-  #wordManualJSON { min-height: 140px; font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; }
+  #glyphPreview { width: 520px; height: 520px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
+  #glyphManualJSON { min-height: 140px; font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; }
 </style>
 </head>
 <body>
 
 <h1>Gomsdu Glyph Designer</h1>
-<p class="intro">Click the grid to place points — straight lines only, connected in order. Click near the first point of the current shape to close it. Use "New sub-path" for a disconnected second stroke (like the jagged-circle's horns). The exact JSON to paste into a primitive's <code>render</code> field builds live on the right.</p>
+<p class="intro">Click the grid to place points — straight lines only, connected in order. Click near the first point of the current shape to close it. Every placed point — including ones already loaded from an existing Primitive — is a dot you can drag to move, or double-click to remove outright. Use "New sub-path" for a disconnected second stroke (like the jagged-circle's horns). The exact JSON to paste into a Primitive's <code>render</code> field builds live on the right.</p>
 
 <div class="controls">
-  <button id="connectFileBtn" type="button">Open file for direct editing&hellip;</button>
-  <span class="hover-readout">or</span>
+  <button id="connectFileBtn" type="button" class="primary-btn">Open file for direct editing&hellip;</button>
+  <span class="hover-readout">Recommended (Chrome/Edge) — Save then writes straight back to the real file, no download.</span>
+</div>
+<div class="controls">
   <input type="file" id="fileInput" accept="application/json,.json">
+  <span class="hover-readout">Alternate/any browser — Save then downloads a fresh copy instead of overwriting.</span>
+</div>
+<div class="controls">
   <span class="status" id="status">No file loaded — you can still draw and export without one.</span>
   <div class="nav-links">
     <a class="nav-link" href="gomsdu-glyph-viewer.html">Open the Glyph Viewer &rarr;</a>
     <a class="nav-link" href="gomsdu-glyph-arranger.html">Open the Glyph Arranger &rarr;</a>
   </div>
 </div>
-<p class="intro" id="connectFileExplainer">"Open file for direct editing" (Chrome/Edge only) picks a real file on disk once, then Save writes straight back to it — no download, no moving files around afterward. "Choose File" next to it is the fallback: works in any browser, but Save downloads a fresh copy each time instead of overwriting.</p>
 
 <div class="workspace">
   <div class="canvas-wrap">
@@ -172,7 +181,7 @@
       <button id="closeBtn" type="button" disabled>Close path</button>
       <button id="undoBtn" type="button" disabled>Undo</button>
       <button id="clearBtn" type="button" disabled>Clear points</button>
-      <button id="newSymbolBtn" type="button">New Glyph</button>
+      <button id="newPrimitiveBtn" type="button">New Primitive</button>
     </div>
 
     <div class="point-list" id="pointList">No points placed yet.</div>
@@ -184,44 +193,50 @@
         <button id="copyBtn" type="button">Copy JSON</button>
         <button id="saveBtn" type="button" disabled>Save Primitive</button>
       </div>
-      <p class="hover-readout" id="saveBtnHint" style="margin-top:8px;">Greyed out until a JSON is loaded via "Choose File" up top — it's not hidden, just inactive.</p>
+      <p class="hover-readout" id="saveBtnHint" style="margin-top:8px;">Greyed out until a file is loaded above — it's not hidden, just inactive.</p>
     </div>
   </div>
 </div>
 
-<h2>Existing primitives (click to load for viewing or editing)</h2>
-<div class="grid" id="refGrid"><div class="empty-state">Load a JSON file above to browse existing primitives.</div></div>
+<h2>Existing Primitives (click to load for viewing or editing)</h2>
+<div class="grid" id="refGrid"><div class="empty-state">Load a JSON file above to browse existing Primitives.</div></div>
 
-<h2>Words</h2>
-<p class="intro">Load a JSON file above, then click an existing Word below to edit it, or click "New Word" to start one. Add a component by typing a Primitive or Word id (existing ones autocomplete) and adjusting its position/scale/rotation. The manual JSON box always reflects the current draft and can be edited directly too — click "Apply manual edit" to pull changes back into the fields above it.</p>
+<h2>Glyphs</h2>
+<p class="intro">Load a JSON file above, then click an existing Glyph below to edit it, or click "New Glyph" to start one. Add a component by picking a Primitive or Glyph id from the dropdown, then adjusting its position/scale/rotation. The manual JSON box always reflects the current draft and can be edited directly too — click "Apply manual edit" to pull changes back into the fields above it.</p>
 
 <div class="workspace">
   <div class="canvas-wrap">
-    <svg id="wordPreview" viewBox="0 0 100 100"></svg>
+    <svg id="glyphPreview" viewBox="0 0 100 100"></svg>
   </div>
 
   <div class="panel">
     <div class="field">
-      <label for="wordIdInput">id</label>
-      <input type="text" id="wordIdInput" placeholder="e.g. NEW_WORD">
+      <label for="glyphIdInput">id</label>
+      <input type="text" id="glyphIdInput" placeholder="e.g. NEW_GLYPH">
     </div>
     <div class="field">
-      <label for="wordSoundInput">sound</label>
-      <input type="text" id="wordSoundInput" placeholder="e.g. zin">
+      <label for="glyphSoundInput">sound</label>
+      <input type="text" id="glyphSoundInput" placeholder="e.g. zin">
     </div>
     <div class="field">
-      <label for="wordMeaningInput">meaning</label>
-      <textarea id="wordMeaningInput" placeholder="What this Word means."></textarea>
+      <label for="glyphMeaningInput">meaning</label>
+      <textarea id="glyphMeaningInput" placeholder="What this Glyph means."></textarea>
     </div>
     <div class="field">
-      <label for="wordCategoryInput">category</label>
-      <select id="wordCategoryInput">
-        <option value="root">root</option>
-        <option value="derived">derived</option>
-        <option value="compound">compound</option>
-        <option value="sentence">sentence</option>
-        <option value="forbidden">forbidden</option>
-        <option value="meta">meta</option>
+      <label for="glyphCategoryInput">category</label>
+      <select id="glyphCategoryInput">
+        <option value="glyph">glyph</option>
+        <option value="diglyph">diglyph</option>
+        <option value="triglyph">triglyph</option>
+        <option value="tetglyph">tetglyph</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="glyphEraInput">era</label>
+      <select id="glyphEraInput">
+        <option value="First Era">First Era</option>
+        <option value="Second Era">Second Era</option>
+        <option value="Third Era">Third Era</option>
       </select>
     </div>
 
@@ -235,14 +250,14 @@
     </div>
 
     <div class="btn-row">
-      <button id="newWordBtn" type="button">New Word</button>
-      <button id="saveWordBtn" type="button" disabled>Save Word</button>
+      <button id="newGlyphBtn" type="button">New Glyph</button>
+      <button id="saveGlyphBtn" type="button" disabled>Save Glyph</button>
     </div>
-    <p class="hover-readout" id="saveWordBtnHint">Greyed out until a JSON is loaded via "Choose File" up top — it's not hidden, just inactive. This is separate from the Primitive save button above; each downloads and updates its own kind of entry.</p>
+    <p class="hover-readout" id="saveGlyphBtnHint">Greyed out until a file is loaded above — it's not hidden, just inactive. This is separate from the Primitive save button above; each saves its own kind of entry.</p>
 
     <div class="field">
-      <label>manual edit (full Word JSON)</label>
-      <textarea id="wordManualJSON"></textarea>
+      <label>manual edit (full Glyph JSON)</label>
+      <textarea id="glyphManualJSON"></textarea>
       <div class="btn-row" style="margin-top:8px;">
         <button id="applyManualBtn" type="button">Apply manual edit</button>
       </div>
@@ -250,8 +265,8 @@
   </div>
 </div>
 
-<h2>Existing words (click to load for editing)</h2>
-<div class="grid" id="wordRefGrid"><div class="empty-state">Load a JSON file above to browse existing words.</div></div>
+<h2>Existing Glyphs (click to load for editing)</h2>
+<div class="grid" id="glyphRefGrid"><div class="empty-state">Load a JSON file above to browse existing Glyphs.</div></div>
 
 <script>
 let DATA = null;
@@ -282,16 +297,15 @@ document.getElementById('connectFileBtn').addEventListener('click', async functi
     }
     const file = await handle.getFile();
     const text = await file.text();
-    const result = normalizeLoadedJSON(JSON.parse(text));
-    DATA = result.data;
+    DATA = normalizeLoadedJSON(JSON.parse(text)).data;
     fileHandle = handle;
     sourceFileName = handle.name;
     statusEl.textContent = 'Connected to ' + handle.name + ' — Save now writes straight to this file, no download needed.';
     renderRefGrid();
-    renderWordRefGrid();
+    renderGlyphRefGrid();
     refreshIdsDatalist();
     document.getElementById('saveBtn').disabled = false;
-    document.getElementById('saveWordBtn').disabled = false;
+    document.getElementById('saveGlyphBtn').disabled = false;
     document.getElementById('addComponentBtn').disabled = false;
     try { localStorage.setItem(CACHE_KEY, text); } catch (err) {}
   } catch (err) {
@@ -302,26 +316,26 @@ document.getElementById('connectFileBtn').addEventListener('click', async functi
 // actions: {type:'point', x, y} | {type:'newSubpath'} | {type:'close'}
 let actions = [];
 
-// Accepts a full Glyphic System file, OR a bare single primitive/word object, OR a bare
+// Accepts a full Glyphic System file, OR a bare single primitive/glyph object, OR a bare
 // array of them — so pasting/loading just one thing you're drafting previews it
 // directly instead of crashing on DATA.primitives being undefined. A snippet load
 // never enables Save, since there's no real file underneath it to merge into.
 function normalizeLoadedJSON(parsed) {
   if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) &&
-      (Array.isArray(parsed.primitives) || Array.isArray(parsed.words))) {
+      (Array.isArray(parsed.primitives) || Array.isArray(parsed.glyphs))) {
     if (!Array.isArray(parsed.primitives)) parsed.primitives = [];
-    if (!Array.isArray(parsed.words)) parsed.words = [];
+    if (!Array.isArray(parsed.glyphs)) parsed.glyphs = [];
     return { data: parsed, wasSnippet: false };
   }
   const items = Array.isArray(parsed) ? parsed : [parsed];
   const primitives = [];
-  const words = [];
+  const glyphs = [];
   items.forEach(function (item) {
     if (!item || typeof item !== 'object') return;
-    const isWord = ('sound' in item) || ('composition' in item) || ('category' in item);
-    (isWord ? words : primitives).push(item);
+    const isGlyph = ('sound' in item) || ('composition' in item) || ('category' in item);
+    (isGlyph ? glyphs : primitives).push(item);
   });
-  return { data: { primitives: primitives, words: words }, wasSnippet: true };
+  return { data: { primitives: primitives, glyphs: glyphs }, wasSnippet: true };
 }
 
 document.getElementById('fileInput').addEventListener('change', function (e) {
@@ -335,21 +349,21 @@ document.getElementById('fileInput').addEventListener('change', function (e) {
       fileHandle = null; // this path never has a writable handle — Save will download a copy
       if (result.wasSnippet) {
         document.getElementById('status').textContent =
-          'Previewing a pasted snippet (not a full file) — ' + DATA.primitives.length + ' primitive(s), ' + DATA.words.length + ' word(s). Save is disabled until a real file is loaded.';
+          'Previewing a pasted snippet (not a full file) — ' + DATA.primitives.length + ' primitive(s), ' + DATA.glyphs.length + ' Glyph(s). Save is disabled until a real file is loaded.';
         document.getElementById('saveBtn').disabled = true;
-        document.getElementById('saveWordBtn').disabled = true;
+        document.getElementById('saveGlyphBtn').disabled = true;
         document.getElementById('addComponentBtn').disabled = true;
       } else {
         sourceFileName = file.name;
         document.getElementById('status').textContent =
-          'Loaded ' + file.name + ' — ' + DATA.primitives.length + ' primitives, ' + DATA.words.length + ' words.';
+          'Loaded ' + file.name + ' — ' + DATA.primitives.length + ' primitives, ' + DATA.glyphs.length + ' Glyphs.';
         document.getElementById('saveBtn').disabled = false;
-        document.getElementById('saveWordBtn').disabled = false;
+        document.getElementById('saveGlyphBtn').disabled = false;
         document.getElementById('addComponentBtn').disabled = false;
         try { localStorage.setItem(CACHE_KEY, ev.target.result); } catch (err) {}
       }
       renderRefGrid();
-      renderWordRefGrid();
+      renderGlyphRefGrid();
       refreshIdsDatalist();
     } catch (err) {
       document.getElementById('status').textContent = 'Could not parse JSON: ' + err.message;
@@ -365,17 +379,17 @@ document.getElementById('fileInput').addEventListener('change', function (e) {
     const result = normalizeLoadedJSON(JSON.parse(cached));
     DATA = result.data;
     document.getElementById('status').textContent =
-      'Loaded from browser cache — ' + DATA.primitives.length + ' primitives, ' + DATA.words.length + ' words. Pick a file to refresh.';
+      'Loaded from browser cache — ' + DATA.primitives.length + ' primitives, ' + DATA.glyphs.length + ' Glyphs. Pick a file to refresh.';
     renderRefGrid();
-    renderWordRefGrid();
+    renderGlyphRefGrid();
     refreshIdsDatalist();
     document.getElementById('saveBtn').disabled = false;
-    document.getElementById('saveWordBtn').disabled = false;
+    document.getElementById('saveGlyphBtn').disabled = false;
     document.getElementById('addComponentBtn').disabled = false;
   } catch (err) {}
 })();
 
-// ---- parsing an existing M/L/Z-only render back into actions, for editing ----
+// ---- parsing an existing render back into actions, for editing ----
 function parsePathToActions(d) {
   const out = [];
   const tokens = d.match(/[MLZ]|-?\d*\.?\d+/g) || [];
@@ -404,7 +418,25 @@ function parseRenderToActions(render) {
     });
     return out;
   }
-  return null; // rect / line-with-dot / no render — not editable as points
+  if (render.type === 'rect') {
+    // Converted to a closed 4-corner path. Loses the distinct "rect" render type and any
+    // corner radius (rx) on save — harmless today since every rect in this system has rx 0.
+    const x = render.x, y = render.y, w = render.width, h = render.height;
+    return [
+      { type: 'point', x: x, y: y },
+      { type: 'point', x: x + w, y: y },
+      { type: 'point', x: x + w, y: y + h },
+      { type: 'point', x: x, y: y + h },
+      { type: 'close' }
+    ];
+  }
+  return null; // dots / line-with-dot / no render — genuinely not point-sequences, can't be edited here
+}
+function explainNotEditable(render) {
+  if (!render) return 'no shape defined yet';
+  if (render.type === 'dots') return 'a "dots" shape (filled circles) — this tool only draws straight-line paths, not circles';
+  if (render.type === 'line-with-dot') return 'a "line-with-dot" shape — the dot half can\'t be point-edited, so the whole thing is excluded';
+  return 'an unsupported render type ("' + render.type + '")';
 }
 
 // ---- static primitive rendering, for the reference gallery (mirrors the viewer) ----
@@ -417,6 +449,18 @@ function staticPrimitiveMarkup(prim) {
   if (r.type === 'multipath') return r.d.map(function (d) { return '<path d="' + d + '" ' + attrs + '/>'; }).join('');
   if (r.type === 'line-with-dot') return '<path d="' + r.d + '" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/><circle cx="' + r.dot.cx + '" cy="' + r.dot.cy + '" r="' + r.dot.r + '" fill="currentColor"/>';
   if (r.type === 'dots') return r.points.map(function (pt) { return '<circle cx="' + pt.cx + '" cy="' + pt.cy + '" r="' + pt.r + '" fill="currentColor"/>'; }).join('');
+  if (r.type === 'line-with-number') {
+    const ny = r.numberPosition === 'below' ? 78 : 22;
+    return '<path d="' + r.d + '" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/>' +
+      '<text x="50" y="' + ny + '" text-anchor="middle" dominant-baseline="middle" font-size="28" font-weight="600" fill="currentColor">' + r.number + '</text>';
+  }
+  if (r.type === 'line-with-x') {
+    const half = r.x.size / 2;
+    return '<path d="' + r.d + '" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/>' +
+      '<path d="M' + (r.x.cx - half) + ',' + (r.x.cy - half) + ' L' + (r.x.cx + half) + ',' + (r.x.cy + half) +
+      ' M' + (r.x.cx - half) + ',' + (r.x.cy + half) + ' L' + (r.x.cx + half) + ',' + (r.x.cy - half) +
+      '" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/>';
+  }
   return '';
 }
 
@@ -428,7 +472,7 @@ function renderRefGrid() {
     const btn = document.createElement('button');
     btn.className = 'card';
     btn.type = 'button';
-    btn.title = editable ? 'Click to load onto the canvas' : 'Not editable here (rect / dot type)';
+    btn.title = editable ? 'Click to load onto the canvas' : 'Not editable here — ' + explainNotEditable(p.render);
     btn.disabled = !editable;
     btn.innerHTML = '<svg viewBox="0 0 100 100">' + staticPrimitiveMarkup(p) + '</svg><div class="label">' + p.id + '</div>';
     btn.addEventListener('click', function () {
@@ -444,19 +488,19 @@ function renderRefGrid() {
   });
 }
 
-// ==== Word editor ====
-let wordDraft = { composition: [] };
+// ==== Glyph editor ====
+let glyphDraft = { composition: [] };
 
 function lookupPrimitive(id) { return DATA && DATA.primitives.find(function (p) { return p.id === id; }); }
-function lookupWord(id) { return DATA && DATA.words.find(function (w) { return w.id === id; }); }
+function lookupGlyph(id) { return DATA && DATA.glyphs.find(function (g) { return g.id === id; }); }
 
-// Recursively resolves a word's composition into nested, transformed <g> groups — mirrors the viewer.
-function wordMarkup(word, depth) {
+// Recursively resolves a Glyph's composition into nested, transformed <g> groups — mirrors the viewer.
+function glyphMarkup(glyph, depth) {
   depth = depth || 0;
   if (depth > 6) return '<text x="50" y="50" text-anchor="middle" font-size="9" fill="#c0392b">too deeply nested</text>';
-  if (!word.composition || word.composition.length === 0) return '<text x="50" y="54" text-anchor="middle" font-size="11" fill="var(--text-muted)">no symbol yet</text>';
+  if (!glyph.composition || glyph.composition.length === 0) return '<text x="50" y="54" text-anchor="middle" font-size="11" fill="var(--text-muted)">no symbol yet</text>';
   let out = '';
-  word.composition.forEach(function (entry) {
+  glyph.composition.forEach(function (entry) {
     const pos = entry.position || [0.5, 0.5];
     const scale = (entry.scale === undefined) ? 1 : entry.scale;
     const rotation = entry.rotation || 0;
@@ -467,9 +511,9 @@ function wordMarkup(word, depth) {
     if (entry.primitive) {
       const prim = lookupPrimitive(entry.primitive);
       inner = prim ? staticPrimitiveMarkup(prim) : '<text x="50" y="50" text-anchor="middle" font-size="9" fill="#c0392b">missing: ' + entry.primitive + '</text>';
-    } else if (entry.word) {
-      const w = lookupWord(entry.word);
-      inner = w ? wordMarkup(w, depth + 1) : '<text x="50" y="50" text-anchor="middle" font-size="9" fill="#c0392b">missing: ' + entry.word + '</text>';
+    } else if (entry.glyph) {
+      const g = lookupGlyph(entry.glyph);
+      inner = g ? glyphMarkup(g, depth + 1) : '<text x="50" y="50" text-anchor="middle" font-size="9" fill="#c0392b">missing: ' + entry.glyph + '</text>';
     }
     out += '<g transform="' + transform + '">' + inner + '</g>';
   });
@@ -478,53 +522,91 @@ function wordMarkup(word, depth) {
 
 function refreshIdsDatalist() {
   const sel = document.getElementById('addComponentId');
-  if (!DATA || (DATA.primitives.length === 0 && DATA.words.length === 0)) {
+  if (!DATA || (DATA.primitives.length === 0 && DATA.glyphs.length === 0)) {
     sel.innerHTML = '<option value="">Load a file to see options&hellip;</option>';
     return;
   }
   const primOptions = DATA.primitives.map(function (p) { return '<option value="' + p.id + '">' + p.id + '</option>'; }).join('');
-  const wordOptions = DATA.words.map(function (w) { return '<option value="' + w.id + '">' + w.id + '</option>'; }).join('');
+  const glyphOptions = DATA.glyphs.map(function (g) { return '<option value="' + g.id + '">' + g.id + '</option>'; }).join('');
   sel.innerHTML =
     '<optgroup label="Primitives">' + primOptions + '</optgroup>' +
-    '<optgroup label="Words">' + wordOptions + '</optgroup>';
+    '<optgroup label="Glyphs">' + glyphOptions + '</optgroup>';
 }
 
-function renderWordRefGrid() {
-  const grid = document.getElementById('wordRefGrid');
+function renderGlyphRefGrid() {
+  const grid = document.getElementById('glyphRefGrid');
   grid.innerHTML = '';
-  DATA.words.forEach(function (w) {
+  DATA.glyphs.forEach(function (g) {
     const btn = document.createElement('button');
     btn.className = 'card';
     btn.type = 'button';
     btn.title = 'Click to load for editing';
-    btn.innerHTML = '<svg viewBox="0 0 100 100">' + wordMarkup(w) + '</svg><div class="label">' + w.id + '</div>';
-    btn.addEventListener('click', function () { loadWordForEditing(w); });
+    btn.innerHTML = '<svg viewBox="0 0 100 100">' + glyphMarkup(g) + '</svg><div class="label">' + g.id + '</div>';
+    btn.addEventListener('click', function () { loadGlyphForEditing(g); });
     grid.appendChild(btn);
   });
 }
 
-function loadWordForEditing(w) {
-  wordDraft = JSON.parse(JSON.stringify(w));
-  if (!Array.isArray(wordDraft.composition)) wordDraft.composition = [];
-  document.getElementById('wordIdInput').value = w.id || '';
-  document.getElementById('wordSoundInput').value = w.sound || '';
-  document.getElementById('wordMeaningInput').value = w.meaning || '';
-  document.getElementById('wordCategoryInput').value = w.category || 'root';
+function loadGlyphForEditing(g) {
+  glyphDraft = JSON.parse(JSON.stringify(g));
+  if (!Array.isArray(glyphDraft.composition)) glyphDraft.composition = [];
+  document.getElementById('glyphIdInput').value = g.id || '';
+  document.getElementById('glyphSoundInput').value = g.sound || '';
+  document.getElementById('glyphMeaningInput').value = g.meaning || '';
+  setCategorySelectValue(g.category);
+  setEraSelectValue(g.era);
   renderCompositionRows();
-  renderWordPreview();
+  renderGlyphPreview();
   syncManualJSON();
+}
+
+// Era has no legacy scheme to worry about (every Glyph got one when the field was
+// added), but guard anyway in case a draft's era doesn't match one of the 3 options.
+function setEraSelectValue(value) {
+  const sel = document.getElementById('glyphEraInput');
+  const stale = sel.querySelector('option[data-legacy]');
+  if (stale) stale.remove();
+  const hasMatch = [].some.call(sel.options, function (o) { return o.value === value; });
+  if (value && !hasMatch) {
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = value + ' (legacy)';
+    opt.dataset.legacy = '1';
+    sel.insertBefore(opt, sel.firstChild);
+  }
+  sel.value = value || 'First Era';
+}
+
+// glyph/diglyph/triglyph are the only real options now, but older Glyphs in the file
+// still carry the old scheme (root/derived/compound/sentence/forbidden/meta). Rather
+// than silently snap those to whatever the first option is, show the actual stored
+// value as a temporary extra option so loading + re-saving without touching this
+// field can't quietly rewrite it.
+function setCategorySelectValue(value) {
+  const sel = document.getElementById('glyphCategoryInput');
+  const stale = sel.querySelector('option[data-legacy]');
+  if (stale) stale.remove();
+  const hasMatch = [].some.call(sel.options, function (o) { return o.value === value; });
+  if (value && !hasMatch) {
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = value + ' (legacy — not glyph/diglyph/triglyph)';
+    opt.dataset.legacy = '1';
+    sel.insertBefore(opt, sel.firstChild);
+  }
+  sel.value = value || 'glyph';
 }
 
 function renderCompositionRows() {
   const container = document.getElementById('compositionRows');
   container.innerHTML = '';
-  if (!wordDraft.composition.length) {
+  if (!glyphDraft.composition.length) {
     container.innerHTML = '<div class="empty-state">No components yet — add one below.</div>';
     return;
   }
-  wordDraft.composition.forEach(function (entry, idx) {
-    const refType = entry.primitive ? 'primitive' : 'word';
-    const refId = entry.primitive || entry.word || '?';
+  glyphDraft.composition.forEach(function (entry, idx) {
+    const refType = entry.primitive ? 'primitive' : 'glyph';
+    const refId = entry.primitive || entry.glyph || '?';
     const pos = entry.position || [0.5, 0.5];
     const row = document.createElement('div');
     row.className = 'comp-row';
@@ -544,123 +626,127 @@ function renderCompositionRows() {
         else if (field === 'y') entry.position[1] = val;
         else if (field === 'scale') entry.scale = val;
         else if (field === 'rotation') entry.rotation = val;
-        renderWordPreview();
+        renderGlyphPreview();
         syncManualJSON();
       });
     });
     row.querySelector('.remove-btn').addEventListener('click', function () {
-      wordDraft.composition.splice(idx, 1);
+      glyphDraft.composition.splice(idx, 1);
       renderCompositionRows();
-      renderWordPreview();
+      renderGlyphPreview();
       syncManualJSON();
     });
     container.appendChild(row);
   });
 }
 
-function renderWordPreview() {
-  document.getElementById('wordPreview').innerHTML = wordMarkup(wordDraft);
+function renderGlyphPreview() {
+  document.getElementById('glyphPreview').innerHTML = glyphMarkup(glyphDraft);
 }
 
 function syncManualJSON() {
-  const obj = Object.assign({}, wordDraft.extra || {}, {
-    id: document.getElementById('wordIdInput').value || 'unnamed',
-    sound: document.getElementById('wordSoundInput').value,
-    meaning: document.getElementById('wordMeaningInput').value,
-    category: document.getElementById('wordCategoryInput').value,
-    composition: wordDraft.composition
+  const obj = Object.assign({}, glyphDraft.extra || {}, {
+    id: document.getElementById('glyphIdInput').value || 'unnamed',
+    sound: document.getElementById('glyphSoundInput').value,
+    meaning: document.getElementById('glyphMeaningInput').value,
+    category: document.getElementById('glyphCategoryInput').value,
+    era: document.getElementById('glyphEraInput').value,
+    composition: glyphDraft.composition
   });
-  const ordered = { id: obj.id, sound: obj.sound, meaning: obj.meaning, category: obj.category, composition: obj.composition };
+  const ordered = { id: obj.id, sound: obj.sound, meaning: obj.meaning, category: obj.category, era: obj.era, composition: obj.composition };
   Object.keys(obj).forEach(function (k) { if (!(k in ordered)) ordered[k] = obj[k]; });
-  document.getElementById('wordManualJSON').value = JSON.stringify(ordered, null, 2);
+  document.getElementById('glyphManualJSON').value = JSON.stringify(ordered, null, 2);
 }
 
 document.getElementById('addComponentBtn').addEventListener('click', function () {
   const statusEl = document.getElementById('status');
   const id = document.getElementById('addComponentId').value;
   if (!id || !DATA) return;
-  const isWordRef = !!lookupWord(id);
+  const isGlyphRef = !!lookupGlyph(id);
   const isPrimRef = !!lookupPrimitive(id);
-  if (!isWordRef && !isPrimRef) { statusEl.textContent = 'No primitive or word with id "' + id + '" found.'; return; }
+  if (!isGlyphRef && !isPrimRef) { statusEl.textContent = 'No primitive or Glyph with id "' + id + '" found.'; return; }
   const entry = { position: [0.5, 0.5], scale: 1, rotation: 0 };
-  if (isPrimRef) entry.primitive = id; else entry.word = id;
-  wordDraft.composition.push(entry);
+  if (isPrimRef) entry.primitive = id; else entry.glyph = id;
+  glyphDraft.composition.push(entry);
   renderCompositionRows();
-  renderWordPreview();
+  renderGlyphPreview();
   syncManualJSON();
 });
 
-document.getElementById('newWordBtn').addEventListener('click', function () {
-  wordDraft = { composition: [] };
-  document.getElementById('wordIdInput').value = '';
-  document.getElementById('wordSoundInput').value = '';
-  document.getElementById('wordMeaningInput').value = '';
-  document.getElementById('wordCategoryInput').value = 'root';
+document.getElementById('newGlyphBtn').addEventListener('click', function () {
+  glyphDraft = { composition: [] };
+  document.getElementById('glyphIdInput').value = '';
+  document.getElementById('glyphSoundInput').value = '';
+  document.getElementById('glyphMeaningInput').value = '';
+  setCategorySelectValue('glyph');
+  setEraSelectValue('First Era');
   renderCompositionRows();
-  renderWordPreview();
+  renderGlyphPreview();
   syncManualJSON();
 });
 
-['wordIdInput', 'wordSoundInput', 'wordMeaningInput', 'wordCategoryInput'].forEach(function (elId) {
+['glyphIdInput', 'glyphSoundInput', 'glyphMeaningInput', 'glyphCategoryInput', 'glyphEraInput'].forEach(function (elId) {
   document.getElementById(elId).addEventListener('input', function () {
     syncManualJSON();
-    if (elId === 'wordIdInput') return;
-    renderWordPreview();
+    if (elId === 'glyphIdInput') return;
+    renderGlyphPreview();
   });
 });
 
 document.getElementById('applyManualBtn').addEventListener('click', function () {
   const statusEl = document.getElementById('status');
   try {
-    const obj = JSON.parse(document.getElementById('wordManualJSON').value);
-    document.getElementById('wordIdInput').value = obj.id || '';
-    document.getElementById('wordSoundInput').value = obj.sound || '';
-    document.getElementById('wordMeaningInput').value = obj.meaning || '';
-    document.getElementById('wordCategoryInput').value = obj.category || 'root';
-    wordDraft.composition = Array.isArray(obj.composition) ? obj.composition : [];
-    wordDraft.extra = {};
+    const obj = JSON.parse(document.getElementById('glyphManualJSON').value);
+    document.getElementById('glyphIdInput').value = obj.id || '';
+    document.getElementById('glyphSoundInput').value = obj.sound || '';
+    document.getElementById('glyphMeaningInput').value = obj.meaning || '';
+    setCategorySelectValue(obj.category || 'glyph');
+    setEraSelectValue(obj.era || 'First Era');
+    glyphDraft.composition = Array.isArray(obj.composition) ? obj.composition : [];
+    glyphDraft.extra = {};
     Object.keys(obj).forEach(function (k) {
-      if (['id', 'sound', 'meaning', 'category', 'composition'].indexOf(k) === -1) wordDraft.extra[k] = obj[k];
+      if (['id', 'sound', 'meaning', 'category', 'era', 'composition'].indexOf(k) === -1) glyphDraft.extra[k] = obj[k];
     });
     renderCompositionRows();
-    renderWordPreview();
+    renderGlyphPreview();
     statusEl.textContent = 'Manual edit applied.';
   } catch (err) {
     statusEl.textContent = 'Could not parse manual JSON: ' + err.message;
   }
 });
 
-document.getElementById('saveWordBtn').addEventListener('click', async function () {
+document.getElementById('saveGlyphBtn').addEventListener('click', async function () {
   const statusEl = document.getElementById('status');
   if (!DATA) { statusEl.textContent = 'Load a JSON file first — nothing to save into.'; return; }
-  const id = document.getElementById('wordIdInput').value;
+  const id = document.getElementById('glyphIdInput').value;
   if (!id) { statusEl.textContent = 'Give it an id before saving.'; return; }
-  if (!wordDraft.composition.length) { statusEl.textContent = 'Add at least one component before saving.'; return; }
+  if (!glyphDraft.composition.length) { statusEl.textContent = 'Add at least one component before saving.'; return; }
 
-  const obj = Object.assign({}, wordDraft.extra || {}, {
+  const obj = Object.assign({}, glyphDraft.extra || {}, {
     id: id,
-    sound: document.getElementById('wordSoundInput').value,
-    meaning: document.getElementById('wordMeaningInput').value,
-    category: document.getElementById('wordCategoryInput').value,
-    composition: wordDraft.composition
+    sound: document.getElementById('glyphSoundInput').value,
+    meaning: document.getElementById('glyphMeaningInput').value,
+    category: document.getElementById('glyphCategoryInput').value,
+    era: document.getElementById('glyphEraInput').value,
+    composition: glyphDraft.composition
   });
-  const ordered = { id: obj.id, sound: obj.sound, meaning: obj.meaning, category: obj.category, composition: obj.composition };
+  const ordered = { id: obj.id, sound: obj.sound, meaning: obj.meaning, category: obj.category, era: obj.era, composition: obj.composition };
   Object.keys(obj).forEach(function (k) { if (!(k in ordered)) ordered[k] = obj[k]; });
 
-  const existingIndex = DATA.words.findIndex(function (w) { return w.id === id; });
+  const existingIndex = DATA.glyphs.findIndex(function (g) { return g.id === id; });
   const wasReplace = existingIndex !== -1;
-  if (wasReplace) DATA.words[existingIndex] = ordered;
-  else DATA.words.push(ordered);
+  if (wasReplace) DATA.glyphs[existingIndex] = ordered;
+  else DATA.glyphs.push(ordered);
 
   const json = JSON.stringify(DATA, null, 2);
-  let wordSaveMsg;
+  let glyphSaveMsg;
 
   if (fileHandle) {
     try {
       const writable = await fileHandle.createWritable();
       await writable.write(json);
       await writable.close();
-      wordSaveMsg = (wasReplace ? 'Replaced' : 'Added') + ' Word "' + id + '" and saved directly to ' + fileHandle.name + '.';
+      glyphSaveMsg = (wasReplace ? 'Replaced' : 'Added') + ' Glyph "' + id + '" and saved directly to ' + fileHandle.name + '.';
     } catch (err) {
       statusEl.textContent = 'Could not write to ' + fileHandle.name + ': ' + err.message;
       return;
@@ -675,19 +761,19 @@ document.getElementById('saveWordBtn').addEventListener('click', async function 
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    wordSaveMsg = (wasReplace ? 'Replaced' : 'Added') + ' Word "' + id + '" and downloaded a new ' + sourceFileName + ' — check your Downloads. Review it, then move it over your real file yourself.';
+    glyphSaveMsg = (wasReplace ? 'Replaced' : 'Added') + ' Glyph "' + id + '" and downloaded a new ' + sourceFileName + ' — check your Downloads. Review it, then move it over your real file yourself.';
   }
 
   try { localStorage.setItem(CACHE_KEY, json); } catch (err) {}
   renderRefGrid();
-  renderWordRefGrid();
+  renderGlyphRefGrid();
   refreshIdsDatalist();
-  statusEl.textContent = wordSaveMsg;
-  document.getElementById('saveWordBtnHint').textContent = '✓ ' + wordSaveMsg;
+  statusEl.textContent = glyphSaveMsg;
+  document.getElementById('saveGlyphBtnHint').textContent = '✓ ' + glyphSaveMsg;
 });
 
 renderCompositionRows();
-renderWordPreview();
+renderGlyphPreview();
 syncManualJSON();
 
 // ---- state derivation ----
@@ -779,7 +865,7 @@ document.getElementById('clearBtn').addEventListener('click', function () {
   actions = [];
   render();
 });
-document.getElementById('newSymbolBtn').addEventListener('click', function () {
+document.getElementById('newPrimitiveBtn').addEventListener('click', function () {
   actions = [];
   document.getElementById('idInput').value = '';
   document.getElementById('roleInput').value = 'lexical-base';
@@ -848,7 +934,7 @@ document.getElementById('saveBtn').addEventListener('click', async function () {
 
   try { localStorage.setItem(CACHE_KEY, json); } catch (err) {}
   renderRefGrid();
-  renderWordRefGrid();
+  renderGlyphRefGrid();
   refreshIdsDatalist();
   statusEl.textContent = primSaveMsg;
   document.getElementById('saveBtnHint').textContent = '✓ ' + primSaveMsg;
@@ -881,6 +967,40 @@ function updateOutput() {
   document.getElementById('output').textContent = text;
 }
 
+// Index (into `actions`) of the current in-progress sub-path's first point —
+// the one that's click-to-close eligible — or -1 if there isn't one.
+function currentSubpathFirstIndex() {
+  let boundary = -1;
+  actions.forEach(function (a, i) {
+    if (a.type === 'close' || a.type === 'newSubpath') boundary = i;
+  });
+  for (let i = boundary + 1; i < actions.length; i++) {
+    if (actions[i].type === 'point') return i;
+  }
+  return -1;
+}
+
+function startDrag(startEvt, actionIndex) {
+  startEvt.preventDefault();
+  function onMove(evt) {
+    const g = clientToGrid(evt);
+    actions[actionIndex].x = snap(g.x);
+    actions[actionIndex].y = snap(g.y);
+    render();
+  }
+  function onUp() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
+function removePoint(actionIndex) {
+  actions.splice(actionIndex, 1);
+  render();
+}
+
 function render() {
   const state = computeState();
 
@@ -891,10 +1011,23 @@ function render() {
   if (state.current.length > 1) {
     svgContent += '<path d="' + pointsToD(state.current, false) + '" class="path-stroke live"/>';
   }
-  state.current.forEach(function (p, i) {
-    svgContent += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="1.6" class="point-dot' + (i === 0 ? ' first' : '') + '"/>';
-  });
   svg.innerHTML = svgContent;
+
+  // Every placed point — finished sub-paths included — gets a real, draggable,
+  // double-click-removable dot, tied directly to its index in `actions`.
+  const firstIdx = currentSubpathFirstIndex();
+  actions.forEach(function (a, i) {
+    if (a.type !== 'point') return;
+    const dot = document.createElementNS(NS, 'circle');
+    dot.setAttribute('cx', a.x);
+    dot.setAttribute('cy', a.y);
+    dot.setAttribute('r', 1.8);
+    dot.setAttribute('class', 'point-dot' + (i === firstIdx && state.current.length >= 3 ? ' first' : ''));
+    dot.addEventListener('mousedown', function (evt) { startDrag(evt, i); });
+    dot.addEventListener('click', function (evt) { evt.stopPropagation(); });
+    dot.addEventListener('dblclick', function (evt) { evt.stopPropagation(); removePoint(i); });
+    svg.appendChild(dot);
+  });
 
   const pointListEl = document.getElementById('pointList');
   if (state.current.length === 0 && state.subpaths.length === 0) {
