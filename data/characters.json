@@ -1,24 +1,6 @@
 {
-  "new-character": {
-    "archetype": "Basic New Character",
-    "category": "player",
-    "species": "humanoid",
-    "woundsMax": 1,
-    "ap": 1,
-    "flowMax": 1,
-    "recovery": 1,
-    "power": 1,
-    "quickness": 1,
-    "resilience": 1,
-    "lightning": 1,
-    "lava": 1,
-    "focus": 1,
-    "control": 1,
-    "attunement": 1,
-    "life": 1
-  },
-  "human-adult": {
-    "archetype": "Regular Human Adult",
+  "humanoid": {
+    "archetype": "Humanoid",
     "category": "civilian",
     "species": "humanoid",
     "woundsMax": 3,
@@ -35,8 +17,8 @@
     "attunement": 0,
     "life": 1
   },
-  "human-farmer": {
-    "archetype": "Human Farmer",
+  "farmer": {
+    "archetype": "Farmer",
     "category": "civilian",
     "species": "humanoid",
     "woundsMax": 3,
@@ -125,8 +107,8 @@
     "attunement": 0,
     "life": 1
   },
-  "cultist": {
-    "archetype": "Cultist",
+  "kulkrowtist-weakling": {
+    "archetype": "Kulkrowtist Weakling",
     "category": "kulkrowtist",
     "species": "humanoid",
     "woundsMax": 4,
@@ -143,8 +125,8 @@
     "attunement": 0,
     "life": 1
   },
-  "cultist-bloodletter": {
-    "archetype": "Cultist Bloodletter",
+  "kulkrowtist-bloodletter": {
+    "archetype": "Kulkrowtist Bloodletter",
     "category": "kulkrowtist",
     "species": "humanoid",
     "woundsMax": 5,
@@ -177,6 +159,42 @@
     "focus": 0,
     "control": 8,
     "attunement": 0,
+    "life": 1
+  },
+  "living-stone": {
+    "archetype": "Living Stone",
+    "category": "player",
+    "species": "rock",
+    "woundsMax": 1,
+    "ap": 0,
+    "flowMax": 0,
+    "recovery": 0,
+    "power": 0,
+    "quickness": 0,
+    "resilience": 1,
+    "lightning": 1,
+    "lava": 0,
+    "focus": 0,
+    "control": 0,
+    "attunement": 1,
+    "life": 1
+  },
+  "gom": {
+    "archetype": "Gom",
+    "category": "deity",
+    "species": "microSingularity",
+    "woundsMax": 1,
+    "ap": 1,
+    "flowMax": 1,
+    "recovery": 1,
+    "power": 1,
+    "quickness": 1,
+    "resilience": 1,
+    "lightning": 1,
+    "lava": 0,
+    "focus": 1,
+    "control": 10,
+    "attunement": 10,
     "life": 1
   },
   "sandworm": {

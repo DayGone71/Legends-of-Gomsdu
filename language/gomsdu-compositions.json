@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "title": "Gomsdu Compositions — saved from the Glyph Arranger",
+    "purpose": "Every Composition (a 9-Expression grid built in gomsdu-glyph-arranger.html, plus its Yield Results) worth keeping. Text is whatever the Arranger's 'Show Composition' button produced, pasted in as-is — not re-parsed into structured grid data yet.",
+    "status": "living document — created by the Archive, next session"
+  },
+  "compositions": [
+    {
+      "id": "1",
+      "name": "The DU Composition",
+      "text": "Expression 1:\n  (empty)\n\nExpression 2:\n  Line 1: next-idea-line\n  Glyph 1: KULKROW\n  Glyph 2: S\n  Glyph 3: DU\n  Line 4: next-idea-line\n\nExpression 3:\n  (empty)\n\nExpression 4:\n  (empty)\n\nExpression 5:\n  Line 1: next-idea-line\n  Glyph 1: GOM\n  Glyph 2: MO\n  Glyph 3: DU\n\nExpression 6:\n  (empty)\n\nExpression 7:\n  (empty)\n\nExpression 8:\n  Line 1: next-idea-line\n  Glyph 1: GOM\n  Glyph 2: OG\n  Glyph 3: KRO\n  Line 4: extract-line\n\nExpression 9:\n  (empty)\n\nYield Results:\n  Column 2: DU",
+      "savedAt": "2026-08-20T00:00:00.000Z"
+    },
+    {
+      "id": "2",
+      "name": "The Animating Gate (full, corrected Yield Results)",
+      "text": "Expression 1:\n  Line 1: next-idea-line\n  Glyph 1: GOM\n  Glyph 2: OG\n  Glyph 3: KRO\n  Line 4: goto-2-line\n\nExpression 2:\n  Line 1: next-idea-line\n  Glyph 1: GOM\n  Glyph 2: WIM\n  Glyph 3: KRO\n  Line 4: next-idea-line\n\nExpression 3:\n  Line 1: next-idea-line\n  Glyph 1: GOM\n  Glyph 2: KA\n  Glyph 3: KRO\n  Line 4: goto-2-line\n\nExpression 4:\n  (empty)\n\nExpression 5:\n  Line 1: wildcard-above-line\n  Glyph 1: GOM\n  Glyph 2: GI\n  Glyph 3: KROW\n  Line 4: wildcard-below-line\n\nExpression 6:\n  (empty)\n\nExpression 7:\n  Line 1: follow-2-line\n  Glyph 1: GOM\n  Glyph 2: MO\n  Glyph 3: KROW\n  Line 4: yield-line\n\nExpression 8:\n  Line 1: next-idea-line\n  Glyph 1: KULKROW\n  Glyph 2: KUL\n  Glyph 3: KROW\n  Line 4: yield-line\n\nExpression 9:\n  Line 1: follow-2-line\n  Glyph 1: GOM\n  Glyph 2: OR\n  Glyph 3: KRO\n  Line 4: yield-line\n\nYield Results:\n  Column 1: KRO\n  Column 2: S\n  Column 3: KROW",
+      "savedAt": "2026-08-20T00:00:00.000Z"
+    },
+    {
+      "id": "3",
+      "name": "Soul Injection Expression",
+      "text": "Expression:\n  Glyph 1: GI\n  Glyph 2: KA\n  Glyph 3: M\n  Line 4: yield-line\n  Result Glyph: W\n\nPer creator: an elaboration of Expression 5 from 'The Animating Gate (full, corrected Yield Results)' (GOM+GI+KROW, the shared Gate) — zooms into the mechanism, not a separate event. Cross-reference: gomsdu-codex.md's 'The Animating Gate as literal Second Era technology'.",
+      "savedAt": "2026-08-20T00:00:00.000Z"
+    },
+    {
+      "id": "4",
+      "name": "First Received Information",
+      "text": "Expression:\n  Glyph 1: GI\n  Glyph 2: KRO\n  Glyph 3: KROW\n  Line 4: yield-line\nYield Results:\n  Glyph: GI\n\nPer creator: the first piece of Information placed into the actual game's Information panel (js/information.js), not just the Archive. Shows collapsed to a bare GI glyph until clicked; expands to the full stack on click.",
+      "savedAt": "2026-08-20T00:00:00.000Z"
+    }
+  ]
+}

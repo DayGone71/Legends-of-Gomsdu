@@ -20,13 +20,27 @@ export const AppState = {
   dmSelectedTargetId: null,
   dmPendingType: null,
   dmPendingAttackKind: null,
-  dmPendingEssenceSchool: null,
+  dmPendingCraftKey: null,
   dmPendingBlockKind: null,
   dmPendingCounter: false,
 
   // UI-only, never synced
   activePanel: null,
   mapEditMode: false,
+  // TATA toggle (2026-08-20, per dDd) — switches Movement's Tile-click
+  // handling from Player/Party to Non-Player. First pass only wires this
+  // into Movement's own click-detection branch — the fuller "Party becomes
+  // Enemy Tiles" swap is its own separate, not-yet-built scope.
+  tataActive: false,
+  // Movement (2026-08-20) — which Tile currently has its occupancy popup(s)
+  // showing ({x,y} or null), and which actor (if any) is mid tile-pick
+  // ({ actorId } or null) after confirming "Move?".
+  moveClickTile: null,
+  moveSelectMode: null,
+  // New Game Process (2026-08-20) — which Build keys, if any, the current
+  // Scene restricts Character-panel loading to; recomputed every renderAll()
+  // from AppState.table.scene, see js/scenes.js's SCENES and js/main.js.
+  sceneBuildRestriction: null,
   // Veil Vision (2026-08-16) — a personal, local-only "see through the fog"
   // toggle, deliberately not synced to the table: it's meant to feel like
   // your own vision changing, not a shared DM broadcast, so one player

@@ -10,6 +10,17 @@ export function registerRenderCallback(fn){
   onStateChange = fn;
 }
 
+// Fires the same full render every table mutation's realtime echo triggers —
+// for local-only UI toggles (TATA, Veil Vision, Map edit mode) that change
+// what should be on screen but never touch table.* at all, so there's no
+// mutation and thus no realtime echo to ride along on. Without this, a
+// toggle like TATA's View 2 swap (js/main.js's renderView2Mode) would only
+// ever visually update on the *next* unrelated table change, not the click
+// that actually toggled it.
+export function triggerRender(){
+  if(onStateChange) onStateChange();
+}
+
 export async function connectToSession(code){
   const state = await loadSession(code);
   if(!state) return false;

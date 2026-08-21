@@ -101,6 +101,18 @@ export function resolveEntityRef(table, targetId){
   return (table.players && table.players[targetId]) || (table.enemies && table.enemies[targetId]) || null;
 }
 
+// Mindeye (2026-08-20) — where a Character's received Glyphs show up, per
+// dDd. Called from inside a mutateTable draft, both from the Player-side
+// Technique engine (techniques.js) and the DM's own Craft staging (dm.js),
+// so Message works identically staged by either side. Just a single GI per
+// arrival for now — Message has no content-authoring UI yet.
+export function deliverMindeyeEntry(table, targetId, fromName){
+  const target = resolveEntityRef(table, targetId);
+  if(!target) return;
+  if(!target.mindeye) target.mindeye = [];
+  target.mindeye.push({ id: genId(), from: fromName, seen: false, receivedAt: timeNow() });
+}
+
 // Every Enemy currently riding along as someone's Possessed Mini-Party
 // member — an ally now, not a hostile, so it moves off the Enemy side onto
 // the ally/Player side wherever that matters (target pickers, DM Test's

@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Gomsdu &mdash; The Archive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/base.css">
+<style>
+  /* html's scroll-snap-type (from base.css, built for the Table's two-view
+     model) has nothing to snap to here — harmless, but overridden to plain
+     scroll so this page doesn't inherit table-specific scroll behavior. */
+  html { scroll-snap-type: none; }
+  body { padding: 28px 32px 60px; max-width: 1100px; margin: 0 auto; }
+
+  .archive-header { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 6px; }
+  .archive-eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim); }
+  h1 { font-size: 28px; margin: 2px 0 4px; }
+  .archive-sub { color: var(--text-dim); font-size: 14px; margin: 0 0 18px; max-width: 70ch; }
+  .archive-nav { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 30px; }
+  .archive-nav a.btn-ghost { text-decoration: none; display: inline-block; }
+
+  section.archive-section { margin-bottom: 40px; }
+  section.archive-section h2 { font-size: 18px; border-bottom: 1px solid var(--ink-line); padding-bottom: 8px; margin-bottom: 14px; }
+  .section-note { color: var(--text-dim); font-size: 12.5px; margin: -6px 0 16px; max-width: 70ch; }
+  .status-line { font-size: 12.5px; color: var(--text-dim); margin-bottom: 14px; }
+
+  .glyph-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
+  .glyph-card { background: var(--ink-soft); border: 1px solid var(--ink-line); border-radius: 10px; padding: 10px; text-align: center; }
+  .glyph-card svg { width: 100%; height: auto; aspect-ratio: 1; display: block; color: var(--text-light); }
+  .glyph-card .label { font-size: 12.5px; font-weight: 600; margin-top: 6px; color: var(--text-light); }
+  .glyph-card .sub { font-size: 10.5px; color: var(--text-dim); margin-top: 2px; word-break: break-word; }
+  .placeholder-text { font-size: 11px; fill: var(--text-dim); }
+  .missing-text { font-size: 9px; fill: var(--ember-bright); }
+
+  .comp-form { background: var(--ink-soft); border: 1px solid var(--ink-line); border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+  .comp-form .field { margin-bottom: 12px; }
+  .comp-form label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 4px; }
+  .comp-form input[type="text"], .comp-form textarea {
+    width: 100%; background: var(--ink); color: var(--text-light); border: 1px solid var(--ink-line);
+    border-radius: 6px; padding: 9px 10px; font-family: 'Inter', sans-serif; font-size: 13px;
+  }
+  .comp-form textarea { min-height: 160px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; resize: vertical; }
+  .comp-form-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+  .comp-list { display: flex; flex-direction: column; gap: 10px; }
+  .comp-item { background: var(--ink-soft); border: 1px solid var(--ink-line); border-radius: 10px; padding: 12px 14px; }
+  .comp-item-header { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; cursor: pointer; }
+  .comp-item-name { font-weight: 600; font-size: 14px; }
+  .comp-item-date { font-size: 11px; color: var(--text-dim); font-family: 'IBM Plex Mono', monospace; }
+  .comp-item-body { display: none; margin-top: 10px; }
+  .comp-item.open .comp-item-body { display: block; }
+  .comp-item pre { white-space: pre-wrap; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-light); background: var(--ink); border: 1px solid var(--ink-line); border-radius: 6px; padding: 10px; margin: 0 0 8px; }
+  .comp-item-remove { font-size: 11px; color: var(--ember-bright); background: none; border: none; padding: 0; cursor: pointer; text-decoration: underline; }
+  .empty-state { font-size: 13px; color: var(--text-dim); padding: 10px 0; }
+</style>
+</head>
+<body>
+
+<div class="archive-header">
+  <div>
+    <div class="archive-eyebrow">Gomsdu &mdash; Reference</div>
+    <h1>The Archive</h1>
+  </div>
+</div>
+<p class="archive-sub">Information and Lore about the Game, and a running database of the Glyphic System. First pass: read the Glyph System, and save Compositions built in the Arranger. More to come.</p>
+
+<div class="archive-nav">
+  <a href="index.html" class="btn-ghost btn-small">&larr; Home</a>
+  <a href="language/gomsdu-glyph-viewer.html" class="btn-ghost btn-small">Glyph Viewer</a>
+  <a href="language/gomsdu-glyph-arranger.html" class="btn-ghost btn-small">Glyph Arranger</a>
+  <a href="language/gomsdu-glyph-designer.html" class="btn-ghost btn-small">Glyph Designer</a>
+</div>
+
+<section class="archive-section">
+  <h2>The Glyphic System</h2>
+  <p class="section-note">Loaded straight from <code>language/gomsdu-glyphic-system.json</code> &mdash; read-only here. Use the Designer to actually add or edit Primitives and Glyphs.</p>
+  <p class="status-line" id="glyphStatus">Loading&hellip;</p>
+  <h3 style="font-size:14px;margin:0 0 10px;">Primitives</h3>
+  <div class="glyph-grid" id="primGrid"><div class="empty-state">Loading&hellip;</div></div>
+  <h3 style="font-size:14px;margin:24px 0 10px;">Glyphs</h3>
+  <div class="glyph-grid" id="glyphGrid"><div class="empty-state">Loading&hellip;</div></div>
+</section>
+
+<section class="archive-section">
+  <h2>Compositions</h2>
+  <p class="section-note">Paste whatever the Arranger's "Show Composition" button gave you, name it, and save. Saved into <code>language/gomsdu-compositions.json</code>.</p>
+  <p class="status-line" id="compStatus">Loading&hellip;</p>
+
+  <div class="comp-form">
+    <div class="field">
+      <label>Connect the Compositions file, for direct saving</label>
+      <button id="connectFileBtn" class="btn-ghost btn-small">Connect gomsdu-compositions.json&hellip;</button>
+    </div>
+    <div class="field">
+      <label>Name</label>
+      <input type="text" id="compName" placeholder="e.g. Gom's Verbs on Life">
+    </div>
+    <div class="field">
+      <label>Composition text</label>
+      <textarea id="compText" placeholder="Paste the Arranger's Show Composition output here&hellip;"></textarea>
+    </div>
+    <div class="comp-form-actions">
+      <button id="saveCompBtn" class="btn-brass btn-small">Save Composition</button>
+      <span class="status-line" id="saveHint" style="margin:0;"></span>
+    </div>
+  </div>
+
+  <div class="comp-list" id="compList"><div class="empty-state">Loading&hellip;</div></div>
+</section>
+
+<script>
+let GLYPH_DATA = null;
+let COMP_DATA = null;
+let fileHandle = null; // FileSystemFileHandle when connected — Save writes straight to it, no download
+
+/* ---------- Glyph System (read-only, same render logic as gomsdu-glyph-viewer.html) ---------- */
+
+function lookupPrimitive(id) { return GLYPH_DATA.primitives.find(function (p) { return p.id === id; }); }
+function lookupGlyph(id) { return GLYPH_DATA.glyphs.find(function (g) { return g.id === id; }); }
+
+function primitiveMarkup(prim) {
+  const r = prim.render;
+  if (!r) {
+    return '<rect x="10" y="10" width="80" height="80" fill="none" stroke="var(--text-dim)" stroke-dasharray="4 4" rx="0"/>' +
+      '<text x="50" y="54" text-anchor="middle" class="placeholder-text">' + (prim.status || 'pending') + '</text>';
+  }
+  const strokeAttrs = 'fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="square" stroke-linejoin="miter"';
+  if (r.type === 'rect') {
+    return '<rect x="' + r.x + '" y="' + r.y + '" width="' + r.width + '" height="' + r.height +
+      '" rx="' + (r.rx || 0) + '" ' + strokeAttrs + '/>';
+  }
+  if (r.type === 'path') return '<path d="' + r.d + '" ' + strokeAttrs + '/>';
+  if (r.type === 'multipath') return r.d.map(function (d) { return '<path d="' + d + '" ' + strokeAttrs + '/>'; }).join('');
+  if (r.type === 'line-with-dot') {
+    return '<path d="' + r.d + '" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/>' +
+      '<circle cx="' + r.dot.cx + '" cy="' + r.dot.cy + '" r="' + r.dot.r + '" fill="currentColor"/>';
+  }
+  if (r.type === 'dots') return r.points.map(function (pt) { return '<circle cx="' + pt.cx + '" cy="' + pt.cy + '" r="' + pt.r + '" fill="currentColor"/>'; }).join('');
+  if (r.type === 'line-with-number') {
+    const ny = r.numberPosition === 'below' ? 78 : 22;
+    return '<path d="' + r.d + '" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/>' +
+      '<text x="50" y="' + ny + '" text-anchor="middle" dominant-baseline="middle" font-size="28" font-weight="600" fill="currentColor">' + r.number + '</text>';
+  }
+  if (r.type === 'line-with-x') {
+    const half = r.x.size / 2;
+    return '<path d="' + r.d + '" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/>' +
+      '<path d="M' + (r.x.cx - half) + ',' + (r.x.cy - half) + ' L' + (r.x.cx + half) + ',' + (r.x.cy + half) +
+      ' M' + (r.x.cx - half) + ',' + (r.x.cy + half) + ' L' + (r.x.cx + half) + ',' + (r.x.cy - half) +
+      '" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/>';
+  }
+  return '<text x="50" y="50" text-anchor="middle" class="missing-text">unknown render type</text>';
+}
+
+function glyphMarkup(glyph, depth) {
+  depth = depth || 0;
+  if (depth > 6) return '<text x="50" y="50" text-anchor="middle" class="missing-text">too deeply nested</text>';
+  if (!glyph.composition || glyph.composition.length === 0) {
+    return '<text x="50" y="54" text-anchor="middle" class="placeholder-text">no symbol yet</text>';
+  }
+  let out = '';
+  glyph.composition.forEach(function (entry) {
+    const pos = entry.position || [0.5, 0.5];
+    const scale = (entry.scale === undefined) ? 1 : entry.scale;
+    const rotation = entry.rotation || 0;
+    const fx = pos[0] * 100, fy = pos[1] * 100;
+    const transform = 'translate(' + fx + ',' + fy + ') rotate(' + rotation + ') scale(' + scale + ') translate(-50,-50)';
+    let inner = '';
+    if (entry.primitive) {
+      const prim = lookupPrimitive(entry.primitive);
+      inner = prim ? primitiveMarkup(prim) : '<text x="50" y="50" text-anchor="middle" class="missing-text">missing: ' + entry.primitive + '</text>';
+    } else if (entry.glyph) {
+      const g = lookupGlyph(entry.glyph);
+      inner = g ? glyphMarkup(g, depth + 1) : '<text x="50" y="50" text-anchor="middle" class="missing-text">missing: ' + entry.glyph + '</text>';
+    }
+    out += '<g transform="' + transform + '">' + inner + '</g>';
+  });
+  return out;
+}
+
+function svgWrap(inner) { return '<svg viewBox="0 0 100 100">' + inner + '</svg>'; }
+
+function renderGlyphSystem() {
+  const primGrid = document.getElementById('primGrid');
+  const glyphGrid = document.getElementById('glyphGrid');
+  primGrid.innerHTML = '';
+  glyphGrid.innerHTML = '';
+
+  GLYPH_DATA.primitives.forEach(function (p) {
+    const card = document.createElement('div');
+    card.className = 'glyph-card';
+    card.innerHTML = svgWrap(primitiveMarkup(p)) + '<div class="label">' + p.id + '</div><div class="sub">' + (p.role || '') + '</div>';
+    primGrid.appendChild(card);
+  });
+
+  GLYPH_DATA.glyphs.forEach(function (g) {
+    const card = document.createElement('div');
+    card.className = 'glyph-card';
+    const soundLine = g.sound ? (g.sound + ' &mdash; ') : '';
+    card.innerHTML = svgWrap(glyphMarkup(g)) + '<div class="label">' + g.id + '</div><div class="sub">' + soundLine + g.meaning + '</div>';
+    glyphGrid.appendChild(card);
+  });
+}
+
+fetch('language/gomsdu-glyphic-system.json')
+  .then(function (res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+  .then(function (data) {
+    GLYPH_DATA = data;
+    document.getElementById('glyphStatus').textContent =
+      'Loaded ' + (data.glyphs || []).length + ' Glyphs, ' + (data.primitives || []).length + ' Primitives.';
+    renderGlyphSystem();
+  })
+  .catch(function (err) {
+    document.getElementById('glyphStatus').textContent =
+      'Could not load the Glyphic System (' + err.message + ') — this page needs to be served (npm/npx serve), not opened directly as a file.';
+  });
+
+/* ---------- Compositions (fetch to read, File System Access API to write) ---------- */
+
+function formatDate(iso) {
+  try { return new Date(iso).toLocaleString(); } catch (err) { return iso; }
+}
+
+function renderCompositions() {
+  const list = document.getElementById('compList');
+  const comps = (COMP_DATA && COMP_DATA.compositions) || [];
+  if (comps.length === 0) {
+    list.innerHTML = '<div class="empty-state">No Compositions saved yet.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  comps.slice().reverse().forEach(function (comp) {
+    const item = document.createElement('div');
+    item.className = 'comp-item';
+    item.innerHTML =
+      '<div class="comp-item-header">' +
+        '<span class="comp-item-name">' + comp.name + '</span>' +
+        '<span class="comp-item-date">' + formatDate(comp.savedAt) + '</span>' +
+      '</div>' +
+      '<div class="comp-item-body"><pre></pre><button class="comp-item-remove">Remove</button></div>';
+    item.querySelector('pre').textContent = comp.text;
+    item.querySelector('.comp-item-header').addEventListener('click', function () { item.classList.toggle('open'); });
+    item.querySelector('.comp-item-remove').addEventListener('click', function (e) {
+      e.stopPropagation();
+      COMP_DATA.compositions = COMP_DATA.compositions.filter(function (c) { return c.id !== comp.id; });
+      writeCompositions('Removed "' + comp.name + '".');
+    });
+    list.appendChild(item);
+  });
+}
+
+fetch('language/gomsdu-compositions.json')
+  .then(function (res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+  .then(function (data) {
+    COMP_DATA = data;
+    if (!Array.isArray(COMP_DATA.compositions)) COMP_DATA.compositions = [];
+    document.getElementById('compStatus').textContent = COMP_DATA.compositions.length + ' Composition(s) saved. Not connected for direct editing — Save will download a copy until you connect the file below.';
+    renderCompositions();
+  })
+  .catch(function (err) {
+    COMP_DATA = { compositions: [] };
+    document.getElementById('compStatus').textContent =
+      'Could not load gomsdu-compositions.json (' + err.message + ') — starting empty. Save will download a copy.';
+    renderCompositions();
+  });
+
+document.getElementById('connectFileBtn').addEventListener('click', async function () {
+  const statusEl = document.getElementById('compStatus');
+  if (!window.showOpenFilePicker) {
+    statusEl.textContent = 'Your browser doesn\'t support direct file editing (Chrome or Edge only) — Save will download a copy each time instead.';
+    return;
+  }
+  let handle;
+  try {
+    [handle] = await window.showOpenFilePicker({
+      types: [{ description: 'Gomsdu Compositions JSON', accept: { 'application/json': ['.json'] } }]
+    });
+  } catch (err) {
+    return; // user cancelled the picker
+  }
+  try {
+    const perm = await handle.requestPermission({ mode: 'readwrite' });
+    if (perm !== 'granted') {
+      statusEl.textContent = 'Write permission not granted — Save will download a copy instead of writing to ' + handle.name + '.';
+      return;
+    }
+    const file = await handle.getFile();
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    if (!Array.isArray(parsed.compositions)) parsed.compositions = [];
+    COMP_DATA = parsed;
+    fileHandle = handle;
+    statusEl.textContent = 'Connected to ' + handle.name + ' — Save now writes straight to this file, no download needed. ' + COMP_DATA.compositions.length + ' Composition(s) loaded.';
+    renderCompositions();
+  } catch (err) {
+    statusEl.textContent = 'Could not open that file: ' + err.message;
+  }
+});
+
+async function writeCompositions(successMessage) {
+  const statusEl = document.getElementById('compStatus');
+  const saveHint = document.getElementById('saveHint');
+  const json = JSON.stringify(COMP_DATA, null, 2);
+
+  if (fileHandle) {
+    try {
+      const writable = await fileHandle.createWritable();
+      await writable.write(json);
+      await writable.close();
+      saveHint.textContent = successMessage + ' Saved directly to ' + fileHandle.name + '.';
+    } catch (err) {
+      saveHint.textContent = 'Could not write to ' + fileHandle.name + ': ' + err.message;
+      return;
+    }
+  } else {
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'gomsdu-compositions.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    saveHint.textContent = successMessage + ' Downloaded a new gomsdu-compositions.json — move it over language/gomsdu-compositions.json yourself, or connect the file above first next time.';
+  }
+  statusEl.textContent = COMP_DATA.compositions.length + ' Composition(s) saved.';
+  renderCompositions();
+}
+
+document.getElementById('saveCompBtn').addEventListener('click', function () {
+  const nameEl = document.getElementById('compName');
+  const textEl = document.getElementById('compText');
+  const saveHint = document.getElementById('saveHint');
+  const name = nameEl.value.trim();
+  const text = textEl.value.trim();
+  if (!name) { saveHint.textContent = 'Name it first.'; return; }
+  if (!text) { saveHint.textContent = 'Paste the Composition text first.'; return; }
+  if (!COMP_DATA) COMP_DATA = { compositions: [] };
+  if (!Array.isArray(COMP_DATA.compositions)) COMP_DATA.compositions = [];
+  COMP_DATA.compositions.push({
+    id: Date.now().toString(36),
+    name: name,
+    text: text,
+    savedAt: new Date().toISOString()
+  });
+  writeCompositions('Saved "' + name + '".');
+  nameEl.value = '';
+  textEl.value = '';
+});
+</script>
+
+</body>
+</html>

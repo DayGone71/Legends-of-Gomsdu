@@ -65,6 +65,22 @@ structurally a branching dialogue/ritual graph — see `dialogue-system.md`'s
 Wimbis isn't just a translation layer sitting under future Dialogue work
 anymore; its own grammar can plausibly carry the branch logic directly.
 
+**Addendum, next session — Wimbis confirmed as Dialogue's actual engine, and
+a near-term attack order set.** Per dDd, following a full synthesis pass
+across every reference doc's open threads: "WIMBIS is the result of all
+that experimentation, the answer to it. It'll have everything to do with
+Dialogue since it's the only way to Communicate in World." Full detail in
+`dialogue-system.md`'s matching dated section. **dDd's own order for what
+gets picked up next: Personality System, then Composition-to-Behavior,
+then the Mechanical Fixes** (this last one is item 5 below — AP-costed
+movement, DM Enemy-movement control, Range Restriction, Neutral
+Characters). Composition-to-Behavior is confirmed real, not speculative:
+"Head to Information (Expressions or Compositions right now). That
+information informs Movement on the Map and choices in Combat (recklessly
+attacking for example)." **`ROADMAP.md` itself is untouched this
+session, deliberately** — per dDd, its live `[Ready]`/`[Discuss]` items
+are on hold pending further discussion, not folded into this reordering.
+
 **2 — Personality/Dialogue Stats.** Downstream of 1 by construction.
 
 **3 — NPC Creation.** Needs somewhere to put the Stats.

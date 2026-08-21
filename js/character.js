@@ -41,8 +41,32 @@ export const SPECIES = {
     deathWounds: 20, bodyParts: 10, // 4 Arms, Tails, 3 Torsos combined to 1 base part
     tier5: { left: null, right: 'kulkrow' },
     caps: { ap: [0, 150], flow: [0, 85], recovery: [0, 70], power: [0, 85], quickness: [0, 50], resilience: [0, 85], lightning: [0, 10], lava: [0, 10], focus: [0, 10], control: [0, 10], attunement: [0, 10] }
+  },
+  rock: {
+    name: 'Rock', // The Living Stone's actual Species — see gomsdu-codex.md's "Making the Living Stone"; "Living Stone" itself is the archetype/flavor name, per creator
+    deathWounds: 10, bodyParts: 1, // corrected, per creator — not the Humanoid-standard 6
+    tier5: { left: 'gom', right: null }, // "recognize only Gom as their Creator" — no Kulkrow connection at all
+    caps: { ap: [0, 100], flow: [0, 50], recovery: [0, 50], power: [0, 50], quickness: [0, 50], resilience: [0, 50], lightning: [0, 10], lava: [0, 10], focus: [0, 10], control: [0, 10], attunement: [0, 10] } // per creator, "can stay for now"
+  },
+  microSingularity: {
+    name: 'Micro-Singularity', // Gom's own Species — see gomsdu-codex.md Cosmology, "a tiny White Orb"
+    deathWounds: 10, bodyParts: 6, // no real numbers given yet — mirrors Humanoid, comfortably covers Gom's own given stats
+    tier5: { left: null, right: null }, // doesn't apply to Gom himself
+    caps: { ap: [0, 100], flow: [0, 50], recovery: [0, 50], power: [0, 50], quickness: [0, 50], resilience: [0, 50], lightning: [0, 10], lava: [0, 10], focus: [0, 10], control: [0, 10], attunement: [0, 10] }
   }
 };
+
+// Species is no longer Player-selectable (2026-08-20, per dDd — "should just
+// be a very small flavor text item"): #ch-species is a hidden input, still
+// carrying the real key everything else here reads, with a plain <span>
+// alongside it showing the human-readable name. Call this any time
+// #ch-species's own value gets set programmatically (loadBuild,
+// renderCharacterSheet) so the two never drift apart.
+function updateSpeciesDisplay(){
+  const key = document.getElementById('ch-species').value || 'humanoid';
+  const display = document.getElementById('ch-species-display');
+  if(display) display.textContent = (SPECIES[key] || SPECIES.humanoid).name;
+}
 
 // Bakes a species' deathWounds/body defaults into a Character's own literal
 // (this codebase's established pattern is full denormalization — every
@@ -62,8 +86,33 @@ function withSpecies(speciesKey, stats){
 // Control 10 gets the "every action costs 1 AP" effect (see combat.js/dm.js).
 // Wounds (x) starts at 0 — the real x/y model counts UP from uninjured toward
 // woundsMax (y, the personal Down threshold), not down from a depleting pool.
+// Defaults to a Living Stone (2026-08-20, per dDd) rather than a generic
+// Humanoid — every new Character, table-creator or later joiner alike,
+// starts as a real, fully-statted Living Stone matching the "living-stone"
+// Build exactly, not just a Species tag on old placeholder numbers. Per
+// dDd: a joining Player doesn't get a say in the table's Scene (only
+// whoever created it does — see js/scenes.js), so giving them a real
+// default identity outright, rather than a blank Humanoid, is what makes
+// that "join mid-Scene" edge case simple instead of needing its own
+// Scene-aware join logic. archetype stays blank on purpose — the existing
+// "genuinely new Character" auto-open of Create-a-Character (see
+// enterTable() in main.js) keys off that, so a joiner still gets the
+// familiar prompt to personalize their Role text even though their stats
+// already work.
 export function blankCharacter(name){
-  return withSpecies('humanoid', { name, archetype: '', wounds: 0, woundsMax: 7, ap: 10, flow: 10, flowMax: 10, recovery: 5, power: 1, quickness: 5, resilience: 3, lightning: 0, lava: 0, focus: 0, control: 0, attunement: 0, life: 1, apSpent: 0, focusSpent: 0, sequence: [], possessors: [], miniParty: [] });
+  const b = BUILDS['living-stone'];
+  if(b){
+    return withSpecies(b.species || 'rock', {
+      name, archetype: '', wounds: 0, woundsMax: b.woundsMax, ap: b.ap, flow: b.flowMax, flowMax: b.flowMax,
+      recovery: b.recovery, power: b.power, quickness: b.quickness, resilience: b.resilience,
+      lightning: b.lightning, lava: b.lava, focus: b.focus, control: b.control ?? 0, attunement: b.attunement ?? 0,
+      life: b.life ?? 1, apSpent: 0, focusSpent: 0, sequence: [], possessors: [], miniParty: []
+    });
+  }
+  // Defensive fallback only — BUILDS finishes loading (top-level await)
+  // before this module is even importable, so 'living-stone' is always
+  // real by the time blankCharacter() is actually called.
+  return withSpecies('rock', { name, archetype: '', wounds: 0, woundsMax: 1, ap: 0, flow: 0, flowMax: 0, recovery: 0, power: 0, quickness: 0, resilience: 1, lightning: 1, lava: 0, focus: 0, control: 0, attunement: 1, life: 1, apSpent: 0, focusSpent: 0, sequence: [], possessors: [], miniParty: [] });
 }
 
 // Character Templates (2026-08-16) — BUILDS now loads from data/characters.json
@@ -106,6 +155,7 @@ export function loadBuild(key){
   if(!b) return;
   if(b.name) document.getElementById('ch-name').value = b.name;
   document.getElementById('ch-species').value = b.species || 'humanoid';
+  updateSpeciesDisplay();
   document.getElementById('ch-archetype').value = b.archetype;
   document.getElementById('ch-wounds').value = b.wounds;
   document.getElementById('ch-woundsmax').value = b.woundsMax;
@@ -156,15 +206,42 @@ function rebuildDynamicCategoryGroups(select, anchor, categories){
   });
 }
 export function populateBuildDropdowns(){
+  const chLoader = document.getElementById('ch-build-loader');
+  const chPlayer = document.getElementById('ch-build-player-group');
+  if(chLoader) chLoader.querySelectorAll('[data-dynamic-category], [data-scene-restricted]').forEach(el => el.remove());
+  if(chPlayer) chPlayer.innerHTML = '';
+
+  // Scene restriction (2026-08-20, per dDd — Era 1: "the only Character
+  // Sheets available should be Gom and Living Stone... they don't need a
+  // Header Category"). Flat options, no optgroup, inserted right before the
+  // "Custom" anchor same as the dynamic category groups below would be.
+  // Only the Character panel's own loader is restricted — the DM's spawn
+  // picker stays showing everything regardless of Scene.
+  const restriction = AppState.sceneBuildRestriction;
+  if(restriction){
+    const anchor = document.getElementById('ch-build-saved-group');
+    restriction.forEach(key => {
+      const b = BUILDS[key];
+      if(!b || !chLoader) return;
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = b.archetype || key;
+      opt.dataset.sceneRestricted = 'true';
+      chLoader.insertBefore(opt, anchor);
+    });
+    rebuildDynamicCategoryGroups(document.getElementById('dm-enemy-build-picker'), document.getElementById('dm-build-saved-group'),
+      [...new Set(Object.values(BUILDS).map(b => (b.category || 'enemy').trim() || 'enemy'))].filter(c => c !== 'player').sort());
+    return;
+  }
+
   const allCategories = [...new Set(Object.values(BUILDS).map(b => (b.category || 'enemy').trim() || 'enemy'))].sort();
   const nonPlayerCategories = allCategories.filter(c => c !== 'player');
 
-  const chPlayer = document.getElementById('ch-build-player-group');
   if(chPlayer) chPlayer.innerHTML = Object.entries(BUILDS)
     .filter(([, b]) => (b.category || 'enemy') === 'player')
     .map(([key, b]) => '<option value="' + key + '">' + escapeHtml(b.archetype || key) + '</option>').join('');
 
-  rebuildDynamicCategoryGroups(document.getElementById('ch-build-loader'), document.getElementById('ch-build-saved-group'), nonPlayerCategories);
+  rebuildDynamicCategoryGroups(chLoader, document.getElementById('ch-build-saved-group'), nonPlayerCategories);
   rebuildDynamicCategoryGroups(document.getElementById('dm-enemy-build-picker'), document.getElementById('dm-build-saved-group'), nonPlayerCategories);
 }
 
@@ -342,6 +419,7 @@ export function renderCharacterSheet(){
 
   setIfNotActive('ch-name', me.name || '');
   setIfNotActive('ch-species', me.species || 'humanoid');
+  updateSpeciesDisplay();
   setIfNotActive('ch-archetype', me.archetype || '');
   setIfNotActive('ch-wounds', me.wounds ?? 0);
   setIfNotActive('ch-woundsmax', me.woundsMax ?? 7);

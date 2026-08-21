@@ -5,11 +5,13 @@ import { blankCharacter, loadBuild, scheduleSave, saveCharacter, makeActiveChara
 import { renderLedger, renderRoster, sendMessage, initAddPartyMemberUI } from './ledger.js';
 import { renderTargetRange, renderAllyRange, toggleMenu, selectAttackKind, selectEssenceSchool, selectBlockKind, toggleCounter, commitAction, undoAction, resolveRound, renderCombatCounters, renderStagedActions, stageRest } from './combat.js';
 import { renderSequencer, initSequencerHover, initSequencerScrub } from './sequencer.js';
-import { addEnemy, startEncounter, endEncounter, renderDMEnemyPicker, renderDMCounters, renderDMTargetRange, dmToggleMenu, dmSelectAttackKind, dmSelectEssenceSchool, dmSelectBlockKind, dmToggleCounter, dmCommitAction, dmUndoAction, renderDMStagedActions, clearDead, populateSavedEncounterDropdown, saveEncounterAsTemplate, loadEncounterTemplate } from './dm.js';
-import { defaultMap, renderMap, toggleMapEditMode } from './map.js';
+import { addEnemy, startEncounter, endEncounter, renderDMEnemyPicker, renderDMCounters, renderDMTargetRange, dmToggleMenu, dmSelectAttackKind, dmSelectBlockKind, dmToggleCounter, dmCommitAction, dmUndoAction, renderDMStagedActions, clearDead, populateSavedEncounterDropdown, saveEncounterAsTemplate, loadEncounterTemplate, renderNpcList } from './dm.js';
+import { defaultMap, renderMap, toggleMapEditMode, toggleTata, cancelMoveSelect } from './map.js';
+import { SCENES, loadScene, toggleSceneMenu } from './scenes.js';
 import { openPanel, closePanel, togglePanel, updateEncounterUI, initPanelBackdrop } from './panels.js';
 import { renderDMTestPanel, runDMTestRound, runDMTestNRounds, runDMTestUntilDefeat } from './dmtest.js';
 import { initTechniquesUI, renderTechniquesPanel } from './techniques.js';
+import { renderInformationPanel, hasUnseenMindeye } from './information.js';
 
 // ---------- Screen helpers ----------
 function showLoading(v){ document.getElementById('loading').classList.toggle('hidden', !v); }
@@ -20,6 +22,45 @@ function showLandingError(msg){
 }
 function clearLandingError(){ document.getElementById('landing-error').classList.add('hidden'); }
 
+// TATA View 2 swap (2026-08-20, dDd's spec) — "Pressing Tata swaps Party
+// and the Ledger, essentially." Player mode: Party (left) + Ledger (right,
+// headed "Party Ledger"). TATA mode: Ledger moves to the left (headed "Tata
+// Ledger", mirrored — see .persistent-grid.tata-active in css/layout.css)
+// and Characters (same table.enemies data as the toolbar's NPCs panel, per
+// dDd — "Characters and the NPCs Panel are the same thing really") takes
+// the right slot, also mirrored. Each of the three panels also gets a slow,
+// faint colored glow identifying the current mode — six combinations
+// (Player; TATA non-Combat; TATA in-Combat), see the .glow-* classes in
+// css/panels.css. Called from renderAll() every render, since it depends on
+// both AppState.tataActive and table.inEncounter.
+function renderView2Mode(persistentGrid){
+  if(!persistentGrid) return;
+  const tata = AppState.tataActive;
+  const inCombat = !!(AppState.table && AppState.table.inEncounter);
+  persistentGrid.classList.toggle('tata-active', tata);
+
+  const partyEl = document.getElementById('party-panel-static');
+  const ledgerEl = document.getElementById('ledger-panel-static');
+  const charactersEl = document.getElementById('characters-panel-static');
+  const glowClasses = ['glow-party', 'glow-party-ledger', 'glow-characters-calm', 'glow-tata-ledger-calm', 'glow-characters-combat', 'glow-tata-ledger-combat'];
+  [partyEl, ledgerEl, charactersEl].forEach(el => el && el.classList.remove(...glowClasses));
+  if(partyEl) partyEl.classList.add('glow-party');
+  if(!tata){
+    if(ledgerEl) ledgerEl.classList.add('glow-party-ledger');
+  }else if(!inCombat){
+    if(ledgerEl) ledgerEl.classList.add('glow-tata-ledger-calm');
+    if(charactersEl) charactersEl.classList.add('glow-characters-calm');
+  }else{
+    if(ledgerEl) ledgerEl.classList.add('glow-tata-ledger-combat');
+    if(charactersEl) charactersEl.classList.add('glow-characters-combat');
+  }
+
+  const ledgerHeader = document.getElementById('ledger-header');
+  if(ledgerHeader) ledgerHeader.textContent = tata ? 'Tata Ledger' : 'Party Ledger';
+
+  renderNpcList('characters-list');
+}
+
 // ---------- Central render ----------
 function renderAll(){
   if(!AppState.table) return;
@@ -27,9 +68,30 @@ function renderAll(){
     handleRemovedFromTable();
     return;
   }
+  // New Game Process (2026-08-20) — nothing below the Sequencer Divider is
+  // visible until a Scene is loaded (t.scene set); Load a Scene itself is
+  // only usable by whoever created the Table, per dDd.
+  const sceneLoaded = !!AppState.table.scene;
+  const battleReport = document.querySelector('.battle-report-line');
+  const mapRow = document.querySelector('.map-row');
+  const persistentGrid = document.querySelector('.persistent-grid');
+  if(battleReport) battleReport.classList.toggle('hidden', !sceneLoaded);
+  if(mapRow) mapRow.classList.toggle('hidden', !sceneLoaded);
+  if(persistentGrid) persistentGrid.classList.toggle('hidden', !sceneLoaded);
+  const sceneMenuWrap = document.querySelector('.scene-menu-wrap');
+  if(sceneMenuWrap) sceneMenuWrap.classList.toggle('hidden', AppState.table.createdBy !== AppState.playerId);
+
+  renderView2Mode(persistentGrid);
+
+  AppState.sceneBuildRestriction = (SCENES[AppState.table.scene] && SCENES[AppState.table.scene].restrictBuilds) || null;
+  populateBuildDropdowns();
+
   renderCharacterSheet();
   renderCreateCharacterParty();
   renderTechniquesPanel();
+  renderInformationPanel();
+  const infoBtn = document.getElementById('toolbar-information');
+  if(infoBtn) infoBtn.classList.toggle('pulsing-gom', hasUnseenMindeye());
   renderCombatCounters();
   renderTargetRange();
   renderAllyRange();
@@ -39,6 +101,7 @@ function renderAll(){
   renderDMCounters();
   renderDMTargetRange();
   renderDMStagedActions();
+  renderNpcList();
   renderDMTestPanel();
   renderLedger();
   renderRoster();
@@ -68,6 +131,7 @@ async function handleCreate(){
   AppState.playerId = genId();
   const initial = {
     code, createdAt: Date.now(),
+    createdBy: AppState.playerId, // New Game Process (2026-08-20) — only whoever created the Table can Load a Scene, per dDd; a later joiner never gets that choice.
     log: [{ type: 'system', text: name + ' created the table', time: timeNow() }],
     players: {}, enemies: {},
     inEncounter: false,
@@ -128,8 +192,14 @@ function enterTable(code){
   // Only auto-open for a genuinely new Character (no archetype set yet) —
   // was unconditional, which reopened Create-a-Character on every reload of
   // an already-set-up Character too. Found 2026-08-17, see ISSUES.md.
+  // Also gated on scene === 'dev' (2026-08-20, per dDd) — a Scene like Era 1
+  // already hands the joining Player a fully-statted Living Stone (see
+  // js/scenes.js), so there's nothing left to fill in; the sheet popping up
+  // uninvited is just noise there. A scene-less freshly-created Table (scene
+  // still unset — nothing below the Sequencer Divider is visible yet either,
+  // see renderAll()) shouldn't show it either, only Dev's freeform default.
   const me = AppState.table && AppState.table.players[AppState.playerId];
-  if(me && !me.archetype) openPanel('character');
+  if(me && !me.archetype && AppState.table.scene === 'dev') openPanel('character');
 }
 
 // Fires when this tab's own player record is gone from the synced table — left
@@ -665,12 +735,18 @@ function wireEvents(){
 
   // Toolbar: panel open/close
   document.getElementById('toolbar-character').addEventListener('click', () => togglePanel('character'));
+  document.getElementById('toolbar-load-scene').addEventListener('click', toggleSceneMenu);
+  document.querySelectorAll('.scene-menu-item').forEach(btn => {
+    btn.addEventListener('click', () => loadScene(btn.dataset.scene));
+  });
   document.getElementById('toolbar-combat').addEventListener('click', () => togglePanel('combat'));
   document.getElementById('toolbar-dm').addEventListener('click', () => togglePanel('dm'));
   document.getElementById('toolbar-dmtest').addEventListener('click', () => togglePanel('dmtest'));
   document.getElementById('toolbar-stats').addEventListener('click', () => togglePanel('stats'));
   document.getElementById('toolbar-techniques').addEventListener('click', () => togglePanel('techniques'));
   document.getElementById('toolbar-party').addEventListener('click', () => togglePanel('party'));
+  document.getElementById('toolbar-npcs').addEventListener('click', () => togglePanel('npcs'));
+  document.getElementById('toolbar-information').addEventListener('click', () => togglePanel('information'));
   document.getElementById('toolbar-help').addEventListener('click', () => togglePanel('help'));
   document.getElementById('panel-close-character').addEventListener('click', closePanel);
   document.getElementById('panel-close-combat').addEventListener('click', closePanel);
@@ -679,7 +755,9 @@ function wireEvents(){
   document.getElementById('panel-close-character-view').addEventListener('click', closePanel);
   document.getElementById('panel-close-stats').addEventListener('click', closePanel);
   document.getElementById('panel-close-techniques').addEventListener('click', closePanel);
+  document.getElementById('panel-close-npcs').addEventListener('click', closePanel);
   document.getElementById('panel-close-party').addEventListener('click', closePanel);
+  document.getElementById('panel-close-information').addEventListener('click', closePanel);
   document.getElementById('panel-close-help').addEventListener('click', closePanel);
   document.getElementById('panel-close-technique-use').addEventListener('click', closePanel);
 
@@ -687,7 +765,7 @@ function wireEvents(){
   document.getElementById('ch-build-loader').addEventListener('change', e => loadBuild(e.target.value));
   document.getElementById('btn-make-active').addEventListener('click', () => { makeActiveCharacter(); closePanel(); });
   document.getElementById('btn-save-template').addEventListener('click', saveAsTemplate);
-  ['ch-name', 'ch-species', 'ch-archetype', 'ch-wounds', 'ch-woundsmax', 'ch-ap', 'ch-flow', 'ch-recovery', 'ch-power', 'ch-quickness', 'ch-resilience', 'ch-lightning', 'ch-lava', 'ch-focus', 'ch-control', 'ch-attunement', 'ch-life',
+  ['ch-name', 'ch-archetype', 'ch-wounds', 'ch-woundsmax', 'ch-ap', 'ch-flow', 'ch-recovery', 'ch-power', 'ch-quickness', 'ch-resilience', 'ch-lightning', 'ch-lava', 'ch-focus', 'ch-control', 'ch-attunement', 'ch-life',
    'ch-tech-flowPowers', 'ch-tech-focusPowers', 'ch-tech-lightningCrafts', 'ch-tech-lavaCrafts']
     .forEach(id => {
       const el = document.getElementById(id);
@@ -722,8 +800,6 @@ function wireEvents(){
   document.getElementById('dm-attack-fast-btn').addEventListener('click', () => dmSelectAttackKind('fast'));
   document.getElementById('dm-attack-strong-btn').addEventListener('click', () => dmSelectAttackKind('strong'));
   document.getElementById('dm-attack-focus-btn').addEventListener('click', () => dmSelectAttackKind('focus'));
-  document.getElementById('dm-cast-lightning').addEventListener('click', () => dmSelectEssenceSchool('Lightning'));
-  document.getElementById('dm-cast-lava').addEventListener('click', () => dmSelectEssenceSchool('Lava'));
   document.getElementById('dm-btn-attack-menu').addEventListener('click', () => dmToggleMenu('attack'));
   document.getElementById('dm-btn-block-menu').addEventListener('click', () => dmToggleMenu('block'));
   document.getElementById('dm-block-general-btn').addEventListener('click', () => dmSelectBlockKind('general'));
@@ -742,6 +818,8 @@ function wireEvents(){
   // Map
   document.getElementById('map-edit-toggle').addEventListener('click', toggleMapEditMode);
   document.getElementById('veil-vision-toggle').addEventListener('click', toggleVeilVision);
+  document.getElementById('tata-toggle').addEventListener('click', toggleTata);
+  document.getElementById('map-select-cancel').addEventListener('click', cancelMoveSelect);
 
   // Party: Add AI Party Member (Possessor / Mini-Party Character) — see the
   // "sandwich" model in reference/ROADMAP.md, Party System item C. Per-player
@@ -749,6 +827,7 @@ function wireEvents(){
   // every render); this just wires the shared one-instance form parts.
   initAddPartyMemberUI();
   initTechniquesUI();
+  renderInformationPanel();
 
   initPanelBackdrop();
 }

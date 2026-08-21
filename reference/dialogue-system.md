@@ -715,6 +715,14 @@ as `prototypes/`, sharing one data file:
   translation "Heart") is the same outline with the Center — GI itself —
   filled in. Same completion-marks-presence rule KRO/KROW and GO/GOM
   already used, rediscovered applying to Self.
+  **Retcon, next session, per dDd:** ZON is also, concretely, a Crystal
+  *Structure* (built, physical) and ZIN a Crystal *Being* (a person) —
+  the same empty/filled grammar read literally at architectural scale,
+  not a contradiction of the Self/I reading above. Crystal Beings build
+  everything out of ZON, including the structures used to make more ZIN.
+  Full write-up, including the worked "GI KA M-/W- CROW" infusion
+  construction this came from, now lives in `gomsdu-codex.md`'s
+  "Language as the Animating Gate" section.
 
 ### Second Era: Crystal Beings, and the shape of their elitism
 Per dDd: in the First Era, "I" existed only as GI, a full Word and nothing
@@ -782,6 +790,88 @@ said, narratively (Gom's verbs on Life stay uncompleted until they cross
 GI, the Word; Kulkrow's Kill reverses exactly that). This section is about
 the graph *shape* the exercise revealed, not its content — genuinely
 separate payoffs from the same eleven lines of JSON.
+
+## next session — Wimbis confirmed as Dialogue's real engine; Head/Information/Behavior; naming cleanup
+
+A large batch of answers landed at once, responding to a full synthesis pass
+across every reference doc's open threads. Per dDd: today's Notebook is
+cleaner than whatever's already documented here and wins on any conflict.
+**Attack order for what gets picked up next, per dDd's own instruction:
+Personality System, then Composition-to-Behavior, then the Mechanical
+Fixes** (see `VISION.md`'s matching addendum for the full context).
+
+**The Big One — Wimbis is confirmed as Dialogue's real engine, not a
+parallel discovery sitting near it.** Per dDd: "WIMBIS is the result of all
+that [Second Era Crystal Being] experimentation, the answer to it. It'll
+have everything to do with Dialogue since it's the only way to Communicate
+in World (Actions, Sounds, Thoughts, Writing)." The "Reverse Engineer It to
+English" principle stays the standing approach — English is still the
+translation layer handed to the Player, not the thing being formalized.
+This settles the question the previous "Composition format turns out to
+already be a Call/Response graph" section left open: Wimbis's own grammar
+*is* the branching-Dialogue mechanism, not a candidate for it.
+
+**Head → Information → Behavior, confirmed, with a concrete downstream use.**
+Per dDd: "Head to Information (Expressions or Compositions right now).
+That information informs Movement on the Map and choices in Combat
+(recklessly attacking for example). Information can be Orders." This
+confirms the connection flagged (undocumented) earlier this session —
+routing a Character's Behavior through Composition/Expression via the Head
+domain is real, not speculative, and it's the second item in the attack
+order above ("Composition to Behavior").
+
+**Personality complexity is Era-gated, by design.** "First Era Beings only
+need Head; no Heart (Second Era) or Stomach (Third Era), which reduces the
+complexity of creating the rest of Personality Sheets with intentional
+constraint for that Era." A real, load-bearing scoping tool — First Era
+Character work (Living Stone, Molten Ones, Mud People) never needs the
+full Heart/Stomach/Head build, only Head.
+
+**Naming cleanup, per dDd's own sidenotes:**
+- "Personality" is deliberately used both as the umbrella term for the
+  whole build *and* as the name of one of its own Four Pillars
+  (Information, Personality, Relationships, Exchange) — accepted
+  redundancy, not an error. The old placeholder name for the umbrella
+  concept, "Non-Combat Stats," is retired as "a terrible name choice."
+- **Character, defined:** anything with a Stat Sheet — of which there are
+  two, Physical (essentially done — the existing Combat/Stats system) and
+  Personality (the new parallel build). Applies uniformly to Players,
+  Mini-Party members, Enemies, and NPCs — there's no separate "NPC" data
+  shape, just another Character.
+- `personality-pillar.html` being redundant with the unified Personality
+  framing is confirmed fine, not a problem to fix — "The 4 Pillars and
+  Chemistry are going to be coming up soon" as real near-term work.
+
+**Dialogue Engine open threads, resolved by redirection rather than answered
+directly** — per dDd, several of `gomsdu-dialogue-mechanics.md`'s standing
+Open Threads aren't independent design questions at all, they're outputs of
+the Personality/Language builds once those exist, not separate problems to
+solve first:
+- Axes/Axis/Ax will be directly associated with Glyphs, not a parallel
+  English-side taxonomy.
+- The Personality reaction-scoring rule, ripple-effect mapping, and
+  Sponge-drift rate are all "dependent on Personality" — they fall out of
+  the Personality build, not a separate formula to derive in the abstract.
+- Set Piece pairing-coherence is "dependent on Language" — Wimbis's own
+  grammar decides what combines, not an independent English-side rule.
+- The Line-to-outcome resolution rule is "connected to the Map and
+  Personality" — same redirection.
+- Rehearsed Line repetition is explicitly deferred — "not an immediate
+  concern, Third Era stuff."
+- The "whether a Snippet is always strictly binary" open thread is
+  dropped per dDd ("we can delete the stuff about Snippets") — no longer
+  worth tracking.
+
+**Blocked items, updated:**
+- Navigation resolves simply — "a Drop Down Select somewhere on the Main
+  Game Screen," no bigger location-graph system needed.
+- Axes/Axis/Ax genuinely wait on Personality and Language settling first
+  — confirmed, not reopened.
+- TATA stays on hold until NPCs exist to work with — confirmed, not
+  reopened.
+- "Interaction authoring format" wasn't recognized as posed ("I don't know
+  what this is about") — needs a concrete example next time it's raised,
+  not just the abstract description above.
 
 ## Closing framing
 

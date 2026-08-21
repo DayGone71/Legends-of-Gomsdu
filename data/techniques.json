@@ -102,5 +102,17 @@
     },
     "range": 5,
     "effect": "Target gains +10 Power on all attacks made during the Sequence."
+  },
+  "message": {
+    "name": "Message",
+    "group": "Craft",
+    "column": "Lightning",
+    "type": "Mystic Sight",
+    "costs": {
+      "ap": 1,
+      "lightning": 1
+    },
+    "range": 7,
+    "effect": "Sets an Expression in another Character's Mindeye. (Mindeye itself isn't built yet — this just needs to stage.)"
   }
 }

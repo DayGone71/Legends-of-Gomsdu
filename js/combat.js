@@ -734,7 +734,7 @@ export async function resolveRound(){
 
   AppState.pendingType = null; AppState.pendingAttackKind = null; AppState.pendingEssenceSchool = null;
   AppState.pendingBlockKind = null; AppState.pendingCounter = false;
-  AppState.dmPendingType = null; AppState.dmPendingAttackKind = null; AppState.dmPendingEssenceSchool = null;
+  AppState.dmPendingType = null; AppState.dmPendingAttackKind = null; AppState.dmPendingCraftKey = null;
   AppState.dmPendingBlockKind = null; AppState.dmPendingCounter = false;
 }
 

@@ -165,3 +165,12 @@ Per the Vibe Doc's TATA section: the Information pillar needs to carry **authors
 - Full mapping of which values a given ripple effect touches, per Set Piece type.
 - Rehearsed Line repetition: always lands the same, or do Personalities grow wise to it?
 - Sponge-type Personality drift rate/balance — needs real numbers before it can be judged.
+
+**Redirected, next session, per dDd — see `dialogue-system.md`'s matching
+dated section for full detail.** None of the five threads above are
+independent design questions anymore: Axes/Axis/Ax attach directly to
+Glyphs; the scoring rule, ripple mapping, and Sponge-drift rate are all
+"dependent on Personality" — outputs of the Personality build once it
+exists, not formulas to derive here in the abstract; Rehearsed Line
+repetition is explicitly deferred as Third Era work, not an immediate
+concern.

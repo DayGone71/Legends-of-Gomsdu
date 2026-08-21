@@ -2,118 +2,122 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Information Pillar — bare bones prototype</title>
+<title>Information Pillar</title>
 <style>
   body { font-family: 'Segoe UI', sans-serif; background:#1b1b1f; color:#eee; padding:32px; margin:0; }
-  .nav-row { text-align:center; margin-bottom:16px; }
+  .nav-row { text-align:center; margin-bottom:32px; }
   .nav-row a { color:#6fa8dc; font-size:12px; text-decoration:none; }
   .nav-row a:hover { text-decoration:underline; }
-  .char-tag { text-align:center; font-size:12px; color:#888; margin-bottom:18px; }
-  .char-tag b { color:#dcb96f; }
-  h2 { text-align:center; font-weight:600; margin:0 0 6px; color:#ccc; }
-  .subhead { text-align:center; font-size:12.5px; color:#888; margin-bottom:28px; }
 
-  .add-row { display:flex; gap:8px; justify-content:center; margin-bottom:32px; flex-wrap:wrap; }
-  .add-row input, .add-row select, .add-row button {
-    background:#2a2a30; border:1px solid #444; color:#ddd; border-radius:5px;
-    padding:8px 12px; font-size:13px;
+  .ritual { width:180px; margin:0 auto; display:flex; flex-direction:column; align-items:center; }
+  .glyph-slot { width:100px; color:#eee; }
+  .glyph-slot svg { width:100%; height:auto; display:block; }
+  .glyph-label { text-align:center; font-size:11px; color:#888; margin-top:4px; letter-spacing:.05em; }
+  .line-slot { width:100px; color:#888; margin-top:14px; }
+  .line-slot svg { width:100%; height:auto; display:block; }
+
+  .receiving-box {
+    width:180px; min-height:150px; margin:22px 0;
+    border:2px dashed #444; border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+    background:#242429; color:#555; font-size:12px; text-align:center; padding:14px;
   }
-  #inf-subject { width:160px; }
-  #inf-note { width:260px; }
-  .add-row button { cursor:pointer; }
-  .add-row button:hover { background:#35353d; border-color:#888; }
-
-  .columns { display:flex; gap:40px; justify-content:center; align-items:flex-start; }
-  .col { flex:1; max-width:420px; }
-  .col-label { text-align:center; font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:#888; margin-bottom:4px; }
-  .col-note { text-align:center; font-size:11.5px; color:#666; margin-bottom:14px; }
-  .col-list { min-height:60px; border:2px dashed #444; border-radius:6px; padding:10px; background:#242429; }
-  .col-list:empty::before { content:"— nothing held here yet —"; color:#555; font-size:13px; }
-
-  .item { background:#2c2c33; border:1px solid #444; border-radius:6px; padding:9px 12px; margin-bottom:8px; font-size:13px; position:relative; }
-  .item:last-child { margin-bottom:0; }
-  .item .tag { color:#9fd0ff; font-weight:600; }
-  .item .note { color:#ccc; display:block; margin-top:3px; }
-  .item .remove { position:absolute; top:6px; right:9px; cursor:pointer; color:#888; font-size:12px; }
-  .item .remove:hover { color:#e08080; }
 </style>
 </head>
 <body>
 
 <div class="nav-row"><a href="chemistry-pillar.html">&larr; Chemistry</a></div>
-<div class="char-tag">Character A: <b id="char-name">&mdash;</b></div>
 
-<h2>Information Pillar — bare bones prototype</h2>
-<div class="subhead">A Character's own kit — gathered through play, not a fixed pool</div>
+<div class="ritual">
+  <div class="glyph-slot" id="slot-gi"></div>
+  <div class="glyph-label">GI</div>
 
-<div class="add-row">
-  <input id="inf-subject" placeholder="((Subject))" />
-  <select id="inf-scope">
-    <option value="local">Local</option>
-    <option value="global">Global / Retained</option>
-  </select>
-  <input id="inf-note" placeholder="What's actually known" />
-  <button id="btn-add-info">Add</button>
-</div>
+  <div class="glyph-slot" id="slot-ka" style="margin-top:16px;"></div>
+  <div class="glyph-label">KA</div>
 
-<div class="columns">
-  <div class="col">
-    <div class="col-label">Local</div>
-    <div class="col-note">situational — "check that sword out"</div>
-    <div class="col-list" id="list-local"></div>
-  </div>
-  <div class="col">
-    <div class="col-label">Global / Retained</div>
-    <div class="col-note">persists, recallable later</div>
-    <div class="col-list" id="list-global"></div>
-  </div>
+  <div class="glyph-slot" id="slot-m" style="margin-top:16px;"></div>
+  <div class="glyph-label">M</div>
+
+  <div class="line-slot" id="slot-yield-line"></div>
+
+  <!-- The receiving mechanism isn't built yet — this box just needs to be
+       able to display an Expression or a bare Glyph, whatever eventually
+       feeds it. Static placeholder for now, no wiring. -->
+  <div class="receiving-box" id="receiving-box">&mdash; nothing received yet &mdash;</div>
+
+  <div class="glyph-slot" id="slot-w"></div>
+  <div class="glyph-label">Yield: W</div>
 </div>
 
 <script>
-  // Bare-bones Information Pillar prototype — a Character's held kit, split
-  // Local/Global per the Mechanics doc. Deliberately not wired to the
-  // Exchange prototype yet, and deliberately not modeling Fog of War /
-  // TATA authorship-asymmetry here — this pass only tests holding and
-  // browsing a kit, nothing about how it gets perceived by someone else.
-  let items = [];
+  // Displays the Soul Injection Expression (GI + KA + M -> yield-line ->
+  // Result: W) — the Subtle Aspect of the Animating Gate, per
+  // gomsdu-codex.md. Read-only, straight from the Glyphic System JSON;
+  // same render logic as gomsdu-glyph-viewer.html / archive.html.
 
-  function render(){
-    const local = document.getElementById('list-local');
-    const global = document.getElementById('list-global');
-    local.innerHTML = '';
-    global.innerHTML = '';
-    items.forEach((item, i) => {
-      const el = document.createElement('div');
-      el.className = 'item';
-      el.innerHTML =
-        '<span class="tag">((' + item.subject + '))</span>' +
-        (item.note ? '<span class="note">' + item.note + '</span>' : '') +
-        '<span class="remove" title="Remove">&times;</span>';
-      el.querySelector('.remove').addEventListener('click', () => {
-        items.splice(i, 1);
-        render();
-      });
-      (item.scope === 'global' ? global : local).appendChild(el);
-    });
+  function primitiveMarkup(prim) {
+    const r = prim.render;
+    if (!r) return '';
+    const strokeAttrs = 'fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="square" stroke-linejoin="miter"';
+    if (r.type === 'rect') {
+      return '<rect x="' + r.x + '" y="' + r.y + '" width="' + r.width + '" height="' + r.height +
+        '" rx="' + (r.rx || 0) + '" ' + strokeAttrs + '/>';
+    }
+    if (r.type === 'path') return '<path d="' + r.d + '" ' + strokeAttrs + '/>';
+    if (r.type === 'multipath') return r.d.map(function (d) { return '<path d="' + d + '" ' + strokeAttrs + '/>'; }).join('');
+    if (r.type === 'dots') return r.points.map(function (pt) { return '<circle cx="' + pt.cx + '" cy="' + pt.cy + '" r="' + pt.r + '" fill="currentColor"/>'; }).join('');
+    return '';
   }
 
-  document.getElementById('btn-add-info').addEventListener('click', () => {
-    const subject = document.getElementById('inf-subject').value.trim();
-    if(!subject) return;
-    const scope = document.getElementById('inf-scope').value;
-    const note = document.getElementById('inf-note').value.trim();
-    items.push({ subject, scope, note });
-    document.getElementById('inf-subject').value = '';
-    document.getElementById('inf-note').value = '';
-    render();
-  });
+  function glyphMarkup(glyph, lookupPrimitive, lookupGlyph, depth) {
+    depth = depth || 0;
+    if (depth > 6 || !glyph.composition) return '';
+    let out = '';
+    glyph.composition.forEach(function (entry) {
+      const pos = entry.position || [0.5, 0.5];
+      const scale = (entry.scale === undefined) ? 1 : entry.scale;
+      const rotation = entry.rotation || 0;
+      const fx = pos[0] * 100, fy = pos[1] * 100;
+      const transform = 'translate(' + fx + ',' + fy + ') rotate(' + rotation + ') scale(' + scale + ') translate(-50,-50)';
+      let inner = '';
+      if (entry.primitive) {
+        const prim = lookupPrimitive(entry.primitive);
+        inner = prim ? primitiveMarkup(prim) : '';
+      } else if (entry.glyph) {
+        const g = lookupGlyph(entry.glyph);
+        inner = g ? glyphMarkup(g, lookupPrimitive, lookupGlyph, depth + 1) : '';
+      }
+      out += '<g transform="' + transform + '">' + inner + '</g>';
+    });
+    return out;
+  }
 
-  render();
+  function svgWrap(inner) { return '<svg viewBox="0 0 100 100">' + inner + '</svg>'; }
 
-  try {
-    const c = JSON.parse(localStorage.getItem('gomsdu-chemistry-character') || 'null');
-    if(c && c.name) document.getElementById('char-name').textContent = c.name;
-  } catch(e){}
+  fetch('../language/gomsdu-glyphic-system.json')
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      const lookupPrimitive = function (id) { return data.primitives.find(function (p) { return p.id === id; }); };
+      const lookupGlyph = function (id) { return data.glyphs.find(function (g) { return g.id === id; }); };
+
+      const gi = lookupGlyph('GI');
+      const ka = lookupGlyph('KA');
+      const mGlyph = lookupGlyph('M');
+      const wGlyph = lookupGlyph('W');
+      const yieldLine = lookupPrimitive('yield-line');
+
+      if (gi) document.getElementById('slot-gi').innerHTML = svgWrap(glyphMarkup(gi, lookupPrimitive, lookupGlyph));
+      if (ka) document.getElementById('slot-ka').innerHTML = svgWrap(glyphMarkup(ka, lookupPrimitive, lookupGlyph));
+
+      // M and W are now formal Glyphs (North/South Facing Mark), built from
+      // new-chevron-north/new-chevron-south — no more ad-hoc rotation hack.
+      if (mGlyph) document.getElementById('slot-m').innerHTML = svgWrap(glyphMarkup(mGlyph, lookupPrimitive, lookupGlyph));
+      if (wGlyph) document.getElementById('slot-w').innerHTML = svgWrap(glyphMarkup(wGlyph, lookupPrimitive, lookupGlyph));
+      if (yieldLine) document.getElementById('slot-yield-line').innerHTML = svgWrap(primitiveMarkup(yieldLine));
+    })
+    .catch(function () {
+      document.getElementById('receiving-box').textContent = 'Could not load the Glyphic System — serve this page from the project root.';
+    });
 </script>
 
 </body>

@@ -1,6 +1,6 @@
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
-import { escapeHtml, timeNow, isDeathWounded, resolveEntityRef, resolvePositionRef, alliedActorIds } from './utils.js';
+import { escapeHtml, timeNow, isDeathWounded, resolveEntityRef, resolvePositionRef, alliedActorIds, deliverMindeyeEntry } from './utils.js';
 import { openPanel, closePanel } from './panels.js';
 import { getDistance, hasLineOfSight } from './map.js';
 import { MAX_MINI_PARTY } from './possession.js';
@@ -35,7 +35,7 @@ const RESOURCE_LABELS = { ap: 'AP', focus: 'Focus', flow: 'Flow', lightning: 'Li
 // access — this is the first real gate past "anybody can Technique anybody,
 // for Testing purposes," not a retroactive lockout.
 const CATEGORY_BY_COLUMN = { Flow: 'flowPowers', Focus: 'focusPowers', Lightning: 'lightningCrafts', Lava: 'lavaCrafts' };
-function hasCategoryAccess(actor, def){
+export function hasCategoryAccess(actor, def){
   const catKey = def && CATEGORY_BY_COLUMN[def.column];
   if(!catKey) return true;
   const access = actor && actor.techniqueAccess;
@@ -45,7 +45,9 @@ function hasCategoryAccess(actor, def){
 // Flow isn't a per-round "spent" pool like AP/Focus — it's the actor's real,
 // persistent Flow, same value combat damage already drains and Recovery
 // rebuilds. Lightning/Lava get a new per-round spent pool, same shape as focusSpent.
-function remaining(actor, resource){
+// Exported — dm.js's own Craft staging (the DM Panel's Essence menu) reuses
+// this against an Enemy actor, same field shape as a Player.
+export function remaining(actor, resource){
   if(resource === 'flow') return actor.flow || 0;
   if(resource === 'ap') return (actor.ap || 0) - (actor.apSpent || 0);
   if(resource === 'focus') return (actor.focus || 0) - (actor.focusSpent || 0);
@@ -54,7 +56,7 @@ function remaining(actor, resource){
   return 0;
 }
 
-function costText(costs){
+export function costText(costs){
   return Object.entries(costs).map(([r, amt]) => amt + ' ' + RESOURCE_LABELS[r]).join(', ');
 }
 
@@ -157,6 +159,7 @@ export async function stageTechnique(){
     actor.lightningSpent = (actor.lightningSpent || 0) + entry.lightningCost;
     actor.lavaSpent = (actor.lavaSpent || 0) + entry.lavaCost;
     if(entry.flowCost) actor.flow = Math.max(0, (actor.flow || 0) - entry.flowCost);
+    if(currentTechniqueKey === 'message') deliverMindeyeEntry(t, targetId, actor.name || 'Someone');
     t.log.push({ type: 'system', text: (actor.name || 'Someone') + ' stages ' + def.name + ' on ' + target.name, time: timeNow() });
   });
 

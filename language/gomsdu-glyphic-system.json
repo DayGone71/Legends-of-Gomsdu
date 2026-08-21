@@ -18,7 +18,14 @@
       "2026-08-19, later — Integrated 4 items from a hand-edited Downloads-folder copy of the file, per creator: new Primitives 'separate' (three-piece broken vertical line — two point-dots at top/bottom, disconnected from a short middle segment) and 'connect' (one unbroken vertical line); new Glyphs BE (Cut/Separate/Sever) and KA (Fix/Assemble/Maintain), both First Era. Found and fixed a bug in the source file before integrating: BE's composition referenced 'connect' instead of 'separate' — both BE and KA pointed at the same primitive, identical geometry, despite 'separate' and 'connect's own descriptions (\"for BE\" / \"for KA\") saying otherwise. Corrected BE to use 'separate', matching its own semantics and the primitive's stated purpose; flagged to creator rather than assumed silently. Also added 3 more Lines to the Arranger, filling out the set from the same conversation: wildcard-above-line and wildcard-below-line (same follow/goto meaning as the numbered Lines, but for ANY Expression in the row rather than a specific 1st/2nd/3rd — number placeholder is 0 for now), and yield-line (a line with an X through its center, representing Yield). New render type 'line-with-x' ({d, x: {cx, cy, size}}) added to support the latter, wired into all three tools' rendering code alongside 'line-with-number'.",
       "2026-08-19, later still — Added a 'Yield Results' row to the Arranger: 3 bare Glyph slots (no Lines) below the 3x3 Expression grid, one per column, with a faint accent-colored glow — representing the Glyph a yield-line in that column resolves to. Click-to-open-menu works the same as the Expression grid's slots; Show Composition's text dump now ends with a 'Yield Results' section listing whichever of the 3 columns are filled. No JSON schema changes — this is purely Arranger UI state, not persisted data.",
       "2026-08-19, evening — First full worked Composition written in the Arranger, per creator, using an earlier draft (all-KROW throughout) then a revised, better version (Row 1 changed from KROW to KRO) — transcribed here since the Arranger itself doesn't persist grid state to this file. Final version: Row 1 (Expr 1-3) = GOM+OG+KRO / GOM+WIM+KRO / GOM+KA+KRO, each next-idea-line-led and goto-2-line-out. Row 2 (Expr 5 only, columns 1 and 3 deliberately empty) = GOM+GI+KROW, wildcard-above-line in and wildcard-below-line out — a single mandatory gate all three Row 1 columns funnel into. Row 3 (Expr 7-9) = GOM+MO+KROW / KULKROW+KUL+KROW / GOM+OR+KROW, each follow-2-line-in and yield-line-out — note Expr 8's subject is KULKROW, not GOM, the only column where the actor changes. Yield Results: KROW, KRO, KROW. Creator-confirmed as deliberate: the KULKROW-as-subject swap on the Kill branch, and the Row-1 KROW-to-KRO change specifically 'to drive the point.' Reading (Claude's interpretation, offered and not corrected by creator beyond a timing correction on how long ago the underlying words were written): none of Gom's three verbs on Life — Create, Teach, Maintain — complete the vessel on their own; every Row 1 branch stays KRO. Completion to KROW happens exactly at GI, the Word, the language's own name for its smallest unit — the single gate every branch must pass through regardless of origin. Take and Give both preserve that completion. Kill, specifically performed by Kulkrow rather than Gom, is the one branch that reverses it, returning the vessel to its pre-Word state rather than destroying it outright. See gomsdu-codex.md's new 'Language as the Animating Gate' section and dialogue-system.md's corresponding dated entry for the cosmological and mechanical write-ups this produced.",
-      "2026-08-19, night — Session wrap-up, several smaller items from conversation rather than JSON edits: (1) GI carries a First Era reading of 'Is', alongside its established 'a Word' meaning — per creator, chevrons were the preferred grammatical tool in the First Era specifically because the whole point was directing action/intent, and 'Gom Takes/Gives Is' (the Take/Give Composition documented above) is plausibly the foundational sentence-pattern the Living Stone's entire First Era thinking runs on. (2) The Living Stone can act and 'think' via Gom's engravings but cannot originate direction, only receive it — mirrors this system's own follow-line/goto-line distinction (receiving a direction that already exists above you, versus dispatching toward one) more precisely than coincidence would explain. (3) Second Era 'gets carried away with GeKARI' per creator — the elaborate GeKA/GeKARAP/GeKARI compounding is Crystal Being overreach on top of the First Era's minimal Take/Give-Is grammar, not a necessary expansion. (4) ZINKARI (Self/ZIN at center, surrounded by GeKARI, the Tetraglyph) is confirmed as the in-world Glyph for the Player-plus-4-Character Party structure — 5 total per Party, which has independently been the settled game design for about two weeks; see gomsdu-codex.md's new 'Party Structure' section under Character Stats & Combat System. (5) The 'compass-copy' primitive shown in chat as a demo of ZINKARI's shape was never added to this file and isn't meant to be — creator plans to draw the real Glyph properly in the Designer directly. (6) Dev-facing system names (Party/Mini-Party/Meta-Party) are deliberately kept separate from World/Wimbis vocabulary (ZINKARI, GeKARI) per creator — don't blend the two even where a Wimbis word would fit the Dev concept neatly."
+      "2026-08-19, night — Session wrap-up, several smaller items from conversation rather than JSON edits: (1) GI carries a First Era reading of 'Is', alongside its established 'a Word' meaning — per creator, chevrons were the preferred grammatical tool in the First Era specifically because the whole point was directing action/intent, and 'Gom Takes/Gives Is' (the Take/Give Composition documented above) is plausibly the foundational sentence-pattern the Living Stone's entire First Era thinking runs on. (2) The Living Stone can act and 'think' via Gom's engravings but cannot originate direction, only receive it — mirrors this system's own follow-line/goto-line distinction (receiving a direction that already exists above you, versus dispatching toward one) more precisely than coincidence would explain. (3) Second Era 'gets carried away with GeKARI' per creator — the elaborate GeKA/GeKARAP/GeKARI compounding is Crystal Being overreach on top of the First Era's minimal Take/Give-Is grammar, not a necessary expansion. (4) ZINKARI (Self/ZIN at center, surrounded by GeKARI, the Tetraglyph) is confirmed as the in-world Glyph for the Player-plus-4-Character Party structure — 5 total per Party, which has independently been the settled game design for about two weeks; see gomsdu-codex.md's new 'Party Structure' section under Character Stats & Combat System. (5) The 'compass-copy' primitive shown in chat as a demo of ZINKARI's shape was never added to this file and isn't meant to be — creator plans to draw the real Glyph properly in the Designer directly. (6) Dev-facing system names (Party/Mini-Party/Meta-Party) are deliberately kept separate from World/Wimbis vocabulary (ZINKARI, GeKARI) per creator — don't blend the two even where a Wimbis word would fit the Dev concept neatly.",
+      "next session — Large batch of answers to standing openThreads plus new material, sourced from the creator's own hand-written Notebook. Per creator, explicitly: the Notebook is cleaner than whatever's already documented here, and wins on any conflict. (1) KULKROW confirmed pronounced full two-part 'kul-krow', not contracted. (2) 'Wimbis' confirmed as the current Sound for Language. (3) A grammar layer below the Glyph/Word tier surfaced for the first time: the Chevron is a 'Mark' (Letter), corresponding to a Sound/Vibration. No documentation exists yet on individual Letters beyond this, except that M and W are specifically confirmed as 'hummers' (a vocalization category) — a real, flagged gap, not an oversight. (4) Chevrons carry compass-direction orientation, not just the existing upright/inverted W/M binary: First Era uses 4 Chevrons, one per Cardinal Direction; Second Era expands to 8. The existing 'Chevron completion' grammar rule (upright=W, inverted=M) is now understood as 2 of these 4 (soon 8) orientations, not the whole system — full reconciliation waits on the other orientations being documented. (5) GOMGOM generalized into a real, unbreakable grammar rule, not a one-word taboo: GOM can never associate with himself directly inside an Expression — always needs a Block or Line separating two instances. Exceptions, per creator: GOM may precede a Closing Line or follow an Opening Line (adjacency to a Line marker doesn't count as direct association); GOGOM/GOMGO is fine because GO carries no completing Mark, so it isn't 'GOM' for the rule's purposes; Compounds (any Diglyph/Triglyph/etc. containing GOM as a sub-component) are excluded from the rule entirely. (6) SUU is confirmed to eventually become a real, drawn Glyph — 'during the War' (First War, per its established origin as the Molten Ones' first spoken word) — with a real etymology: S is the singular form of the BIS Glyph, meaning 'bad / pain / feel', not just 'Stop'. Per the 2026-08-19 entry above, SUU still isn't being formally added to the glyphs array until creator draws its shape — this only updates what's known about it going in. (7) OR and MO are reopened, not settled, contradicting the 'settled 2026-08-21' status logged above the same day — per creator, on reflection they read better as a Give/Take Diglyph pair than as the two independent Glyphs previously settled; see each entry's own updated status. The num_sign and interlocking-jagged-circle shapes stay in the file as provisional/candidate data. (8) New lore, not yet reconciled into dialogue-system.md's existing ZIN/ZON write-up: per creator, ZON = a Crystal Structure (built, physical) and ZIN = a Crystal Being (a person) — a deliberate retcon/extension of the existing abstract Self/I reading, not a contradiction of it (an unfilled outline = an un-souled Crystal Structure; the same outline with GI/Center filled = an ensouled Crystal Being — the same empty-vs-filled grammar already established for KRO/KROW and GO/GOM, now read as literally true at Crystal-Being architectural scale). Per creator, Crystal Beings build everything out of ZON, including the structures used to make more ZIN. (9) A major worked construction: the Chevron used as a Glyph in its own right rather than as a Mark, for the first time — 'GI KA M- CROW' (M swappable for W depending on vertical orientation). Reads as GI (the Word/Soul) + KA (Maintain) + a held/humming Mark (the trailing dash meaning 'continues until it needs to') + CROW as the resulting Yield once the hum ends. Per creator, this is the literal mechanism the Second Era's Crystal Beings use to infuse a Crystal Structure with a Soul: GI is a ball charged by Gom, affixed to the Structure's ceiling; KA is a Crystal Coil (a Tesla-coil analog) wired to the GI ball; the delivery Mark (a Chevron facing South) is wired to the Coil; a person lies down as the Yield to receive the resulting blast, becoming ensouled. Gom himself can just do all of this directly, no apparatus needed. See gomsdu-codex.md's 'Language as the Animating Gate' section for the write-up. (10) Side lore, not yet placed anywhere in canon: Living Stone and Crystal Beings can both Vibrate, but only Crystal Beings actually know how to communicate with it — 'Crystal Code', a musical take on the language using Relative Frequency and Ratio rather than the visual Glyph grammar. Creator wrote this as 'Wimsib' — possibly meaning Wimbis specifically in a musical/vibrational register rather than the ordinary spoken/written one, not the established 'Sibmiw' (Wimbis read backward, a known slur) — flagged as an open naming question rather than assumed, worth confirming which was meant.",
+      "next session — Integrated a hand-edited Downloads-folder copy of the file, per creator: two new lexical-base Primitives, 'new-chevron-north' and 'new-chevron-south' (creator-drawn via the Designer's point editor), each already sized so its own base points sit exactly at the box's mid-height — deliberately built to combine cleanly with a standard 'M10,50 L90,50' Line. Source paths retraced their own two segments (harmless duplication, renders identically); deduplicated on integration rather than assumed load-bearing. A third new Primitive, 'triangle-invert' ('for DU'), and a new Glyph, DU ('Name of the Planet, so all Matter', composed from triangle-invert), came in the same file. **New Grammar Line, per creator's direct request: 'extract-line'** — a horizontal line with new-chevron-north's peak rising above it, meaning not yet formalized beyond the name. **yield-line redesigned to be extract-line's opposite, per creator** — 'removing the top Chevron and flipping the Lower One (or converting it to a chevron-south)': render changed from the old 'line-with-x' (a line with an X through its center) to a horizontal line with new-chevron-south's peak dropping below it. The 'line-with-x' render type itself is now unused by any Primitive but left in all three tools' rendering code, in case a future marker wants it — not deleted.",
+      "next session, next batch — Integrated another hand-edited Downloads-folder copy, per creator. New Primitive 'arrow' ('for directions', an arrowhead over a shaft, pointing up at rotation 0) — deduplicated on integration, same as the chevron pair before it (source path retraced the shaft twice). Formalized W and M as real Glyphs (built from new-chevron-north/new-chevron-south respectively) rather than the base 'chevron' primitive rotated — js/information.js in the actual game now references these directly instead of its earlier ad-hoc rotation hack. Four new direction Glyphs, each a letter-reversal pair (matching the established Position-2-3 reversal derivation pattern) built from 'arrow' at the matching rotation: RO/OR (Up/Forward/North), OP/PO (Down/Backward/South), KO (Right/Sideways/East), OK (Left/Sideways/West). Flagged, not resolved: 'RO / OR' shares its sound with the already-settled Glyph OR (Give) — could be deliberate reuse in the house style's stacked-gloss spirit, or an unflagged collision; noted on the new entry itself rather than assumed either way.",
+      "next session, next batch — Glyph-design fixes from another hand-edited Downloads copy, per creator. Two new Primitives, 'new-chevron-west' and 'new-chevron-east', completing the 4-cardinal-direction chevron set alongside north/south (deduplicated on integration, same harmless retrace pattern as before). Real redesigns, not just new vocabulary: GOM and GO now built from gom-circle (finally wired in — previously added 'alongside jagged-circle, not replacing it') instead of jagged-circle; GOM's completing Mark is now new-chevron-north instead of the generic chevron rotated 180deg. KROW's completing Mark is now new-chevron-south instead of the generic chevron. GO's meaning changed to 'Shadow Gom' — flagged as a likely connection to the already-established game term 'Shadow Possession' (see reference/HELP-DRAFT.md), not assumed. **OR's composition resolved for real**: built from the Glyph RO/OR (Up/Forward/North) plus a completing M, replacing the provisional num_sign shape entirely — this confirms the RO/OR-vs-OR sound overlap flagged just above was the actual point, not an unflagged collision. MO's two circles swapped to gom-circle too, but its own redesign didn't reach for the direction-Glyph vocabulary the way OR's did — the earlier 'OR/MO as a Give/Take Diglyph pair' idea doesn't seem to be where this ended up; flagged as an open question rather than assumed dropped.",
+      "next session, later — extract-line's meaning confirmed, per creator: Extract, 'like \"from\"'. First worked Composition using it, transcribed here since the Arranger doesn't persist grid state to this file (creator initially pasted a version without Line markers, then corrected it — 'I forget the lines, disregard that last one!' — this is the corrected version). Middle column only (Expressions 2, 5, 8), Row 1/3 and Column 1/3 empty. Expression 2: next-idea-line / KULKROW / S / DU / next-idea-line. Expression 5: next-idea-line / GOM / MO / DU. Expression 8: next-idea-line / GOM / OG / KRO / extract-line. Yield Results: Column 2 = DU. Claude's offered reading (not yet confirmed by creator): read as \\\"(Noun) (Verb) (Noun)\\\" per Expression, per the Genesis Syllabary's established grammar (see scenes.md) — (1) Kulkrow [S: Pain/Hurt] DU: Kulkrow wounds the Planet/Matter. (2) Gom [MO: Take] DU: Gom takes the Planet/Matter — the same domain-encroachment already flagged in gomsdu-codex.md's 'Duality Irony' section. (3) Gom [OG: Create] KRO, not KROW: Gom's own creation stays uncompleted/unanimated (consistent with the Animating Gate Composition above — Gom's verbs alone never complete Life). extract-line then draws DU specifically *out of* that failed/incomplete creation — an uncompleted vessel, extracted from, yields raw Matter rather than Life. Possible resonance with the True Union material's Shield-shattering moment (Gom's Essence meeting Kulkrow's purest Matter 'in violence, unintended by either brother') — flagged as a guess, not asserted. Saved into language/gomsdu-compositions.json as 'The DU Composition' pending creator's own name for it.",
+      "next session, later still — DU Composition confirmed and corrected, per creator: it depicts Kulkrow melting the Planet, transliterated KULKROW S'DU (an apostrophe implied by context, eliding S+DU — not a written Mark; see grammar.rules). GOM MO DU confirmed as literally 'taking the Planet material.' GOM OG KRO, extracted from DU, confirmed as Gom transforming taken material into the KRO stage of a Living Stone — shaped, not yet animated. Full write-up in gomsdu-codex.md's 'The DU Composition: Making the Living Stone, staged' section. **Separately, creator gave a fuller replay of the original 'Animating Gate' Composition (2026-08-19 evening entry above) with its Yield Results row filled in for the first time — and it corrects that entry's transcribed Yield Results.** Original said 'KROW, KRO, KROW' (Take/Kill/Give); actual Yield Results per this replay: Column 1 (Take, GOM+MO+KROW) = KRO, not KROW. Column 2 (Kill, KULKROW+KUL+KROW) = S (Pain/Hurt/Feel), not KRO. Column 3 (Give, GOM+OR+**KRO**, not KROW as originally transcribed) = KROW. The three branches don't share a starting state, contrary to the original transcription: Take and Kill both act on an already-complete KROW; Give acts on an incomplete KRO, the same state Row 1 leaves everything in before the Gate. Take empties completion back out; Kill produces Pain instead of a bare reversion; Give is the one branch that completes an unfinished vessel directly, without passing through GI. The replay also clarified a structural point the original transcription left ambiguous: Row 1 and Row 3's middle-column Expressions (already at column-2 position) use plain next-idea-line/wildcard-line, not a self-referential goto-2-line/follow-2-line — those redirect Lines are only needed on columns 1 and 3, to converge them into column 2's shared gate. Full corrected transcription saved into language/gomsdu-compositions.json alongside the DU Composition. Open thread: whose Pain does the Kill branch's S-yield name — the vessel's, or Kulkrow's own, the one performing it? Not resolved, flagged for creator — see openThreads.",
+      "next session, even later — Several corrections and one real new mechanic, per creator: (1) The Kill branch's Pain belongs to the vessel, not Kulkrow — resolves the open thread above. The three-branch Composition is a deliberate warning, contrasting Gom's two options (Give/Take Life) against Kulkrow's one (Inflict Pain). (2) KUL's meaning updated to 'Kill / Destroy / Inflict' held together, per a new explicit house style: multiple overlapping glosses are preferred over one strict English translation. Applies generally going forward, not just to KUL. (3) A real new grammar feature, Continual Marking: a small minority of Marks (confirmed so far: M, W, S) can sustain rather than land instantaneously, like a musical fermata — already present, unnamed, in the earlier 'GI KA M- CROW' construction's trailing dash. This corrects a wrong guess made earlier in this same log ('S'DU' was NOT an elided apostrophe between two Glyph-sounds — it's a Continual-S notation, symbol not yet settled between '-' and '''). (4) KULKROW creates Continual S, and Continual S — S', held by Kulkrow — is confirmed to literally be Lava itself; physically touching it carries Negativity. Gives 'KULKROW S'DU' a second, physical reading directly beneath the grammatical one. Full write-up in gomsdu-codex.md's corrected 'Language as the Animating Gate' section and new 'The Continual Mark, and S' as Lava' section. Both this and the DU Composition confirmed already saved in language/gomsdu-compositions.json, per creator's explicit ask."
     ]
   },
   "primitives": [
@@ -265,17 +272,84 @@
       }
     },
     {
+      "id": "extract-line",
+      "role": "marker",
+      "description": "A horizontal line with a chevron-north peak rising above it, touching the line at its own base points. Means Extract — 'from', per creator. Runs opposite yield-line: a yield-line's Yield names what a sequence produces; an extract-line's Yield names what a sequence was drawn from.",
+      "render": {
+        "type": "multipath",
+        "d": [
+          "M10,50 L90,50",
+          "M20,50 L50,20 L80,50"
+        ]
+      }
+    },
+    {
       "id": "yield-line",
       "role": "marker",
-      "description": "A horizontal line with an X through its center. Represents Yield.",
+      "description": "A horizontal line with a chevron-south peak dropping below it, touching the line at its own base points — the opposite of extract-line. Represents Yield. Redesigned next session, per creator, replacing the earlier X-mark version.",
       "render": {
-        "type": "line-with-x",
-        "d": "M10,50 L90,50",
-        "x": {
-          "cx": 50,
-          "cy": 50,
-          "size": 12
-        }
+        "type": "multipath",
+        "d": [
+          "M10,50 L90,50",
+          "M20,50 L50,80 L80,50"
+        ]
+      }
+    },
+    {
+      "id": "new-chevron-north",
+      "role": "lexical-base",
+      "description": "A chevron peak pointing north (up), base points sitting at the box's mid-height — companion to new-chevron-south. Creator-drawn next session, via the Designer's point editor; source path deduplicated (harmless — the raw path retraced its own two segments, which renders identically) when integrated.",
+      "render": {
+        "type": "path",
+        "d": "M20,50 L50,20 L80,50"
+      }
+    },
+    {
+      "id": "new-chevron-south",
+      "role": "lexical-base",
+      "description": "A chevron peak pointing south (down), base points sitting at the box's mid-height — companion to new-chevron-north. Creator-drawn next session, via the Designer's point editor; source path deduplicated (harmless — the raw path retraced its own two segments, which renders identically) when integrated.",
+      "render": {
+        "type": "path",
+        "d": "M20,50 L50,80 L80,50"
+      }
+    },
+    {
+      "id": "new-chevron-west",
+      "role": "lexical-base",
+      "description": "A chevron peak pointing west (left), base points sitting at the box's mid-width — companion to new-chevron-east. Creator-drawn next session; source path deduplicated (harmless — the raw path retraced its own two segments) when integrated.",
+      "render": {
+        "type": "path",
+        "d": "M50,80 L20,50 L50,20"
+      }
+    },
+    {
+      "id": "new-chevron-east",
+      "role": "lexical-base",
+      "description": "A chevron peak pointing east (right), base points sitting at the box's mid-width — companion to new-chevron-west. Creator-drawn next session; source path deduplicated (harmless — the raw path retraced its own two segments) when integrated.",
+      "render": {
+        "type": "path",
+        "d": "M50,80 L80,50 L50,20"
+      }
+    },
+    {
+      "id": "triangle-invert",
+      "role": "lexical-base",
+      "description": "An inverted (downward-pointing) triangle. For DU.",
+      "render": {
+        "type": "path",
+        "d": "M20,50 L50,80 L80,50 Z"
+      }
+    },
+    {
+      "id": "arrow",
+      "role": "lexical-base",
+      "description": "For directions. An arrowhead with a shaft below it, pointing up at rotation 0.",
+      "render": {
+        "type": "multipath",
+        "d": [
+          "M35,35 L50,20 L65,35",
+          "M50,20 L50,70"
+        ]
       }
     }
   ],
@@ -297,17 +371,17 @@
           "rotation": 0
         },
         {
-          "primitive": "chevron",
+          "primitive": "new-chevron-south",
           "position": [
             0.5,
-            0.26
+            0.03
           ],
-          "scale": 0.5,
+          "scale": 0.7,
           "rotation": 0,
-          "note": "Upright = W. Its meeting point (apex) sits outside the square's top edge — the animating force crowning the vessel from without, legs reaching down into it. Its presence is literally what makes Life Life."
+          "note": "Redesigned, next session: now new-chevron-south (peak pointing down) sitting almost entirely above the container, crowning it from without — its own base points are what used to be approximated by the generic 'chevron' primitive at scale 0.5. Presence still marks what makes Life Life."
         }
       ],
-      "status": "settled — chevron placement corrected 2026-08-19 (previously centered inside the square; apex now sits outside it, per creator correction)"
+      "status": "settled — chevron placement corrected 2026-08-19 (previously centered inside the square; apex now sits outside it, per creator correction); Glyph-design refined again next session using new-chevron-south instead of the generic chevron primitive."
     },
     {
       "id": "KRO",
@@ -337,51 +411,53 @@
       "era": "First Era",
       "composition": [
         {
-          "primitive": "jagged-circle",
+          "primitive": "gom-circle",
           "position": [
             0.5,
             0.5
           ],
-          "scale": 1,
-          "rotation": 0
+          "scale": 0.8,
+          "rotation": 0,
+          "note": "Redesigned, next session: gom-circle (the creator-hand-drawn single-path circle) replaces jagged-circle as GOM's own base — jagged-circle stays available as a Primitive but is no longer what GOM itself is built from."
         },
         {
-          "primitive": "chevron",
+          "primitive": "new-chevron-north",
           "position": [
             0.5,
-            0.74
+            0.9
           ],
-          "scale": 0.5,
-          "rotation": 180,
-          "note": "Inverted = M. Its meeting point (apex) hangs outside the circle's bottom edge, legs reaching up into it — marks Gom himself as present, not just his aura."
+          "scale": 0.7,
+          "rotation": 0,
+          "note": "Redesigned, next session: new-chevron-north (peak pointing up) sitting near the circle's bottom edge, legs reaching up into it — marks Gom himself as present, not just his aura, same reading as before, now built from the dedicated directional primitive instead of the generic chevron rotated 180deg."
         }
       ],
-      "status": "settled — chevron placement corrected 2026-08-19 (previously centered inside the circle; apex now sits outside it, per creator correction)"
+      "status": "settled — chevron placement corrected 2026-08-19 (previously centered inside the circle; apex now sits outside it, per creator correction); Glyph-design refined again next session — now gom-circle + new-chevron-north."
     },
     {
       "id": "GO",
       "sound": "go",
-      "meaning": "Gom's aura / domain — that which is his without Gom's full self present",
+      "meaning": "Shadow Gom",
       "category": "glyph",
       "era": "First Era",
       "composition": [
         {
-          "primitive": "jagged-circle",
+          "primitive": "gom-circle",
           "position": [
             0.5,
             0.5
           ],
           "scale": 1,
-          "rotation": 0
+          "rotation": 0,
+          "note": "Redesigned, next session: gom-circle replaces jagged-circle, matching GOM's own updated base above."
         }
       ],
-      "status": "settled",
-      "notes": "Rarely appears free-standing; typically bound in GO + ownership-line + [owned thing] constructions, e.g. GO|KROW."
+      "status": "settled — meaning renamed 'Shadow Gom', next session, per creator (previously 'Gom's aura / domain — that which is his without Gom's full self present').",
+      "notes": "Rarely appears free-standing; typically bound in GO + ownership-line + [owned thing] constructions, e.g. GO|KROW. 'Shadow Gom' lines up directly with the already-established in-game term 'Shadow Possession' (see reference/HELP-DRAFT.md) — the ambient, low-level possession baseline every Character already carries, as opposed to full/Active Possession. Worth confirming this is the intended connection rather than assumed."
     },
     {
       "id": "KUL",
       "sound": "kul",
-      "meaning": "Kill / Destroy",
+      "meaning": "Kill / Destroy / Inflict — held together, per creator, next session; multiple overlapping glosses are the house style here, not looseness, since a few together can be more truthful than any one strict English word.",
       "category": "diglyph",
       "era": "First Era",
       "composition": [
@@ -500,16 +576,26 @@
       "era": "First Era",
       "composition": [
         {
-          "primitive": "num_sign",
+          "glyph": "RO / OR",
           "position": [
             0.5,
             0.5
           ],
           "scale": 1,
+          "rotation": 0,
+          "note": "Redesigned, next session, per creator: OR is now literally built from RO/OR (the Up/Forward/North direction Glyph) plus a completing M below — resolves the num_sign placeholder entirely, and confirms the RO/OR-vs-OR sound overlap flagged in correctionLog was the point, not a collision. Give reads as something pushed forward/north, completed by a South-facing Mark."
+        },
+        {
+          "glyph": "M",
+          "position": [
+            0.5,
+            0.7
+          ],
+          "scale": 0.6,
           "rotation": 0
         }
       ],
-      "status": "settled 2026-08-21, per creator — glyph is the '#' shape (num_sign primitive)",
+      "status": "settled, next session, per creator — composition resolved using RO/OR + M; no longer the provisional num_sign shape. Supersedes the earlier 'reopened... provisional' status.",
       "etymology": "Derived from KROW by taking its 2nd and 3rd letters (R, O) and reversing them: RO -> OR. Give is named from what is given (Life's own letters), not from the giver."
     },
     {
@@ -520,7 +606,7 @@
       "era": "First Era",
       "composition": [
         {
-          "primitive": "jagged-circle",
+          "primitive": "gom-circle",
           "position": [
             0.35,
             0.5
@@ -529,7 +615,7 @@
           "rotation": 90
         },
         {
-          "primitive": "jagged-circle",
+          "primitive": "gom-circle",
           "position": [
             0.65,
             0.5
@@ -538,7 +624,7 @@
           "rotation": -90
         }
       ],
-      "status": "settled 2026-08-21, per creator — two jagged-circles, rotated so their horns face inward and interlock between them. Deliberately still a Glyph (not a Diglyph) despite two composition entries — a symmetry choice, not two combined concepts; per creator, 'admittedly deceiving,' especially next to GOMGOM (which genuinely is a Diglyph).",
+      "status": "next session, per creator — both interlocking circles rebuilt from gom-circle instead of jagged-circle, matching GOM/GO's own updated base. The ORMO Diglyph itself isn't out yet, per creator — still planned, this redesign is just MO's own visual update in the meantime.",
       "etymology": "Derived from GOM by taking its 2nd and 3rd letters (O, M) and reversing them: OM -> MO. Take is named from the one who always takes (Gom's own letters), not from the object taken — consistent with 'everything eventually returns to Gom.'"
     },
     {
@@ -624,6 +710,38 @@
       "status": "settled — rebuilt again 2026-08-20, per creator (two side-by-side columns, each a big-upright-plus-small-inverted chevron pair, the right column an exact mirror of the left — not one shared apex or one stacked pair down the center)",
       "etymology": "Two matching columns, left and right, each a big chevron below and a small inverted one above it. This is the exact motif WIMBIS now echoes twice, flanking WIM on both sides — BIS's own shape isn't split in half to build WIMBIS, it's reused whole, twice, at smaller scale. Follows directly from the cosmology: Liquid doesn't exist until Death does, and 'death' in Gomsdu isn't an ending, it's dissolving back into Gom — i.e. forgetting who you were. There may be no dedicated word for death at all; BIS appears to be doing that job.",
       "notes": "Horizontal directionality carries no grammatical meaning here or anywhere else in the language — BIS read/sounded in reverse (SIB) is equally valid, per creator."
+    },
+    {
+      "id": "S",
+      "sound": "s",
+      "meaning": "Pain / Hurt / Feel",
+      "category": "glyph",
+      "era": "First Era",
+      "composition": [
+        {
+          "primitive": "chevron",
+          "position": [
+            0.5,
+            0.7
+          ],
+          "scale": 0.7,
+          "rotation": 0,
+          "note": "Left column, lower — big, upright."
+        },
+        {
+          "primitive": "chevron",
+          "position": [
+            0.5,
+            0.3
+          ],
+          "scale": 0.4,
+          "rotation": 180,
+          "note": "Left column, upper — small, inverted."
+        }
+      ],
+      "status": "settled, creator-drawn, next session",
+      "etymology": "The singular form of BIS — one instance of BIS's own big-upright/small-inverted chevron-column motif, not the whole two-column pair. Same relationship as the language's other singular/plural-adjacent truncations (GOM/GO, KROW/KRO), applied to BIS specifically.",
+      "notes": "Formalizes the correctionLog's 'next session' entry: SUU becomes a real Glyph 'during the War' (First War, per its established origin as the Molten Ones' first spoken word — see scenes.md's Genesis Syllabary) — S is that Glyph's written form, not a separate word. Resolves the matching openThreads entry. Also dual-natured like the Chevron itself: usually functions at the Mark/Letter tier (a sound/vibration, alongside M and W) rather than the Word tier, and — like M and W — can carry the Continual feature (sustained rather than instantaneous; see grammar.rules). Notation for Continual S not yet settled (creator choosing between 'S-' and 'S''); when held Continual and created by Kulkrow specifically, S' is Lava itself — see gomsdu-codex.md's 'The Continual Mark, and S' as Lava.'"
     },
     {
       "id": "WIMBIS",
@@ -1026,6 +1144,124 @@
           "primitive": "connect"
         }
       ]
+    },
+    {
+      "id": "DU",
+      "sound": "du",
+      "meaning": "Name of the Planet, so all Matter",
+      "category": "glyph",
+      "era": "First Era",
+      "composition": [
+        {
+          "position": [
+            0.5,
+            0.5
+          ],
+          "scale": 1,
+          "rotation": 0,
+          "primitive": "triangle-invert"
+        }
+      ],
+      "status": "creator-authored, next session"
+    },
+    {
+      "id": "W",
+      "sound": "w",
+      "meaning": "North Facing Mark",
+      "category": "glyph",
+      "era": "First Era",
+      "composition": [
+        {
+          "position": [0.5, 0.5],
+          "scale": 1,
+          "rotation": 0,
+          "primitive": "new-chevron-north"
+        }
+      ],
+      "status": "creator-authored, next session",
+      "notes": "Formalizes W as a real Glyph built from new-chevron-north, rather than the base 'chevron' primitive rotated 0deg. Companion to M, below."
+    },
+    {
+      "id": "M",
+      "sound": "M",
+      "meaning": "South Facing Mark",
+      "category": "glyph",
+      "era": "First Era",
+      "composition": [
+        {
+          "position": [0.5, 0.5],
+          "scale": 1,
+          "rotation": 0,
+          "primitive": "new-chevron-south"
+        }
+      ],
+      "status": "creator-authored, next session",
+      "notes": "Formalizes M as a real Glyph built from new-chevron-south, rather than the base 'chevron' primitive rotated 180deg. Companion to W, above."
+    },
+    {
+      "id": "RO / OR",
+      "sound": "ro / or",
+      "meaning": "UP / FORWARD / NORTH",
+      "category": "glyph",
+      "era": "First Era",
+      "composition": [
+        {
+          "position": [0.5, 0.5],
+          "scale": 1,
+          "rotation": -90,
+          "primitive": "arrow"
+        }
+      ],
+      "status": "creator-authored, next session",
+      "notes": "Flagged, not assumed: this id/sound overlaps the already-established Glyph OR (Give, sound 'or', derived from KROW's own 2nd-3rd letters RO->OR — see grammar.rules' 'Position-2-3 reversal derivation'). May be a deliberate homophone/reuse in the same spirit as S/BIS or the house style's stacked-gloss philosophy, or may be an unintended collision — worth confirming with creator rather than assuming either way."
+    },
+    {
+      "id": "OP / PO",
+      "sound": "op / po",
+      "meaning": "DOWN / BACKWARD / SOUTH",
+      "category": "glyph",
+      "era": "First Era",
+      "composition": [
+        {
+          "position": [0.5, 0.5],
+          "scale": 1,
+          "rotation": 180,
+          "primitive": "arrow"
+        }
+      ],
+      "status": "creator-authored, next session"
+    },
+    {
+      "id": "KO",
+      "sound": "ko",
+      "meaning": "RIGHT / SIDEWAYS / EAST",
+      "category": "glyph",
+      "era": "First Era",
+      "composition": [
+        {
+          "position": [0.5, 0.5],
+          "scale": 1,
+          "rotation": 90,
+          "primitive": "arrow"
+        }
+      ],
+      "status": "creator-authored, next session"
+    },
+    {
+      "id": "OK",
+      "sound": "ok",
+      "meaning": "LEFT / SIDEWAYS / WEST",
+      "category": "glyph",
+      "era": "First Era",
+      "composition": [
+        {
+          "position": [0.5, 0.5],
+          "scale": 1,
+          "rotation": -90,
+          "primitive": "arrow"
+        }
+      ],
+      "status": "creator-authored, next session"
     }
   ],
   "grammar": {
@@ -1056,8 +1292,28 @@
         "description": "A small, closed class of derived words are formed by taking a root word's 2nd and 3rd letters and reversing their order. KROW's letters 2-3 (R, O) reversed give OR (Give). GOM's letters 2-3 (O, M) reversed give MO (Take). The only confirmed morphological derivation process in the language so far — root-and-pattern-like, similar to how Semitic languages build words from consonant roots."
       },
       {
-        "name": "Unmarked juxtaposition (tentative)",
-        "description": "It's unclear whether two Glyphs can be stacked with no marker between them and still be grammatically valid. GOMGOM (unmarked, symmetrical, interlocking) is explicitly the forbidden construction, replaced by GO|KROW (marked, hierarchical). This may mean unmarked juxtaposition is ungrammatical by design, not just culturally taboo — see openThreads."
+        "name": "GOM self-association restriction (settled, next session)",
+        "description": "GOM can never associate with himself directly inside an Expression — a real, unbreakable grammar rule, not just a cultural taboo attached to the one word GOMGOM. Two instances of GOM always need a Block or Line separating them. Exceptions, per creator: GOM may precede a Closing Line or follow an Opening Line (adjacency to a Line marker doesn't count as direct association); GOGOM/GOMGO is fine because GO carries no completing Mark, so it doesn't count as 'GOM' for the rule's purposes; Compounds (any Diglyph/Triglyph/etc. containing GOM as a sub-component) are excluded entirely. Supersedes the previous 'Unmarked juxtaposition (tentative)' framing of this rule."
+      },
+      {
+        "name": "Chevron as Mark (Letter), next session",
+        "description": "Below the Glyph/Word tier (GI) sits a Letter tier: the Chevron is a 'Mark', corresponding to a Sound/Vibration. M and W are confirmed as 'hummers' (a vocalization category) — no other Mark/sound-category is documented yet, a real gap flagged by creator, not an oversight. A bare Chevron can also stand alone as a full Glyph in its own right rather than a Mark attached to a container — see the 'GI KA M- CROW' Second Era infusion construction in gomsdu-codex.md's 'Language as the Animating Gate' section, the first confirmed example of this."
+      },
+      {
+        "name": "Chevron compass-direction orientation, next session",
+        "description": "Chevrons carry directional orientation beyond the existing upright/inverted W/M-completion binary. First Era uses 4 Chevrons, one per Cardinal Direction; Second Era expands to 8. How this reconciles with the 'Chevron completion' rule above — whether W/M-completion is just 2 of these 4/8 orientations, or a separate axis layered on top — isn't worked out yet."
+      },
+      {
+        "name": "Yield direction: yield-line vs extract-line, next session",
+        "description": "The two terminal Lines run opposite directions. A yield-line's Yield names what the sequence above it produces (a forward/causal reading). An extract-line's Yield names what the sequence above it was drawn from (a backward/sourcing reading) — see the DU Composition in gomsdu-codex.md's 'Making the Living Stone, staged' section, where GOM+OG+KRO+extract-line yields DU: not what creating a vessel produces, but what it was made out of."
+      },
+      {
+        "name": "Continual Marking (fermata-like), next session",
+        "description": "A small minority of Marks carry a second feature independent of their base sound: Continual — the sound sustains rather than landing instantaneously, like a fermata in music. Confirmed so far only on M, W, and S; most Marks don't have it. Notated with a trailing symbol after the Mark (M-/W- already settled; Continual S's own symbol — '-' or ''' — not yet settled, per creator). Corrects an earlier, wrong guess in this log's own 'next session' Downloads-integration entry, which misread 'KULKROW S'DU' as an elided apostrophe between two Glyph-sounds rather than a Continual-S notation."
+      },
+      {
+        "name": "Multiple glosses per Glyph, not one strict translation, next session",
+        "description": "Per creator, explicit house style: a Glyph's English meaning is better given as several overlapping glosses held together than as one strict English word — e.g. KUL as 'Kill / Destroy / Inflict' together, not a single pick among them. A few glosses together can be more truthful than any one translation alone. Apply this going forward rather than narrowing a Glyph's meaning field to a single English word by default."
       },
       {
         "name": "Horizontal mirroring carries no grammatical meaning",
@@ -1066,14 +1322,18 @@
     ]
   },
   "openThreads": [
-    "Is a chevron's final-consonant orientation always predictable from the base-shape family (rectangle family -> W, circle family -> M), or does it vary per word and need to be memorized individually?",
-    "Is bare, unmarked juxtaposition of two Glyphs grammatically illegal outright (built into the syntax), or only culturally forbidden — i.e. is GOMGOM specifically banned while the construction itself stays legal for other words?",
+    "Resolved, next session: KULKROW is pronounced full two-part 'kul-krow', not contracted, per creator.",
+    "Resolved, next session: 'Wimbis' is confirmed as the current Sound for Language, per creator.",
     "Resolved 2026-08-20, see gomsdu-codex.md's 'Sound and Shape, and the Name that never formed': this was never a timing question. There is no true Name 'Kulkrow' retroactively overwrote — Kulkrow could never speak or write it into existence in the first place, so Gom's claim on it (via the same Event-Horizon nature GOMGOM exposed) had nothing real to compete against, at any point before or after the First War.",
-    "How is 'Kulkrow' actually pronounced when KUL occupies KROW's chevron-slot — a full two-part 'kul-krow', or a contracted 'kulkro' since the container itself carries no completing chevron sound?",
-    "What would an upright, non-inverted chevron inside the jagged-circle (GOM-family base) mean, if anything? Only inverted-chevron (Gom himself) and no-chevron (aura/domain) are currently defined — the third combination is unused.",
-    "Redesign of OR (Give) and MO (Take): derivation and meaning are settled, but the original broken-square/broken-circle Glyphs have been scrapped by the creator and need new visual forms.",
-    "Are KUL/OG's 90-degree axis-rotation and GOM/KROW's 180-degree chevron-rotation meant as one unified 'rotation carries grammatical meaning' principle across the whole script, or are they two separately-arrived-at devices that happen to look similar?",
-    "Is 'Wimbis' (WIM + BIS) actually the confirmed sound for LANGUAGE, or just a suggestive coincidence with the project's own working name? Visual composition is settled; pronunciation is not.",
-    "Does SUU, or any other pre-Language oral vocabulary (early Molten One or Mud People speech), ever get folded into this written syllabary, or does it stay permanently outside it as a separate oral tradition?"
+    "What would an upright, non-inverted chevron inside the jagged-circle (GOM-family base) mean, if anything — the pairing of 'Gom-family shape + W-orientation', currently unused (GOM itself uses inverted/M-completion; KRO/KROW use the rect-container with upright/W)? Raised directly with creator, next session — not recognized in this phrasing ('I'm not sure what that is referring to'). Needs a concrete drawn example next time, not just a description.",
+    "Are KUL/OG's 90-degree axis-rotation and GOM/KROW's 180-degree chevron-rotation meant as one unified 'rotation carries grammatical meaning' principle across the whole script, or are they two separately-arrived-at devices that happen to look similar? Raised directly with creator, next session — not recognized in this phrasing ('I don't know what this is about'). Needs a concrete side-by-side example next time.",
+    "Resolved: Does SUU, or any other pre-Language oral vocabulary, ever get folded into this written syllabary? Yes — SUU becomes a real Glyph 'during the War' (First War), added as the Glyph 'S', etymologically the singular form of BIS, meaning 'Pain / Hurt / Feel' rather than just 'Stop'.",
+    "OR and MO: reopened, next session, per creator — no longer just a visual-redesign question. Creator is reconsidering whether they're a Give/Take Diglyph pair rather than two independent Glyphs at all. Confirmed still coming, not dropped — 'the ORMO Diglyph is not out yet' — OR's own composition has since resolved independently (RO/OR + M), MO's is a visual update only. See each entry's own updated status.",
+    "Single-Letter/Mark documentation doesn't exist yet, flagged next session — the Chevron is confirmed as a 'Mark' (Letter) corresponding to a Sound/Vibration, and M/W are confirmed as 'hummers', but no other Mark/sound-category has been written down. Worth its own pass once the newly-drafted Vowels (see below) settle.",
+    "Chevron compass-direction system — First Era uses 4 Chevrons for the 4 Cardinal Directions, Second Era expands to 8, per creator (next session). How this reconciles with the existing binary 'Chevron completion' rule (upright=W, inverted=M) isn't fully worked out — is W/M-completion just 2 of these 4/8 orientations, or a separate axis layered on top?",
+    "Vowels — near-complete in creator's Notebook, next session; quick draft given: I = Singular, E = Plural, O = Above, U = Below, A = Association. Not yet reconciled against BIS/SUU's own 'S = singular form of BIS' usage (open whether that's the same singular-marking mechanism or an unrelated truncation pattern, like GOM/GO or KROW/KRO). Not yet added to this file's own structured data.",
+    "Third Era ('the real goal', per creator) is confirmed still a far-off goal — Second Era has to be worked out first.",
+    "Resolved, next session: the Kill branch's S-yield is the vessel's Pain, not Kulkrow's own — per creator, the whole three-branch Composition functions as a warning contrasting Gom's two options (Give/Take Life) against Kulkrow's one (Inflict Pain). See gomsdu-codex.md's corrected 'Language as the Animating Gate' section.",
+    "Continual S's own notation isn't settled — creator choosing between 'S-' and 'S'' — and it's unconfirmed whether any Mark besides M, W, and S can carry the Continual feature at all."
   ]
 }

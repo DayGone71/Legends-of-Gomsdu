@@ -1,10 +1,13 @@
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
-import { escapeHtml, timeNow, playerShorthand, apCostForControl, describeAction, flashHint, isDeathWounded, resolveEntityRef } from './utils.js';
+import { escapeHtml, timeNow, playerShorthand, apCostForControl, describeAction, flashHint, isDeathWounded, resolveEntityRef, resolvePositionRef, deliverMindeyeEntry } from './utils.js';
 import { BUILDS } from './character.js';
 import { getSavedCharacters } from './savedCharacters.js';
 import { getSavedEncounters, saveEncounterTemplate } from './savedEncounters.js';
 import { updateEncounterUI } from './panels.js';
+import { TECHNIQUES, hasCategoryAccess, remaining, costText } from './techniques.js';
+import { getDistance, hasLineOfSight } from './map.js';
+import { showCharacterView } from './characterView.js';
 
 function showBannerError(msg){
   const el = document.getElementById('banner-error');
@@ -60,6 +63,7 @@ export async function addEnemy(){
       quickness: b.quickness, resilience: b.resilience, lightning: b.lightning, lava: b.lava, focus: b.focus,
       control: b.control ?? 0, attunement: b.attunement ?? 0, life: b.life ?? 1,
       species: b.species, deathWounds: b.deathWounds, body: b.body ? [...b.body] : undefined,
+      techniqueAccess: b.techniqueAccess,
       apSpent: 0, focusSpent: 0, sequence: [], possessedBy: null
     };
     t.positions[id] = pos;
@@ -164,6 +168,39 @@ export function renderDMEnemyPicker(){
   });
 }
 
+// NPC list (2026-08-20, per dDd — "a way of seeing all the Character Sheets
+// of all the NPCs at the Table"). Every live table.enemies entry, each row
+// opening the same read-only showCharacterView() popup the Roster's own
+// avatars already use — no new viewer, just a new way to reach the existing
+// one for entities that don't otherwise have a clickable avatar anywhere.
+// Distinct from the DM's own "Acting As" picker just above: that one selects
+// who the DM stages actions as; this one is pure lookup, open to anyone at
+// the Table, not DM-gated.
+// containerId defaults to the toolbar's own NPCs panel, but the same data +
+// markup also drives View 2's TATA-mode "Characters" pane (2026-08-20, per
+// dDd — "Characters and the NPCs Panel are the same thing really... Tata
+// sees it all") — same list, same click-to-view-sheet either way, just
+// mounted in a second place. See renderView2Mode() in js/main.js.
+export function renderNpcList(containerId){
+  const el = document.getElementById(containerId || 'npc-list');
+  if(!el) return;
+  const enemies = (AppState.table && AppState.table.enemies) || {};
+  const list = Object.entries(enemies);
+  if(!list.length){ el.innerHTML = '<div class="log-empty">No NPCs at the Table yet.</div>'; return; }
+
+  el.innerHTML = list.map(([id, e]) => {
+    const defeated = isDeathWounded(e);
+    return '<div class="npc-list-item' + (defeated ? ' defeated' : '') + '" data-id="' + id + '">' +
+      '<span class="npc-list-name">' + escapeHtml(e.name || 'Unnamed') + '</span>' +
+      '<span class="npc-list-meta">' + escapeHtml(e.archetype || '') + ' &mdash; ' + Math.max(0, e.wounds) + '/' + e.woundsMax + '</span>' +
+    '</div>';
+  }).join('');
+
+  el.querySelectorAll('.npc-list-item').forEach(row => {
+    row.onclick = () => showCharacterView(AppState.table.enemies[row.dataset.id]);
+  });
+}
+
 export function selectActingEnemy(id){
   const enemy = AppState.table && AppState.table.enemies && AppState.table.enemies[id];
   if(!enemy || isDeathWounded(enemy)) return;
@@ -226,17 +263,43 @@ export function renderDMCounters(){
   }
   if(focusBtn) focusBtn.classList.toggle('hidden', !(enemy && (enemy.focus || 0) > 0));
 
-  const hasEssence = !!(enemy && ((enemy.lightning > 0) || (enemy.lava > 0)));
+  const crafts = enemy ? craftsKnownBy(enemy) : [];
   const essBtn = document.getElementById('dm-essence-btn');
-  if(essBtn) essBtn.classList.toggle('hidden', !hasEssence);
-  const lt = document.getElementById('dm-cast-lightning');
-  const lv = document.getElementById('dm-cast-lava');
-  if(lt) lt.textContent = 'Lightning \u2014 8 AP';
-  if(lv) lv.textContent = 'Lava \u2014 8 AP';
-  if(lt) lt.classList.toggle('hidden', !(enemy && enemy.lightning > 0));
-  if(lv) lv.classList.toggle('hidden', !(enemy && enemy.lava > 0));
+  if(essBtn) essBtn.classList.toggle('hidden', !crafts.length);
+  renderDMEssenceMenu(crafts);
 
   dmRenderToggleStates();
+}
+
+// Which Crafts (Lightning or Lava column Techniques) the acting Enemy
+// actually knows \u2014 gated by category access (defaults to granted, same as
+// the Player-side Techniques Panel) and by actually having the resource
+// stat above 0, same visibility rule the old flat Lightning/Lava buttons used.
+function craftsKnownBy(actor){
+  return Object.entries(TECHNIQUES).filter(([, def]) => {
+    if(def.group !== 'Craft') return false;
+    if(def.column === 'Lightning' && !(actor.lightning > 0)) return false;
+    if(def.column === 'Lava' && !(actor.lava > 0)) return false;
+    return hasCategoryAccess(actor, def);
+  });
+}
+
+// The DM Panel's Essence menu, per dDd: "when clicked it, should show all
+// the Crafts a Character knows" \u2014 replaces the old flat Lightning/Lava
+// 8-AP placeholder buttons with the acting Enemy's real named Crafts,
+// reusing the same TECHNIQUES data and cost/target/range plumbing the
+// Player-side Techniques Panel already uses (see techniques.js).
+function renderDMEssenceMenu(crafts){
+  const el = document.getElementById('dm-menu-essence');
+  if(!el) return;
+  if(!crafts.length){ el.innerHTML = ''; return; }
+  el.innerHTML = crafts.map(([key, def]) =>
+    '<button class="btn-ghost btn-small' + (AppState.dmPendingCraftKey === key ? ' toggled' : '') +
+    '" data-craft="' + key + '">' + escapeHtml(def.name) + ' \u2014 ' + costText(def.costs) + '</button>'
+  ).join('');
+  el.querySelectorAll('[data-craft]').forEach(btn => {
+    btn.onclick = () => dmSelectCraft(btn.dataset.craft);
+  });
 }
 
 // Mirrors combat.js's renderAllyRange() — Mini-Party Characters weren't part
@@ -304,9 +367,9 @@ export function dmSelectAttackKind(kind){
   dmRenderToggleStates();
 }
 
-export function dmSelectEssenceSchool(school){
+export function dmSelectCraft(key){
   AppState.dmPendingType = 'essence';
-  AppState.dmPendingEssenceSchool = school;
+  AppState.dmPendingCraftKey = key;
   dmRenderToggleStates();
 }
 
@@ -332,10 +395,7 @@ export function dmRenderToggleStates(){
   if(fastBtn) fastBtn.classList.toggle('toggled', AppState.dmPendingType === 'attack' && AppState.dmPendingAttackKind === 'fast');
   if(strongBtn) strongBtn.classList.toggle('toggled', AppState.dmPendingType === 'attack' && AppState.dmPendingAttackKind === 'strong');
   if(focusBtn) focusBtn.classList.toggle('toggled', AppState.dmPendingType === 'attack' && AppState.dmPendingAttackKind === 'focus');
-  const ltBtn = document.getElementById('dm-cast-lightning');
-  const lvBtn = document.getElementById('dm-cast-lava');
-  if(ltBtn) ltBtn.classList.toggle('toggled', AppState.dmPendingType === 'essence' && AppState.dmPendingEssenceSchool === 'Lightning');
-  if(lvBtn) lvBtn.classList.toggle('toggled', AppState.dmPendingType === 'essence' && AppState.dmPendingEssenceSchool === 'Lava');
+  renderDMEssenceMenu(enemy ? craftsKnownBy(enemy) : []);
 
   const generalBtn = document.getElementById('dm-block-general-btn');
   const targetBtn = document.getElementById('dm-block-target-btn');
@@ -394,12 +454,29 @@ export async function dmCommitAction(){
     const label = (AppState.dmPendingBlockKind === 'general' ? 'GB' : 'TB') + (AppState.dmPendingCounter ? '+C' : '');
     entry = { apCost: cost, focusCost: 0, actionLabel: label, targetLabel, targetName, kind: 'block', blockKind: AppState.dmPendingBlockKind, counter: AppState.dmPendingCounter, targetId };
   }else if(AppState.dmPendingType === 'essence'){
-    if(!AppState.dmPendingEssenceSchool){ showBannerError('Choose Lightning or Lava first.'); return; }
+    if(!AppState.dmPendingCraftKey){ showBannerError('Choose a Craft first.'); return; }
+    const def = TECHNIQUES[AppState.dmPendingCraftKey];
+    if(!def){ showBannerError('That Craft no longer exists.'); return; }
     const target = resolveEntityRef(AppState.table, AppState.dmSelectedTargetId);
     if(!target){ showBannerError('Pick a target first.'); return; }
-    const cost = 8;
-    if(spent + cost > (actor.ap || 0)){ showBannerError('Not enough AP left this round.'); return; }
-    entry = { apCost: cost, focusCost: 0, actionLabel: AppState.dmPendingEssenceSchool === 'Lava' ? 'LV' : 'LN', targetLabel: playerShorthand(target), targetName: target.name, kind: 'essence', school: AppState.dmPendingEssenceSchool, targetId: AppState.dmSelectedTargetId };
+
+    const myPos = resolvePositionRef(AppState.table, AppState.actingEnemyId);
+    const targetPos = resolvePositionRef(AppState.table, AppState.dmSelectedTargetId);
+    if(myPos && targetPos){
+      const dist = getDistance(myPos, targetPos);
+      if(dist > def.range){ showBannerError('Target is out of Range (' + dist + ' > ' + def.range + ').'); return; }
+      if(!hasLineOfSight(AppState.table, myPos, targetPos)){ showBannerError('No line of sight to target.'); return; }
+    }
+    for(const [resource, amount] of Object.entries(def.costs)){
+      if(remaining(actor, resource) < amount){ showBannerError('Not enough ' + resource + ' left.'); return; }
+    }
+
+    entry = {
+      apCost: def.costs.ap || 0, focusCost: def.costs.focus || 0, flowCost: def.costs.flow || 0,
+      lightningCost: def.costs.lightning || 0, lavaCost: def.costs.lava || 0,
+      actionLabel: def.name, targetLabel: playerShorthand(target), targetName: target.name,
+      kind: 'technique', techniqueKey: AppState.dmPendingCraftKey, targetId: AppState.dmSelectedTargetId
+    };
   }else{
     showBannerError('Open Attack, Block, or Essence and choose something first.');
     return;
@@ -411,6 +488,10 @@ export async function dmCommitAction(){
     a.sequence.push(entry);
     a.apSpent = spent + entry.apCost;
     a.focusSpent = focusSpent + (entry.focusCost || 0);
+    a.lightningSpent = (a.lightningSpent || 0) + (entry.lightningCost || 0);
+    a.lavaSpent = (a.lavaSpent || 0) + (entry.lavaCost || 0);
+    if(entry.flowCost) a.flow = Math.max(0, (a.flow || 0) - entry.flowCost);
+    if(entry.techniqueKey === 'message') deliverMindeyeEntry(t, entry.targetId, a.name || 'Someone');
     t.log.push({ type: 'system', text: a.name + ' stages ' + describeAction(entry) + (entry.targetName ? (' on ' + entry.targetName) : ''), time: timeNow() });
   });
 }
@@ -424,6 +505,8 @@ export async function dmUndoAction(){
     const removed = a.sequence.pop();
     a.apSpent = Math.max(0, (a.apSpent || 0) - removed.apCost);
     a.focusSpent = Math.max(0, (a.focusSpent || 0) - (removed.focusCost || 0));
+    a.lightningSpent = Math.max(0, (a.lightningSpent || 0) - (removed.lightningCost || 0));
+    a.lavaSpent = Math.max(0, (a.lavaSpent || 0) - (removed.lavaCost || 0));
     t.log.push({ type: 'system', text: a.name + ' undoes ' + describeAction(removed) + (removed.targetName ? (' on ' + removed.targetName) : ''), time: timeNow() });
   });
 }
@@ -440,6 +523,8 @@ export async function dmRemoveStagedAction(index){
     const removed = a.sequence.splice(index, 1)[0];
     a.apSpent = Math.max(0, (a.apSpent || 0) - removed.apCost);
     a.focusSpent = Math.max(0, (a.focusSpent || 0) - (removed.focusCost || 0));
+    a.lightningSpent = Math.max(0, (a.lightningSpent || 0) - (removed.lightningCost || 0));
+    a.lavaSpent = Math.max(0, (a.lavaSpent || 0) - (removed.lavaCost || 0));
     t.log.push({ type: 'system', text: a.name + ' removes ' + describeAction(removed) + (removed.targetName ? (' on ' + removed.targetName) : ''), time: timeNow() });
   });
 }

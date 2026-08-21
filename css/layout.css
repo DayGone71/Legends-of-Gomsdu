@@ -385,7 +385,16 @@
    viewport height itself, so a flat 100vh here always overshot the visible
    window by exactly that padding, pushing the Map toolbar buttons and the
    spacer partly below the fold. */
-.view1{height:calc(100vh - 28px); display:flex; flex-direction:column; min-height:0; scroll-snap-align:start; scroll-snap-stop:always;}
+/* padding-top:28px (2026-08-20, dDd's catch — "the scroll is literally too
+   low") — scroll-snap-align:start snaps .view1's own top BORDER edge to the
+   viewport top, which discards #app's 28px padding-top entirely (that
+   padding sits outside .view1, "before" it in document flow, so snapping
+   scrolls straight past it). The header pill ended up flush against the
+   very top of the window with zero breathing room. Fix: give .view1 its
+   own internal 28px top padding instead — that lives inside the snapped
+   element's own box, so it survives the snap. .map-row's flex:1 absorbs
+   the extra 28px the same way it already absorbs .view1-spacer below. */
+.view1{height:calc(100vh - 28px); padding-top:28px; box-sizing:border-box; display:flex; flex-direction:column; min-height:0; scroll-snap-align:start; scroll-snap-stop:always;}
 .view1 .table-header{flex-shrink:0;}
 .view1 #banner-error{flex-shrink:0;}
 .view1 .sequencer-divider, .view1 .sequencer-marks, .view1 .sequencer-blood-drops,
@@ -400,11 +409,45 @@
 /* Persistent area: Party + Ledger, always visible, side by side */
 /* View 2, pinned to a full screen height same as .view1 (2026-08-17) — see
    css/panels.css's #roster/#ledger comment for the full reasoning. */
-.persistent-grid{display:grid; grid-template-columns:.9fr 1.1fr; gap:22px; height:calc(100vh - 28px); min-height:0; scroll-snap-align:start; scroll-snap-stop:always;}
+/* padding-top:28px, box-sizing:border-box — same fix and reasoning as
+   .view1 above: without it, snapping to View 2 puts the Party/Ledger <h2>s
+   flush against the very top of the window too. */
+.persistent-grid{display:grid; grid-template-columns:.9fr 1.1fr; gap:22px; height:calc(100vh - 28px); padding-top:28px; box-sizing:border-box; min-height:0; scroll-snap-align:start; scroll-snap-stop:always;}
 .persistent-grid .panel-static{display:flex; flex-direction:column; min-height:0;}
 .persistent-grid .panel-static h2{flex-shrink:0;}
 .persistent-grid .chat-row{flex-shrink:0;}
 @media(max-width:860px){ .persistent-grid{grid-template-columns:1fr; height:auto;} }
+
+/* TATA swap (2026-08-20, dDd's spec) — "Pressing Tata swaps Party and the
+   Ledger, essentially." Exactly two of the three panel-statics are ever
+   visible at once (Party+Ledger normally, Ledger+Characters under TATA);
+   `order` controls which side each lands on rather than reordering the DOM,
+   so js/main.js only ever needs to toggle one class on the grid itself. The
+   grid's own two-column template doesn't care which children are visible —
+   `display:none` on the third one drops it out of grid flow entirely. */
+#characters-panel-static{display:none; order:2;}
+#party-panel-static{order:1;}
+#ledger-panel-static{order:2;}
+.persistent-grid.tata-active #party-panel-static{display:none;}
+.persistent-grid.tata-active #characters-panel-static{display:flex; order:2;}
+.persistent-grid.tata-active #ledger-panel-static{order:1;}
+
+/* Mirroring (2026-08-20, dDd's spec) — "The Ledger moves to the left and
+   everything gets realigned, flipped to right align (the Chat bar and send
+   button flipping as well)." direction:rtl is the one CSS declaration that
+   correctly flips a flex column's whole reading direction — row children
+   reverse, text-align defaults flip — without hand-reversing every
+   `.log-entry`/`.chat-row` individually. English text itself still reads
+   normally left-to-right within each line; only the block/inline layout
+   anchors to the right edge instead of the left. Characters gets the same
+   treatment ("follows the same Mirroring effect as the Ledger") even though
+   it sits on the opposite edge from where Ledger normally does — the point
+   is that whichever panel is on which side always mirrors in TATA mode, not
+   that one side is privileged over the other. */
+.persistent-grid.tata-active #ledger-panel-static,
+.persistent-grid.tata-active #characters-panel-static{direction:rtl;}
+.persistent-grid.tata-active #ledger-panel-static h2,
+.persistent-grid.tata-active #characters-panel-static h2{text-align:right;}
 
 /* Map sits in its own centered row, flanked by the Stats/Techniques/Party
    stack on the left and Combat/Dungeon Master on the right — always in
@@ -418,16 +461,16 @@
    `min-width:60px` above, map-panel's `min-width` below) so the row
    compresses proportionally rather than either wrapping or overflowing. */
 .map-row{display:flex; justify-content:center; align-items:flex-start; gap:24px; flex-wrap:nowrap;}
-/* The Map as the dominant, reactive element (2026-08-17, dDd's redesign —
-   "the most reactive thing to the page"), replacing the earlier fixed
-   max-width:420px. 60% of the row, real flex-shrink as a last-resort floor
-   for extremely narrow viewports (the side toolbars are fixed-width and
-   protected, see .side-toolbar above — the Map gives way, not them). Height
-   is deliberately NOT unbounded — #map-grid below caps it and scrolls
-   internally, so a big Map reads as a landscape rectangle (dDd's own
-   preference, "probably be better than square") rather than growing into a
-   tall square that pushes everything else down the page. */
-.map-panel{width:60%; flex:1 1 60%; min-width:0; display:flex; flex-direction:column; min-height:0;}
+/* No longer "the dominant, reactive element" stretching to 60% of the row
+   (2026-08-17 approach, superseded 2026-08-20 per dDd — "it should be
+   designed to always have 7x7 as the view, instead of shrinking or
+   expanding"). #map-grid now sizes itself off fixed-px Tiles capped to a
+   fixed VIEWPORT_TILES x VIEWPORT_TILES viewport (see js/map.js), so
+   .map-panel has nothing left to stretch for — it just sizes to that fixed
+   content and .map-row centers it between the two toolbars like any other
+   flex item. flex:0 0 auto keeps it from being force-grown by its
+   flex:nowrap siblings' own leftover space. */
+.map-panel{flex:0 0 auto; min-width:0; display:flex; flex-direction:column; min-height:0;}
 
 .panel-static{background:var(--ink-soft); border:1px solid var(--ink-line); border-radius:10px; padding:20px;}
 .panel-static h2{font-size:15px; text-transform:uppercase; letter-spacing:.08em; font-weight:600; color:var(--text-dim); margin-bottom:14px;}

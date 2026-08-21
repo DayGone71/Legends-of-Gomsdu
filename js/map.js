@@ -1,6 +1,6 @@
 import { AppState } from './state.js';
-import { mutateTable } from './sync.js';
-import { escapeHtml, isDeathWounded, isDown } from './utils.js';
+import { mutateTable, triggerRender } from './sync.js';
+import { escapeHtml, isDeathWounded, isDown, alliedActorIds, resolvePositionRef } from './utils.js';
 
 // 14x14 (was 9x9) — 2026-08-17, dDd's View 1 spec: Tiles shrunk and the grid
 // deliberately made bigger than fits the visible area without scrolling
@@ -10,19 +10,51 @@ import { escapeHtml, isDeathWounded, isDown } from './utils.js';
 const DEFAULT_WIDTH = 14;
 const DEFAULT_HEIGHT = 14;
 
-export function defaultMap(){
+// Fixed Map viewport (2026-08-20, dDd's ask — "it should be designed to
+// always have 7x7 as the view, instead of shrinking or expanding"). TILE_SIZE
+// is a flat px constant now (see renderMap's gridTemplateColumns), the same
+// at every map size and every screen width. VIEWPORT_TILES caps how many
+// Tiles are visible before the grid scrolls, regardless of the actual
+// map.width/map.height — a 7x7 Era 1 map fits with no scrolling at all, a
+// 14x14 Dev map or a 7x10 Era 2/3 map scrolls internally past that.
+const TILE_SIZE = 44;
+const VIEWPORT_TILES = 7;
+const TILE_GAP = 2; // matches #map-grid's own CSS `gap:2px` in css/panels.css
+
+// Real, measured OS/browser scrollbar width — varies (Windows Chrome ~15-17px,
+// macOS overlay scrollbars 0px, etc.), so guessing a constant risks either
+// wasting space or, worse, actually clipping a Tile column. Measured once via
+// the standard offsetWidth-vs-clientWidth trick on a throwaway scrolling div,
+// then cached — it can't change mid-session. Used by renderMap() to size
+// #map-grid's max-width around its own scrollbar-gutter reservation.
+let cachedScrollbarWidth = null;
+function scrollbarGutterWidth(){
+  if(cachedScrollbarWidth !== null) return cachedScrollbarWidth;
+  const probe = document.createElement('div');
+  probe.style.cssText = 'position:absolute; visibility:hidden; width:100px; height:100px; overflow:scroll;';
+  document.body.appendChild(probe);
+  cachedScrollbarWidth = probe.offsetWidth - probe.clientWidth;
+  document.body.removeChild(probe);
+  return cachedScrollbarWidth;
+}
+
+// width/height now optional (2026-08-20, per dDd's New Game Process —
+// different Scenes want different Map sizes: Era 1 is 7x7, Era 2/3 default
+// to 7x10). Omitting either falls back to the original 14x14 Dev size.
+export function defaultMap(width, height){
+  const w = width || DEFAULT_WIDTH, h = height || DEFAULT_HEIGHT;
   return {
-    width: DEFAULT_WIDTH,
-    height: DEFAULT_HEIGHT,
+    width: w,
+    height: h,
     // 1 = traversable (white), 0 = blocked (black). Flat array, row-major.
-    tiles: new Array(DEFAULT_WIDTH * DEFAULT_HEIGHT).fill(1),
+    tiles: new Array(w * h).fill(1),
     // Cosmetic-only (2026-08-16, see reference/ROADMAP.md's Chunk Mechanic):
     // how many "Chunks" have scattered onto each Tile from Characters that
     // died of Death Wounds there. Capped per addChunksAt below. No gameplay
     // effect yet — purely feeds the pink Tile-coloring gradient in renderMap.
     // (Credited on Death as the current proxy — true Obliteration, every Body
     // Part gone, is a separate not-yet-built check; see utils.js.)
-    chunks: new Array(DEFAULT_WIDTH * DEFAULT_HEIGHT).fill(0)
+    chunks: new Array(w * h).fill(0)
   };
 }
 
@@ -202,6 +234,30 @@ function showBannerError(msg){
   setTimeout(() => el.classList.add('hidden'), 5000);
 }
 
+// Actually relocates actorId (a Player, or an Enemy/NPC when Tata-driven) to
+// (x,y) — must be traversable, adjacent to their current position, and not
+// too crowded to step into. Shared by both the Player's own "Move?" and
+// Tata's NPC "Move?" — same validation either way, just a different actor.
+async function tryMoveActor(actorId, x, y){
+  const table = AppState.table;
+  const positions = table.positions || {};
+  const mine = positions[actorId] || { x: 0, y: 0 };
+  const idx = tileIndex(table.map, x, y);
+  if(!table.map.tiles[idx]){ showBannerError('That Tile is blocked.'); return; }
+  if(!isAdjacent(mine, { x, y })){ showBannerError('Pick a Tile next to them.'); return; }
+  if(isTileMovementBlocked(table, x, y)){ showBannerError('That Tile is too crowded to move into.'); return; }
+
+  await mutateTable(t => {
+    if(!t.positions) t.positions = {};
+    t.positions[actorId] = { x, y };
+  });
+}
+
+// Movement (2026-08-20), per dDd's own spec: clicking a Tile no longer moves
+// you there directly — it shows "Move?"/"Suggest Move?" popups for whoever's
+// actually standing on that Tile (see buildTilePopups below). Confirming
+// "Move?" is what switches the Map into Tile-selector mode; the *next*
+// click, wherever it lands, is the actual destination.
 export async function handleTileClick(x, y){
   const table = AppState.table;
   if(!table || !table.map) return;
@@ -214,20 +270,69 @@ export async function handleTileClick(x, y){
     return;
   }
 
-  // Movement: must be traversable, adjacent to your current position, and
-  // not too crowded to step into.
-  const myId = AppState.playerId;
-  const positions = table.positions || {};
-  const mine = positions[myId] || { x: 0, y: 0 };
-  const idx = tileIndex(table.map, x, y);
-  if(!table.map.tiles[idx]) return; // blocked (Obstacle)
-  if(!isAdjacent(mine, { x, y })) return; // not next to you
-  if(isTileMovementBlocked(table, x, y)){ showBannerError('That Tile is too crowded to move into.'); return; }
+  if(AppState.moveSelectMode){
+    const { actorId } = AppState.moveSelectMode;
+    AppState.moveSelectMode = null;
+    await tryMoveActor(actorId, x, y);
+    renderMap();
+    return;
+  }
 
-  await mutateTable(t => {
-    if(!t.positions) t.positions = {};
-    t.positions[myId] = { x, y };
+  // A plain Tile click — set (or move) the occupancy-popup target and
+  // re-render; buildTilePopups works out what actually shows, including
+  // clearing away to nothing if this Tile has nothing relevant on it.
+  AppState.moveClickTile = { x, y };
+  renderMap();
+}
+
+export function cancelMoveSelect(){
+  AppState.moveSelectMode = null;
+  AppState.moveClickTile = null;
+  renderMap();
+}
+
+export function toggleTata(){
+  AppState.tataActive = !AppState.tataActive;
+  AppState.moveClickTile = null;
+  AppState.moveSelectMode = null;
+  const btn = document.getElementById('tata-toggle');
+  if(btn) btn.classList.toggle('toggled', AppState.tataActive);
+  // Full renderAll(), not just renderMap() (2026-08-20) — TATA now also
+  // swaps View 2 (js/main.js's renderView2Mode), which renderMap() alone
+  // never touches. triggerRender() is the same callback a real table
+  // mutation's realtime echo would fire; this is a local-only toggle with
+  // no mutation of its own to ride along on, so it has to fire it directly.
+  triggerRender();
+}
+
+// Which popup(s) show for the Tile currently under AppState.moveClickTile.
+// Non-Tata: "Move?" for the Player's own Character if they're here, plus a
+// separate "Suggest Move?" if any other allied actor (another Player, or a
+// Mini-Party member — see alliedActorIds) is here too; both can fire at
+// once on a shared Tile. Tata: every non-Player Character is "Move?", no
+// "Suggest" distinction — per dDd, Tata can direct anyone.
+function buildTilePopups(table, x, y){
+  let out = '';
+  if(AppState.tataActive){
+    const found = Object.entries(table.positions || {}).find(([id, pos]) =>
+      pos.x === x && pos.y === y && table.enemies && table.enemies[id]
+    );
+    if(found) out += '<div class="tile-popup" data-move-actor="' + found[0] + '">Move?</div>';
+    return out;
+  }
+
+  const myId = AppState.playerId;
+  const myPos = table.positions && table.positions[myId];
+  if(myPos && myPos.x === x && myPos.y === y){
+    out += '<div class="tile-popup" data-move-actor="' + myId + '">Move?</div>';
+  }
+  const allyHere = alliedActorIds(table).some(id => {
+    if(id === myId) return false;
+    const pos = resolvePositionRef(table, id);
+    return pos && pos.x === x && pos.y === y;
   });
+  if(allyHere) out += '<div class="tile-popup suggest" data-suggest="1">Suggest Move?</div>';
+  return out;
 }
 
 export function renderMap(){
@@ -268,17 +373,6 @@ export function renderMap(){
 
   // Header row (compass corner + column numbers) and header column (row
   // letters) frame the actual tile grid — one extra row/column overall.
-  // minmax(0,1fr), not a plain 1fr (2026-08-17 fix) — a bare 1fr column
-  // defaults to minmax(auto,1fr), which refuses to shrink a column below
-  // its content's own min-content width. That's what was actually causing
-  // the Map/toolbar overlap bug's real root: the grid just ignored however
-  // small its flex-box parent tried to make it and rendered at its natural
-  // size regardless, silently overflowing into the neighboring toolbar.
-  // Floor is 34px (2026-08-17, "shrink the Tiles a little bit... make sure
-  // there are too many Tiles to fit without scrolling") rather than 0 — a
-  // real minimum Tiles stay legible at, so a big enough map (14x14 default,
-  // see DEFAULT_WIDTH/HEIGHT above) genuinely overflows its container and
-  // scrolls in both axes instead of just shrinking forever.
   // Two dedicated leading columns/rows (2026-08-17, dDd's own ASCII layout
   // sketch) for the compass + axis lines/heads, kept fully separate from the
   // actual tile grid's own corner/column-headers/row-headers rather than
@@ -290,16 +384,20 @@ export function renderMap(){
   // of row 1/column 1 is empty) can't be filled correctly by auto-flow alone.
   const COL_OFFSET = 3; // data tiles start at grid-column 3+1=4; column 3 is the row-letter header
   const ROW_OFFSET = 3; // data tiles start at grid-row 3+1=4; row 3 is the column-number header
-  el.style.gridTemplateColumns = 'auto auto auto repeat(' + map.width + ', minmax(34px, 1fr))';
-  // Tile rows are plain `auto`, NOT minmax(34px,1fr) (2026-08-17 fix) —
-  // giving rows their own independent 1fr sizing fought .map-tile's own
-  // aspect-ratio:1: the tile wants height to equal its (column-driven)
-  // width, but the row track was being forced to a *different* size by its
-  // own separate 1fr distribution, so tiles rendered taller than their row
-  // and visibly bled into the next one. `auto` lets each row size itself
-  // to its tallest content instead — which, since every tile in it wants to
-  // be exactly as tall as the column made it wide, naturally comes out
-  // square with zero conflict.
+  // Fixed pixel Tiles, not minmax(34px,1fr) (2026-08-20, dDd's catch — "it
+  // should be designed to always have 7x7 as the view, instead of shrinking
+  // or expanding"). The old 1fr sizing stretched every Tile to fill 60% of
+  // the row's width regardless of map size, so a 7x7 Era 1 map rendered with
+  // huge ~65px Tiles while the 14x14 Dev map rendered tiny ones — the Tile
+  // grid was reactive to the *container*, not a fixed viewport. TILE_SIZE is
+  // now a flat constant, identical at every map size and every screen width;
+  // VIEWPORT_TILES caps how much of the grid is visible at once (see the
+  // max-width/max-height block below) — anything beyond that scrolls, same
+  // as before, just measured in a fixed Tile count instead of a floor.
+  el.style.gridTemplateColumns = 'auto auto auto repeat(' + map.width + ', ' + TILE_SIZE + 'px)';
+  // Tile rows stay `auto` (unchanged from the 2026-08-17 fix) — `auto` lets
+  // each row size itself to its tallest content, which is exactly TILE_SIZE
+  // since every Tile is aspect-ratio:1 against its now-fixed-width column.
   el.style.gridTemplateRows = 'auto auto auto repeat(' + map.height + ', auto)';
 
   // Compass + axis lines: N/W sit right by the compass (row2/col2), lines
@@ -349,16 +447,70 @@ export function renderMap(){
       const label = here.length ? escapeHtml(here.map(n => n.name[0]).join(',')) : '';
       const titleBits = here.map(n => n.name + (n.dead ? ' (dead)' : '')).join(', ');
       const titleMeta = (occ.down ? ' — ' + occ.down + ' Down' : '') + (chunkCount ? ' — ' + chunkCount + ' Chunks' : '');
-      html += '<div class="' + cls + '" data-x="' + x + '" data-y="' + y + '"' + style + ' title="' +
-        tileKey(map, x, y) + (titleBits ? ' — ' + escapeHtml(titleBits) : '') + escapeHtml(titleMeta) + '">' + label + '</div>';
+      const popupHtml = (AppState.moveClickTile && AppState.moveClickTile.x === x && AppState.moveClickTile.y === y)
+        ? buildTilePopups(table, x, y) : '';
+      const selectableCls = AppState.moveSelectMode ? ' select-target' : '';
+      const popupCls = popupHtml ? ' has-popup' : '';
+      html += '<div class="' + cls + selectableCls + popupCls + '" data-x="' + x + '" data-y="' + y + '"' + style + ' title="' +
+        tileKey(map, x, y) + (titleBits ? ' — ' + escapeHtml(titleBits) : '') + escapeHtml(titleMeta) + '">' + label + popupHtml + '</div>';
     }
   }
   el.innerHTML = html;
+
+  // Cap the visible viewport to VIEWPORT_TILES x VIEWPORT_TILES (2026-08-20)
+  // — measured off the real rendered header-block size (compass + axis
+  // labels + row/column headers, columns/rows 1-3) rather than a hardcoded
+  // guess, so this stays correct if that block's own look ever changes.
+  // Read AFTER el.innerHTML is set, so `auto` sizing reflects real content.
+  // A map smaller than the cap (nothing currently is, in every direction)
+  // just renders at its own natural size — max-width/height only ever
+  // shrinks-to-fit from above, never stretches a small grid up to it.
+  const colTracks = getComputedStyle(el).gridTemplateColumns.split(' ').map(parseFloat);
+  const rowTracks = getComputedStyle(el).gridTemplateRows.split(' ').map(parseFloat);
+  const headerW = colTracks.slice(0, COL_OFFSET).reduce((a, b) => a + b, 0) + COL_OFFSET * TILE_GAP;
+  const headerH = rowTracks.slice(0, ROW_OFFSET).reduce((a, b) => a + b, 0) + ROW_OFFSET * TILE_GAP;
+  // scrollbar-gutter:stable both-edges (css/panels.css) reserves real width
+  // for the vertical scrollbar's gutter on BOTH the left and right edge —
+  // real space taken out of the content box, on top of the Tiles
+  // themselves, even for a map exactly VIEWPORT_TILES wide that never
+  // actually needs to scroll. Measured live (scrollbarGutterWidth below)
+  // and added on both sides so a 7-wide Scene like Era 1 still shows all 7
+  // full Tiles instead of the gutter quietly eating into the last column.
+  // The spec only covers the block/vertical axis — there's no equivalent
+  // for a horizontal scrollbar's gutter, so maxHeight doesn't need this.
+  el.style.maxWidth = (headerW + VIEWPORT_TILES * TILE_SIZE + VIEWPORT_TILES * TILE_GAP + 2 * scrollbarGutterWidth()) + 'px';
+  el.style.maxHeight = (headerH + VIEWPORT_TILES * TILE_SIZE + VIEWPORT_TILES * TILE_GAP) + 'px';
 
   // Wire clicks once per render (simple; grid is small enough this is cheap).
   el.querySelectorAll('.map-tile').forEach(tile => {
     tile.onclick = () => handleTileClick(Number(tile.dataset.x), Number(tile.dataset.y));
   });
+  el.querySelectorAll('.tile-popup[data-move-actor]').forEach(popup => {
+    popup.onclick = (ev) => {
+      ev.stopPropagation();
+      AppState.moveSelectMode = { actorId: popup.dataset.moveActor };
+      AppState.moveClickTile = null;
+      renderMap();
+    };
+  });
+  el.querySelectorAll('.tile-popup[data-suggest]').forEach(popup => {
+    popup.onclick = (ev) => {
+      ev.stopPropagation();
+      AppState.moveClickTile = null;
+      renderMap();
+    };
+  });
+
+  const hint = document.getElementById('map-select-hint');
+  const hintText = document.getElementById('map-select-hint-text');
+  if(hint){
+    hint.classList.toggle('hidden', !AppState.moveSelectMode);
+    if(AppState.moveSelectMode && hintText){
+      const actor = (table.players && table.players[AppState.moveSelectMode.actorId]) ||
+        (table.enemies && table.enemies[AppState.moveSelectMode.actorId]);
+      hintText.textContent = 'Choose a Tile to move ' + (actor && actor.name || 'them') + ' to.';
+    }
+  }
 }
 
 export function toggleMapEditMode(){
