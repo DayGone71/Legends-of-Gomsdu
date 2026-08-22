@@ -1,6 +1,7 @@
 import { AppState } from './state.js';
+import { closeMapPopups } from './map.js';
 
-const PANEL_IDS = ['character', 'combat', 'dm', 'dmtest', 'character-view', 'stats', 'techniques', 'party', 'npcs', 'technique-use', 'help', 'information', 'personality', 'relationships'];
+const PANEL_IDS = ['character', 'combat', 'dm', 'dmtest', 'character-view', 'stats', 'techniques', 'party', 'npcs', 'technique-use', 'help', 'information', 'personality', 'relationships', 'scripts'];
 
 // Attack/Block/Essence submenus otherwise remember whatever open/closed state
 // they were left in — force them collapsed every time the panel opens instead.
@@ -13,6 +14,14 @@ function collapseActionMenus(prefix){
 
 export function openPanel(name){
   if(!PANEL_IDS.includes(name)) return;
+  // Fixed 2026-08-22, per dDd — the Map's own popups (Move/Suggest/Craft and
+  // the Occupant List) were persisting behind whichever Panel just opened.
+  // A direct call here, not reliant on the click that opened this Panel
+  // actually bubbling to document — several Panel-opening buttons
+  // (js/craftPopup.js's craft-list-item, for one) call ev.stopPropagation()
+  // first for unrelated reasons, which silently defeated the document-level
+  // dismiss listener (js/map.js's initMapPopupDismiss) for exactly this case.
+  closeMapPopups();
   AppState.activePanel = name;
   if(name === 'combat') collapseActionMenus('');
   if(name === 'dm') collapseActionMenus('dm-');

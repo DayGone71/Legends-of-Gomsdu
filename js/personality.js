@@ -13,11 +13,19 @@
 
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
-import { getIntelligence, INTELLIGENCE_DEFAULT, escapeHtml } from './utils.js';
-import { computeBehaviors, sortedBehaviors } from './behaviors.js';
+import { getIntelligence, mindeyeCapacity, INTELLIGENCE_DEFAULT, escapeHtml, resolveEntityRef } from './utils.js';
+import { computeBehaviors, sortedBehaviors, NO_STAND_AROUND_ARCHETYPES } from './behaviors.js';
 
+// Inspect mode (2026-08-22, per dDd) — the viewing Player's own Character by
+// default, or whichever Character AppState.inspectTargetId points at (set
+// from a new NPC Panel row button, js/dm.js's renderNpcList) — read-only in
+// that case, "to see what is going on," not to edit someone else's sheet.
 function myCharacter(){
-  return AppState.table && AppState.table.players[AppState.playerId];
+  const id = AppState.inspectTargetId || AppState.playerId;
+  return resolveEntityRef(AppState.table, id);
+}
+function inspecting(){
+  return !!AppState.inspectTargetId;
 }
 
 async function adjustIntelligence(delta){
@@ -30,9 +38,11 @@ async function adjustIntelligence(delta){
     const next = Math.max(1, current + delta);
     me.personality.head.intelligence = next;
     // Lowering capacity below what's already remembered forgets the oldest
-    // Expressions immediately, same rule deliverMindeyeEntry enforces on arrival.
+    // Expressions immediately, same rule deliverMindeyeEntry enforces on
+    // arrival — capacity is the raw stat × 10 (2026-08-22), not a 1:1 count.
     if(me.mindeye){
-      while(me.mindeye.length > next) me.mindeye.shift();
+      const capacity = mindeyeCapacity(me);
+      while(me.mindeye.length > capacity) me.mindeye.shift();
     }
   });
 }
@@ -43,8 +53,15 @@ async function adjustIntelligence(delta){
 // js/noncombat.js's resolveNonCombatRound(), which logs the computed Likely
 // Behavior to the Ledger instead of executing it, per dDd's explicit scope).
 function behaviorsHtml(me){
-  const { distribution, perGlyph } = computeBehaviors(me);
+  const excludeStandAround = NO_STAND_AROUND_ARCHETYPES.includes(me.archetype);
+  const { distribution, perGlyph } = computeBehaviors(me, { excludeStandAround });
   const ranked = sortedBehaviors(distribution);
+  // A rounding remainder still always lands on Stand Around internally
+  // (computeBehaviors, js/behaviors.js) even with it excluded from the
+  // seed — matching js/noncombat.js's own real resolution, relabel a
+  // Stand-Around top rank as the actual Wander fallback it'd become there,
+  // rather than showing a Behavior Gom/Kulkrow can never really roll.
+  if(excludeStandAround && ranked[0] && ranked[0].key === 'standAround') ranked[0].name = 'Wander (default)';
   const likely = ranked[0];
   const runnerUp = ranked[1];
 
@@ -89,21 +106,24 @@ export function renderPersonalityPanel(){
   }
 
   const intelligence = getIntelligence(me);
+  const capacity = mindeyeCapacity(me);
   const remembered = (me.mindeye || []).length;
+  const readOnly = inspecting();
 
   const sheet = document.createElement('div');
   sheet.className = 'sheet';
   sheet.innerHTML = `
+    ${readOnly ? '<div class="inspect-banner">Inspecting ' + escapeHtml(me.name || 'Unnamed') + ' — read-only</div>' : ''}
     <div class="stat-header">Head</div>
     <div class="personality-axis">
       <div class="personality-axis-name">Intelligence</div>
-      <div class="personality-axis-desc">How many Expressions this Character can remember at once — the Mindeye forgets its oldest arrival past this limit.</div>
+      <div class="personality-axis-desc">How many Expressions this Character can remember at once — 10 Memories per Intelligence point. The Mindeye forgets its oldest arrival past this limit.</div>
       <div class="personality-stepper">
-        <button class="btn-ghost btn-small" id="personality-intelligence-minus">−</button>
+        ${readOnly ? '' : '<button class="btn-ghost btn-small" id="personality-intelligence-minus">−</button>'}
         <span class="personality-value">${intelligence}</span>
-        <button class="btn-ghost btn-small" id="personality-intelligence-plus">+</button>
+        ${readOnly ? '' : '<button class="btn-ghost btn-small" id="personality-intelligence-plus">+</button>'}
       </div>
-      <div class="personality-capacity">Remembering ${remembered} / ${intelligence} Expression${intelligence === 1 ? '' : 's'}</div>
+      <div class="personality-capacity">Remembering ${remembered} / ${capacity} Expression${capacity === 1 ? '' : 's'}</div>
     </div>
   `;
   const behaviorSheet = document.createElement('div');
@@ -114,6 +134,8 @@ export function renderPersonalityPanel(){
   container.appendChild(sheet);
   container.appendChild(behaviorSheet);
 
-  container.querySelector('#personality-intelligence-minus').addEventListener('click', () => adjustIntelligence(-1));
-  container.querySelector('#personality-intelligence-plus').addEventListener('click', () => adjustIntelligence(1));
+  if(!readOnly){
+    container.querySelector('#personality-intelligence-minus').addEventListener('click', () => adjustIntelligence(-1));
+    container.querySelector('#personality-intelligence-plus').addEventListener('click', () => adjustIntelligence(1));
+  }
 }

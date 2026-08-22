@@ -1,13 +1,14 @@
 import { AppState } from './state.js';
-import { mutateTable } from './sync.js';
-import { escapeHtml, timeNow, playerShorthand, apCostForControl, describeAction, flashHint, isDeathWounded, resolveEntityRef, resolvePositionRef, deliverMindeyeEntry } from './utils.js';
+import { mutateTable, triggerRender } from './sync.js';
+import { escapeHtml, timeNow, playerShorthand, apCostForControl, describeAction, flashHint, isDeathWounded, resolveEntityRef, resolvePositionRef } from './utils.js';
 import { BUILDS } from './character.js';
 import { getSavedCharacters } from './savedCharacters.js';
 import { getSavedEncounters, saveEncounterTemplate } from './savedEncounters.js';
-import { updateEncounterUI } from './panels.js';
+import { updateEncounterUI, openPanel } from './panels.js';
 import { TECHNIQUES, hasCategoryAccess, remaining, costText, glyphOptionsHtml } from './techniques.js';
-import { getDistance, hasLineOfSight } from './map.js';
+import { getDistance, hasLineOfSight, FACING_DEFAULT } from './map.js';
 import { showCharacterView } from './characterView.js';
+import { toggleActiveCharacter } from './activeCharacter.js';
 
 function showBannerError(msg){
   const el = document.getElementById('banner-error');
@@ -64,7 +65,13 @@ export async function addEnemy(){
       control: b.control ?? 0, attunement: b.attunement ?? 0, life: b.life ?? 1,
       species: b.species, deathWounds: b.deathWounds, body: b.body ? [...b.body] : undefined,
       techniqueAccess: b.techniqueAccess,
-      apSpent: 0, focusSpent: 0, sequence: [], possessedBy: null
+      // Found 2026-08-22 while wiring Gom's own Intelligence/knownGlyphs —
+      // this literal never copied either field from BUILDS at all, so a
+      // spawned Enemy silently lost them even though the Build template
+      // (js/character.js's BUILDS) had them right there.
+      knownGlyphs: b.knownGlyphs ? [...b.knownGlyphs] : undefined,
+      personality: b.personality ? JSON.parse(JSON.stringify(b.personality)) : undefined,
+      apSpent: 0, focusSpent: 0, sequence: [], possessedBy: null, facing: FACING_DEFAULT
     };
     t.positions[id] = pos;
     t.log.push({ type: 'system', text: 'An enemy joined the fight: ' + t.enemies[id].name, time: timeNow() });
@@ -188,16 +195,59 @@ export function renderNpcList(containerId){
   const list = Object.entries(enemies);
   if(!list.length){ el.innerHTML = '<div class="log-empty">No NPCs at the Table yet.</div>'; return; }
 
+  // Active Character (2026-08-22, per dDd) — "A Character has to be made
+  // Active directly, via the NPC Panel or TATA Ledger." Both surfaces
+  // already share this one render function (the toolbar NPC Panel and View
+  // 2's TATA-mode Characters list, see js/main.js's renderView2Mode), so
+  // adding the button here covers both at once. TATA-only — outside TATA
+  // the Active Character is always just the Player's own Character, no
+  // button needed.
   el.innerHTML = list.map(([id, e]) => {
     const defeated = isDeathWounded(e);
+    const isActive = AppState.tataActive && id === AppState.activeCharacterId;
+    const activeBtn = AppState.tataActive
+      ? '<button class="npc-active-btn' + (isActive ? ' active' : '') + '" data-active-id="' + id + '">' + (isActive ? 'Active' : 'Make Active') + '</button>'
+      : '';
+    // Inspect buttons (2026-08-22, per dDd — "clicked by either Player or
+    // Tata to see what is going on with the NPCs") — always present,
+    // unlike Make Active above; opens Information/Personality/Relationships
+    // scoped to this NPC instead of the viewing Player's own Character
+    // (AppState.inspectTargetId, read below by all three panels).
+    const inspectBtns = ['information', 'personality', 'relationships'].map(panel =>
+      '<button class="npc-inspect-btn" data-inspect-panel="' + panel + '" data-inspect-id="' + id + '">' + panel[0].toUpperCase() + panel.slice(1) + '</button>'
+    ).join('');
     return '<div class="npc-list-item' + (defeated ? ' defeated' : '') + '" data-id="' + id + '">' +
       '<span class="npc-list-name">' + escapeHtml(e.name || 'Unnamed') + '</span>' +
       '<span class="npc-list-meta">' + escapeHtml(e.archetype || '') + ' &mdash; ' + Math.max(0, e.wounds) + '/' + e.woundsMax + '</span>' +
+      '<span class="npc-row-actions">' + inspectBtns + activeBtn + '</span>' +
     '</div>';
   }).join('');
 
   el.querySelectorAll('.npc-list-item').forEach(row => {
-    row.onclick = () => showCharacterView(AppState.table.enemies[row.dataset.id]);
+    row.onclick = (ev) => {
+      if(ev.target.closest('.npc-active-btn') || ev.target.closest('.npc-inspect-btn')) return;
+      showCharacterView(AppState.table.enemies[row.dataset.id]);
+    };
+  });
+  el.querySelectorAll('.npc-active-btn').forEach(btn => {
+    btn.onclick = (ev) => {
+      ev.stopPropagation();
+      toggleActiveCharacter(btn.dataset.activeId);
+      triggerRender();
+    };
+  });
+  el.querySelectorAll('.npc-inspect-btn').forEach(btn => {
+    btn.onclick = (ev) => {
+      ev.stopPropagation();
+      AppState.inspectTargetId = btn.dataset.inspectId;
+      openPanel(btn.dataset.inspectPanel);
+      // openPanel() only toggles which panel is visible — it doesn't re-run
+      // the Information/Personality/Relationships render functions (those
+      // only fire from main.js's renderAll(), on a real table mutation).
+      // Without this, the panel would open showing whatever it last
+      // rendered (the Player's own data) instead of the NPC just set above.
+      triggerRender();
+    };
   });
 }
 
@@ -304,7 +354,10 @@ function renderDMEssenceMenu(crafts){
   // rebuilt \u2014 so Acting As Gom gets exactly the same real choice Moving him
   // already has, not a cruder DM-only version of it.
   if(AppState.dmPendingCraftKey === 'message'){
-    el.innerHTML += '<div class="field"><label>Glyph</label><select id="dm-glyph-select">' + glyphOptionsHtml() + '</select></div>';
+    el.innerHTML += '<div class="field"><label>Glyphs (up to 3, sent together)</label>' +
+      '<select id="dm-glyph-select-1">' + glyphOptionsHtml(false) + '</select>' +
+      '<select id="dm-glyph-select-2">' + glyphOptionsHtml(true) + '</select>' +
+      '<select id="dm-glyph-select-3">' + glyphOptionsHtml(true) + '</select></div>';
   }
   el.querySelectorAll('[data-craft]').forEach(btn => {
     btn.onclick = () => dmSelectCraft(btn.dataset.craft);
@@ -480,13 +533,15 @@ export async function dmCommitAction(){
       if(remaining(actor, resource) < amount){ showBannerError('Not enough ' + resource + ' left.'); return; }
     }
 
-    const glyphSelect = document.getElementById('dm-glyph-select');
+    const glyphIds = AppState.dmPendingCraftKey === 'message'
+      ? [1, 2, 3].map(n => document.getElementById('dm-glyph-select-' + n)).filter(Boolean).map(el => el.value).filter(Boolean)
+      : undefined;
     entry = {
       apCost: def.costs.ap || 0, focusCost: def.costs.focus || 0, flowCost: def.costs.flow || 0,
       lightningCost: def.costs.lightning || 0, lavaCost: def.costs.lava || 0,
       actionLabel: def.name, targetLabel: playerShorthand(target), targetName: target.name,
       kind: 'technique', techniqueKey: AppState.dmPendingCraftKey, targetId: AppState.dmSelectedTargetId,
-      glyph: AppState.dmPendingCraftKey === 'message' && glyphSelect ? glyphSelect.value : undefined
+      glyphs: glyphIds
     };
   }else{
     showBannerError('Open Attack, Block, or Essence and choose something first.');
@@ -502,16 +557,13 @@ export async function dmCommitAction(){
     a.lightningSpent = (a.lightningSpent || 0) + (entry.lightningCost || 0);
     a.lavaSpent = (a.lavaSpent || 0) + (entry.lavaCost || 0);
     if(entry.flowCost) a.flow = Math.max(0, (a.flow || 0) - entry.flowCost);
-    // The DM's own Essence menu now has the same Glyph picker the Player-
-    // facing Technique Use panel does (2026-08-21, per dDd — picking what
-    // Message to send as an Enemy was "pretty awkward," always defaulting to
-    // RO/OR) — see renderDMEssenceMenu's #dm-glyph-select.
-    if(entry.techniqueKey === 'message') deliverMindeyeEntry(t, entry.targetId, a.name || 'Someone', entry.glyph);
-    // Channel (2026-08-21, per dDd) — "Crafter recovers 1 Lightning Point,"
-    // Crafter meaning whoever's staging it (here, the Enemy the DM is Acting
-    // As — Gom included). This staging tool has no Encounter gate at all
-    // already, so this just works whether or not Combat's running.
-    if(entry.techniqueKey === 'channel') a.lightningSpent = Math.max(0, (a.lightningSpent || 0) - 1);
+    // Message/Channel's actual effects DON'T land here anymore (2026-08-22,
+    // per dDd: "Every Action should resolve on turns... Combat or
+    // Non-Combat, same thing") — this only stages the entry now, same as
+    // every other technique. Resolution happens in js/combat.js's
+    // resolveRound() (when an Encounter is running) or js/noncombat.js's
+    // resolveNonCombatRound() (when it isn't, since this staging tool has
+    // no Encounter gate at all) — both walk this same `sequence` array.
     t.log.push({ type: 'system', text: a.name + ' stages ' + describeAction(entry) + (entry.targetName ? (' on ' + entry.targetName) : ''), time: timeNow() });
   });
 }

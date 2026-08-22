@@ -6,7 +6,7 @@ import { renderLedger, renderRoster, sendMessage, initAddPartyMemberUI } from '.
 import { renderTargetRange, renderAllyRange, toggleMenu, selectAttackKind, selectEssenceSchool, selectBlockKind, toggleCounter, commitAction, undoAction, resolveRound, renderCombatCounters, renderStagedActions, stageRest } from './combat.js';
 import { renderSequencer, initSequencerHover, initSequencerScrub } from './sequencer.js';
 import { addEnemy, startEncounter, endEncounter, renderDMEnemyPicker, renderDMCounters, renderDMTargetRange, dmToggleMenu, dmSelectAttackKind, dmSelectBlockKind, dmToggleCounter, dmCommitAction, dmUndoAction, renderDMStagedActions, clearDead, populateSavedEncounterDropdown, saveEncounterAsTemplate, loadEncounterTemplate, renderNpcList } from './dm.js';
-import { defaultMap, renderMap, toggleMapEditMode, toggleTata, cancelMoveSelect } from './map.js';
+import { defaultMap, renderMap, toggleMapEditMode, toggleTata, cancelMoveSelect, initMapPopupDismiss } from './map.js';
 import { SCENES, loadScene, toggleSceneMenu } from './scenes.js';
 import { openPanel, closePanel, togglePanel, updateEncounterUI, initPanelBackdrop } from './panels.js';
 import { renderDMTestPanel, runDMTestRound, runDMTestNRounds, runDMTestUntilDefeat } from './dmtest.js';
@@ -14,6 +14,9 @@ import { initTechniquesUI, renderTechniquesPanel } from './techniques.js';
 import { renderInformationPanel, hasUnseenMindeye } from './information.js';
 import { renderPersonalityPanel } from './personality.js';
 import { renderRelationshipsPanel } from './relationships.js';
+import { renderScriptsPanel } from './scripts.js';
+import { renderPartyPanel } from './party.js';
+import { renderActiveCharacterDisplay } from './activeCharacter.js';
 import { resolveNonCombatRound } from './noncombat.js';
 import { initCraftPopup } from './craftPopup.js';
 
@@ -98,6 +101,7 @@ function renderAll(){
   if(infoBtn) infoBtn.classList.toggle('pulsing-gom', hasUnseenMindeye());
   renderPersonalityPanel();
   renderRelationshipsPanel();
+  renderPartyPanel();
   renderCombatCounters();
   renderTargetRange();
   renderAllyRange();
@@ -108,10 +112,12 @@ function renderAll(){
   renderDMTargetRange();
   renderDMStagedActions();
   renderNpcList();
+  renderScriptsPanel();
   renderDMTestPanel();
   renderLedger();
   renderRoster();
   renderMap();
+  renderActiveCharacterDisplay();
   updateEncounterUI();
 }
 registerRenderCallback(renderAll);
@@ -747,14 +753,23 @@ function wireEvents(){
   });
   document.getElementById('toolbar-combat').addEventListener('click', () => togglePanel('combat'));
   document.getElementById('toolbar-dm').addEventListener('click', () => togglePanel('dm'));
+  document.getElementById('toolbar-scripts').addEventListener('click', () => togglePanel('scripts'));
   document.getElementById('toolbar-dmtest').addEventListener('click', () => togglePanel('dmtest'));
   document.getElementById('toolbar-stats').addEventListener('click', () => togglePanel('stats'));
   document.getElementById('toolbar-techniques').addEventListener('click', () => togglePanel('techniques'));
   document.getElementById('toolbar-party').addEventListener('click', () => togglePanel('party'));
   document.getElementById('toolbar-npcs').addEventListener('click', () => togglePanel('npcs'));
-  document.getElementById('toolbar-information').addEventListener('click', () => togglePanel('information'));
-  document.getElementById('toolbar-personality').addEventListener('click', () => togglePanel('personality'));
-  document.getElementById('toolbar-relationships').addEventListener('click', () => togglePanel('relationships'));
+  // Inspect mode (2026-08-22) — these 3 toolbar buttons always mean "show
+  // my own Character," so they reset AppState.inspectTargetId back to null
+  // first; the NPC Panel's own Information/Personality/Relationships row
+  // buttons (js/dm.js) are what set it, deliberately not reset here.
+  // renderAll() (not just togglePanel()) because these panels only
+  // re-render their content from a real table mutation otherwise — without
+  // it, switching back from inspecting an NPC would open showing that NPC's
+  // stale content until the next unrelated table change.
+  document.getElementById('toolbar-information').addEventListener('click', () => { AppState.inspectTargetId = null; togglePanel('information'); renderAll(); });
+  document.getElementById('toolbar-personality').addEventListener('click', () => { AppState.inspectTargetId = null; togglePanel('personality'); renderAll(); });
+  document.getElementById('toolbar-relationships').addEventListener('click', () => { AppState.inspectTargetId = null; togglePanel('relationships'); renderAll(); });
   document.getElementById('toolbar-help').addEventListener('click', () => togglePanel('help'));
   document.getElementById('panel-close-character').addEventListener('click', closePanel);
   document.getElementById('panel-close-combat').addEventListener('click', closePanel);
@@ -768,6 +783,7 @@ function wireEvents(){
   document.getElementById('panel-close-information').addEventListener('click', closePanel);
   document.getElementById('panel-close-personality').addEventListener('click', closePanel);
   document.getElementById('panel-close-relationships').addEventListener('click', closePanel);
+  document.getElementById('panel-close-scripts').addEventListener('click', closePanel);
   document.getElementById('panel-close-help').addEventListener('click', closePanel);
   document.getElementById('panel-close-technique-use').addEventListener('click', closePanel);
 
@@ -843,9 +859,13 @@ function wireEvents(){
   renderInformationPanel();
   renderPersonalityPanel();
   renderRelationshipsPanel();
+  renderScriptsPanel();
+  renderPartyPanel();
+  renderActiveCharacterDisplay();
 
   initPanelBackdrop();
   initCraftPopup();
+  initMapPopupDismiss();
 }
 
 // ---------- Init ----------

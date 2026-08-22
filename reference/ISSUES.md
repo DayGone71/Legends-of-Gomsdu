@@ -8,7 +8,7 @@ Each entry: **Status** (Open / Investigating / Closed — unreproduced / Fixed),
 
 ## Open
 
-_(none currently open)_
+-   **A Player's own Tile falls back to the old letter-list instead of a Facing Triangle the moment they have a Mini-Party — found 2026-08-22, deliberately not fixed.** Any Mini-Party member shares their Player's Tile (no position of its own), so a Player with even one Mini-Party member always has 2+ occupants on their Tile — and per Facing's own scope cut (see [CHANGELOG.md](CHANGELOG.md) 2026-08-22), a Tile with more than one occupant renders the pre-existing comma-initial label, not a Triangle. **Confirmed acceptable by dDd for now**: real per-occupant Triangle positioning within a Tile needs the Mini-Tiles system (sub-Tile coordinates — see `ROADMAP.md`, Movement System's Map Evolution) to mean anything, so this isn't a bug to chase today. Logged here specifically so it gets picked back up **the day Mini-Tiles actually gets designed/built** — not before.
 
 ## Fixed
 

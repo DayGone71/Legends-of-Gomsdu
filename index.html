@@ -187,6 +187,7 @@
           <button id="veil-vision-toggle" class="btn-ghost btn-small">TATA Veil Vision</button>
           <button id="map-edit-toggle" class="btn-ghost btn-small">DM: edit tiles</button>
         </div>
+        <div id="active-character-display" class="active-character-display"></div>
       </div>
 
       <div class="side-toolbar">
@@ -195,6 +196,7 @@
         <button id="btn-resolve" class="btn-brass">Resolve</button>
         <button id="toolbar-combat">Combat</button>
         <button id="toolbar-dm">Dungeon Master</button>
+        <button id="toolbar-scripts">Scripts</button>
       </div>
     </div>
 
@@ -262,6 +264,11 @@
          as #party-add-popup above, triggered by a Tile's "Craft" button
          (js/craftPopup.js). Positioned via JS, not a full-screen modal. -->
     <div id="craft-list-popup" class="craft-list-popup hidden"></div>
+
+    <!-- Occupant list popup (2026-08-22) — "should always exist" separate
+         from Move/Suggest/Craft above, per dDd. Same position:fixed pattern,
+         positioned beside (not on top of) the clicked Tile by js/map.js. -->
+    <div id="occupant-list-popup" class="occupant-list-popup hidden"></div>
 
     <!-- PANELS -->
     <div id="panel-backdrop" class="hidden"></div>
@@ -606,8 +613,7 @@
           <div class="tech-column">
             <div class="tech-column-label">Focus</div>
             <button class="tech-item" data-technique="possess">Possess</button>
-            <button class="tech-item" data-technique="embolden">Embolden</button>
-            <button class="tech-item" data-technique="anchor">Anchor</button>
+            <button class="tech-item" data-technique="empower">Empower</button>
             <button class="tech-item" data-technique="resonance">Resonance</button>
           </div>
         </div>
@@ -634,6 +640,7 @@
         <h2>Party</h2>
         <button id="panel-close-party" class="btn-ghost btn-small">Close</button>
       </div>
+      <div id="party-facing-list"></div>
     </div>
 
     <div id="panel-npcs" class="panel-overlay hidden">
@@ -668,6 +675,14 @@
       <div id="relationships-content"></div>
     </div>
 
+    <div id="panel-scripts" class="panel-overlay hidden">
+      <div class="panel-overlay-header">
+        <h2>Scripts</h2>
+        <button id="panel-close-scripts" class="btn-ghost btn-small">Close</button>
+      </div>
+      <div id="scripts-content"></div>
+    </div>
+
     <div id="panel-help" class="panel-overlay hidden">
       <div class="panel-overlay-header">
         <h2>Help</h2>
@@ -694,7 +709,7 @@
         <ul class="help-list">
           <li>Four categories: <b>Flow Powers, Focus Powers, Lightning Crafts, Lava Crafts.</b></li>
           <li>A Character needs a category switched on to use anything in it &mdash; checked on the Character Sheet.</li>
-          <li>Techniques used on an Ally that <i>help</i> (Embolden, Anchor) are never treated as an attack.</li>
+          <li>Techniques used on an Ally that <i>help</i> (Empower) are never treated as an attack.</li>
         </ul>
         <div class="tech-main-header">Party &amp; Possession</div>
         <ul class="help-list">
@@ -722,8 +737,10 @@
         <select id="tu-target"></select>
       </div>
       <div class="field hidden" id="tu-glyph-field">
-        <label>Glyph</label>
-        <select id="tu-glyph"></select>
+        <label>Glyphs (up to 3, sent together)</label>
+        <select id="tu-glyph-1"></select>
+        <select id="tu-glyph-2"></select>
+        <select id="tu-glyph-3"></select>
       </div>
       <button id="btn-tu-stage" class="btn-brass btn-block" style="margin-top:10px;">Stage</button>
     </div>

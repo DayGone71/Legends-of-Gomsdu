@@ -1,6 +1,6 @@
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
-import { escapeHtml, timeNow, genId, isDeathWounded, resolveEntityRef, resolvePositionRef, alliedActorIds, deliverMindeyeEntry } from './utils.js';
+import { escapeHtml, timeNow, genId, isDeathWounded, resolveEntityRef, resolvePositionRef, crafterTargetPoolIds } from './utils.js';
 import { openPanel, closePanel } from './panels.js';
 import { getDistance, hasLineOfSight } from './map.js';
 import { MAX_MINI_PARTY } from './possession.js';
@@ -45,6 +45,13 @@ const DIRECTION_GLYPHS = [
   { id: 'KO', label: 'KO — Right' }
 ];
 
+// Movement Category (2026-08-22, per dDd) — SUU (Stop), KULOG (Wander), and
+// KALAG (Face) read as Movement Commands the same way the 4 Directions do,
+// even though none of them is itself a compass direction — grouped into the
+// same "Movement" optgroup below rather than left in the flat "Other"
+// catch-all, so a Script/Message author can actually find them.
+const MOVEMENT_EXTRA_IDS = ['SUU', 'KULOG', 'KALAG'];
+
 const RESOURCE_LABELS = { ap: 'AP', focus: 'Focus', flow: 'Flow', lightning: 'Lightning', lava: 'Lava' };
 
 // Techniques stageable outside an Encounter (2026-08-21, per dDd), each
@@ -87,14 +94,17 @@ export function costText(costs){
 
 let currentTechniqueKey = null;
 
-// Which pool a Technique's target picker draws from — Enemies by default,
-// Allies (the Player, every other Player, and their statted Mini-Party) for
-// anything carrying `targetSide: 'ally'` (currently just Embolden/Anchor).
-// Reuses the exact same resolution the Combat panel's Ally/Target ranges and
-// DM Test's actor list run on (see utils.js) — a Mini-Party member is just
-// as real a target here as it is everywhere else now.
+// Which pool a Technique's target picker draws from — now resolved relative
+// to the actual Crafter (always the Player here — this panel is Player-only)
+// via crafterTargetPoolIds() (js/utils.js), not a hardcoded "'ally' always
+// means the Player roster" (2026-08-22, per dDd catching this live: "If Gom
+// is an NPC than how can the Player be a valid target of that?"). Outside
+// Combat, every real Character is reachable — Ally/Enemy is strictly a
+// Combat concept — so this widens, harmlessly for now, exactly what an
+// 'ally'-Technique's target list shows outside an Encounter; staging one
+// there is still separately gated by NONCOMBAT_TECHNIQUES below.
 function targetPoolIds(table, def){
-  return def.targetSide === 'ally' ? alliedActorIds(table) : Object.keys((table && table.enemies) || {});
+  return crafterTargetPoolIds(table, AppState.playerId, def.targetSide);
 }
 
 export function openTechniqueUse(key){
@@ -131,13 +141,16 @@ export function openTechniqueUse(key){
       }).join('')
     : '<option value="">' + (isAlly ? 'No Allies to target' : 'No enemies to target') + '</option>';
 
-  // Message's Glyph picker (2026-08-21) — only Message needs it; every other
-  // Technique keeps the field hidden.
+  // Message's Glyph picker (2026-08-21, up to 3 at once as of 2026-08-22 per
+  // dDd — the first draft of sending a Script's-worth of instructions in one
+  // go) — only Message needs it; every other Technique keeps the field
+  // hidden. Slot 1 is required (no empty option), slots 2/3 are optional.
   const glyphField = document.getElementById('tu-glyph-field');
-  const glyphSelect = document.getElementById('tu-glyph');
   if(key === 'message' && GLYPH_DATA){
     glyphField.classList.remove('hidden');
-    glyphSelect.innerHTML = glyphOptionsHtml();
+    document.getElementById('tu-glyph-1').innerHTML = glyphOptionsHtml(false);
+    document.getElementById('tu-glyph-2').innerHTML = glyphOptionsHtml(true);
+    document.getElementById('tu-glyph-3').innerHTML = glyphOptionsHtml(true);
   }else{
     glyphField.classList.add('hidden');
   }
@@ -149,11 +162,20 @@ export function openTechniqueUse(key){
 // by the Player-facing Technique Use panel above and the DM's own Essence
 // menu (js/dm.js), so "Acting As" an Enemy gets the exact same picker
 // instead of always sending the RO/OR default.
-export function glyphOptionsHtml(){
+// `includeEmpty` (2026-08-22, per dDd — Message now sends up to 3 Glyphs at
+// once) adds a leading "— none —" option, for the 2nd/3rd optional picker
+// slots; the 1st slot stays required, same as before.
+export function glyphOptionsHtml(includeEmpty){
   if(!GLYPH_DATA) return '';
-  const otherGlyphs = GLYPH_DATA.glyphs.filter(g => !DIRECTION_GLYPHS.some(d => d.id === g.id));
-  return '<optgroup label="Directions">' +
+  const movementIds = DIRECTION_GLYPHS.map(d => d.id).concat(MOVEMENT_EXTRA_IDS);
+  const movementExtras = MOVEMENT_EXTRA_IDS
+    .map(id => GLYPH_DATA.glyphs.find(g => g.id === id))
+    .filter(Boolean);
+  const otherGlyphs = GLYPH_DATA.glyphs.filter(g => !movementIds.includes(g.id));
+  const empty = includeEmpty ? '<option value="">— none —</option>' : '';
+  return empty + '<optgroup label="Movement">' +
       DIRECTION_GLYPHS.map(d => '<option value="' + escapeHtml(d.id) + '">' + escapeHtml(d.label) + '</option>').join('') +
+      movementExtras.map(g => '<option value="' + escapeHtml(g.id) + '">' + escapeHtml(g.id) + '</option>').join('') +
     '</optgroup>' +
     '<optgroup label="Other">' +
       otherGlyphs.map(g => '<option value="' + escapeHtml(g.id) + '">' + escapeHtml(g.id) + '</option>').join('') +
@@ -173,7 +195,9 @@ export async function stageTechnique(){
   const targetId = document.getElementById('tu-target').value;
   const target = resolveEntityRef(AppState.table, targetId);
   if(!target || isDeathWounded(target)){ showBannerError('Pick a target first.'); return; }
-  const glyphId = currentTechniqueKey === 'message' ? document.getElementById('tu-glyph').value : null;
+  const glyphIds = currentTechniqueKey === 'message'
+    ? [1, 2, 3].map(n => document.getElementById('tu-glyph-' + n).value).filter(Boolean)
+    : null;
 
   // Non-Combat Round (2026-08-21, per dDd) — Message and Channel ("Crafter
   // recovers 1 Lightning Point") are staged outside an Encounter through the
@@ -197,8 +221,8 @@ export async function stageTechnique(){
       });
       if(!actor.orders) actor.orders = [];
       if(currentTechniqueKey === 'message'){
-        actor.orders.push({ id: genId(), kind: 'message', targetId, targetName: target.name, glyph: glyphId });
-        t.log.push({ type: 'system', text: (actor.name || 'Someone') + ' orders a Message to ' + target.name, time: timeNow() });
+        actor.orders.push({ id: genId(), kind: 'message', targetId, targetName: target.name, glyphs: glyphIds });
+        t.log.push({ type: 'system', text: (actor.name || 'Someone') + ' orders a Message to ' + target.name + ' (' + glyphIds.length + ' Glyph' + (glyphIds.length === 1 ? '' : 's') + ')', time: timeNow() });
       }else{
         actor.orders.push({ id: genId(), kind: 'channel' });
         t.log.push({ type: 'system', text: (actor.name || 'Someone') + ' orders a Channel', time: timeNow() });
@@ -235,7 +259,12 @@ export async function stageTechnique(){
       kind: 'technique', techniqueKey: currentTechniqueKey, actionLabel: def.name,
       targetId, targetName: target.name, targetLabel: def.name.slice(0, 2).toUpperCase(),
       apCost: def.costs.ap || 0, focusCost: def.costs.focus || 0,
-      flowCost: def.costs.flow || 0, lightningCost: def.costs.lightning || 0, lavaCost: def.costs.lava || 0
+      flowCost: def.costs.flow || 0, lightningCost: def.costs.lightning || 0, lavaCost: def.costs.lava || 0,
+      // Message's Glyphs ride along on the entry itself now (2026-08-22, per
+      // dDd: "Messages shouldn't arrive as Information until the Resolve")
+      // — delivery moved to resolveRound() (js/combat.js), matching how
+      // Non-Combat's own Message Order already deferred correctly.
+      glyphs: currentTechniqueKey === 'message' ? glyphIds : undefined
     };
     actor.sequence.push(entry);
     actor.apSpent = (actor.apSpent || 0) + entry.apCost;
@@ -243,7 +272,6 @@ export async function stageTechnique(){
     actor.lightningSpent = (actor.lightningSpent || 0) + entry.lightningCost;
     actor.lavaSpent = (actor.lavaSpent || 0) + entry.lavaCost;
     if(entry.flowCost) actor.flow = Math.max(0, (actor.flow || 0) - entry.flowCost);
-    if(currentTechniqueKey === 'message') deliverMindeyeEntry(t, targetId, actor.name || 'Someone', glyphId);
     t.log.push({ type: 'system', text: (actor.name || 'Someone') + ' stages ' + def.name + ' on ' + target.name, time: timeNow() });
   });
 

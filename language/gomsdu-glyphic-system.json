@@ -43,20 +43,6 @@
       }
     },
     {
-      "id": "jagged-circle",
-      "role": "lexical-base",
-      "description": "A circle built from many short straight segments — Gom can only draw straight lines, so a circle is just a lot of them — with two small jagged horns near the top, a tiny nod to the Taurus symbol, sized small relative to the circle itself. Base container for the Gom family of words (GOM, GO).",
-      "render": {
-        "type": "multipath",
-        "d": [
-          "M50,15 L63,18 L75,25 L82,37 L85,50 L82,63 L75,75 L63,82 L50,85 L37,82 L25,75 L18,63 L15,50 L18,37 L25,25 L37,18 Z",
-          "M63,18 L76,12 L75,25",
-          "M37,18 L24,12 L25,25"
-        ]
-      },
-      "status": "redesigned 2026-08-19 — was a 12-point spiky path reading as a hexagon/star; now a 16-sided straight-edged polygon with small horns, per creator correction"
-    },
-    {
       "id": "chevron",
       "role": "lexical-base",
       "description": "A single angular peak, open at its base. Rotation 0deg = upright = 'W' sound / presence-marker. Rotation 180deg = inverted = 'M' sound / presence-marker. Reused rotated 90/270deg as arrowhead tips on the KUL and OG cross-words, and paired (0deg + 180deg overlapping, same position) to form a diamond — WIM is one such diamond; BIS stacks two of them at different scales. This single component does several distinct grammatical jobs depending on context, rotation, and scale — see grammar.rules.",
@@ -76,20 +62,6 @@
           "M15,50 L85,50"
         ]
       }
-    },
-    {
-      "id": "broken-square",
-      "role": "lexical-base",
-      "description": "Original glyph for OR (Give). Creator has scrapped this design; redesign pending. Kept as a placeholder entry so the word's sound/meaning/derivation stay recorded independent of its visual form.",
-      "render": null,
-      "status": "pending-redesign"
-    },
-    {
-      "id": "broken-circle",
-      "role": "lexical-base",
-      "description": "Original glyph for MO (Take). Creator has scrapped this design; redesign pending.",
-      "render": null,
-      "status": "pending-redesign"
     },
     {
       "id": "ownership-line",
@@ -135,20 +107,6 @@
             "cy": 50,
             "r": 18
           }
-        ]
-      }
-    },
-    {
-      "id": "num_sign",
-      "role": "lexical-base",
-      "description": "For OR — the '#' shape, two verticals crossing two horizontals.",
-      "render": {
-        "type": "multipath",
-        "d": [
-          "M60,30 L60,70",
-          "M40,30 L40,70",
-          "M30,60 L70,60",
-          "M30,40 L70,40"
         ]
       }
     },
@@ -339,25 +297,13 @@
         "type": "path",
         "d": "M20,50 L50,80 L80,50 Z"
       }
-    },
-    {
-      "id": "arrow",
-      "role": "lexical-base",
-      "description": "For directions. An arrowhead with a shaft below it, pointing up at rotation 0.",
-      "render": {
-        "type": "multipath",
-        "d": [
-          "M35,35 L50,20 L65,35",
-          "M50,20 L50,70"
-        ]
-      }
     }
   ],
   "glyphs": [
     {
       "id": "KROW",
       "sound": "krow",
-      "meaning": "Life",
+      "meaning": "Conscious Body / Life",
       "category": "glyph",
       "era": "First Era",
       "composition": [
@@ -380,13 +326,12 @@
           "rotation": 0,
           "note": "Redesigned, next session: now new-chevron-south (peak pointing down) sitting almost entirely above the container, crowning it from without — its own base points are what used to be approximated by the generic 'chevron' primitive at scale 0.5. Presence still marks what makes Life Life."
         }
-      ],
-      "status": "settled — chevron placement corrected 2026-08-19 (previously centered inside the square; apex now sits outside it, per creator correction); Glyph-design refined again next session using new-chevron-south instead of the generic chevron primitive."
+      ]
     },
     {
       "id": "KRO",
       "sound": "kro",
-      "meaning": "(inferred) unanimated life-vessel — the base container without the life-force present",
+      "meaning": "Inert / Form / Body / Self",
       "category": "glyph",
       "era": "First Era",
       "composition": [
@@ -399,9 +344,7 @@
           "scale": 1,
           "rotation": 0
         }
-      ],
-      "status": "inferred/unconfirmed",
-      "notes": "Same container as KROW, without the completing chevron. Not confirmed as an independent free-standing word — may function purely as a compositional root (it is, for example, the container used inside KULKROW). Worth confirming with the creator."
+      ]
     },
     {
       "id": "GOM",
@@ -457,7 +400,7 @@
     {
       "id": "KUL",
       "sound": "kul",
-      "meaning": "Kill / Destroy / Inflict — held together, per creator, next session; multiple overlapping glosses are the house style here, not looseness, since a few together can be more truthful than any one strict English word.",
+      "meaning": "Share / Around / Surround",
       "category": "diglyph",
       "era": "First Era",
       "composition": [
@@ -472,28 +415,24 @@
           "note": "Vertical line stays plain — inactive axis."
         },
         {
-          "primitive": "chevron",
           "position": [
-            0.25,
+            0.35,
             0.5
           ],
-          "scale": 0.4,
-          "rotation": 270,
-          "note": "Left arrowhead, tip pointing outward (left)."
+          "scale": 0.8,
+          "rotation": 0,
+          "primitive": "new-chevron-west"
         },
         {
-          "primitive": "chevron",
           "position": [
-            0.75,
+            0.65,
             0.5
           ],
-          "scale": 0.4,
-          "rotation": 90,
-          "note": "Right arrowhead, tip pointing outward (right)."
+          "scale": 0.8,
+          "rotation": 0,
+          "primitive": "new-chevron-east"
         }
-      ],
-      "status": "settled — arrowhead rotations corrected 2026-08-19 (were reversed, tips pointed inward instead of outward; now mirrors OG's outward pattern, just rotated onto the horizontal axis, per creator correction)",
-      "etymology": "A plus-sign cross with chevrons repurposed as arrowheads on the horizontal axis only, forming an arrow running left-right. Horizontal = flanked/surrounded from both sides."
+      ]
     },
     {
       "id": "OG",
@@ -513,34 +452,29 @@
           "note": "Horizontal line stays plain — inactive axis."
         },
         {
-          "primitive": "chevron",
           "position": [
             0.5,
-            0.25
+            0.35
           ],
-          "scale": 0.4,
+          "scale": 0.8,
           "rotation": 0,
-          "note": "Top arrowhead, upright/W orientation."
+          "primitive": "new-chevron-north"
         },
         {
-          "primitive": "chevron",
           "position": [
             0.5,
-            0.75
+            0.65
           ],
-          "scale": 0.4,
-          "rotation": 180,
-          "note": "Bottom arrowhead, inverted/M orientation."
+          "scale": 0.8,
+          "rotation": 0,
+          "primitive": "new-chevron-south"
         }
-      ],
-      "status": "settled",
-      "etymology": "The same cross shape as KUL, with the chevron-arrowheads on the vertical axis instead. Reads as one thing above another — Gom hovering over the Stone on the ground.",
-      "notes": "KUL and OG are the same base shape related by a 90-degree rotation of which axis is active — a second rotation-operator alongside the 180-degree chevron-flip that relates GOM/KROW and GO/KRO. See grammar.rules and openThreads."
+      ]
     },
     {
       "id": "KULKROW",
-      "sound": "kulkrow (pronunciation of the compound is an open thread — see openThreads)",
-      "meaning": "Kulkrow, 'Life-Killer'",
+      "sound": "kulkrow",
+      "meaning": "Kulkrow, 'The Spreading One'",
       "category": "diglyph",
       "era": "First Era",
       "composition": [
@@ -560,13 +494,11 @@
             0.5,
             0.5
           ],
-          "scale": 1,
+          "scale": 0.89,
           "rotation": 0,
           "note": "Placed directly in the chevron's slot at full scale, so the cross's own lines touch the container's boundary exactly — killing sits where the life-force should be."
         }
-      ],
-      "status": "settled — KUL scale corrected 2026-08-19 (was 0.55, cross fell short of the container's edges; now 1.0, cross touches the boundary, per creator correction). Automatically inherits KUL's corrected arrowhead rotations.",
-      "notes": "The container's chevron-slot is not chevron-or-nothing — it can hold any other glyph, changing the whole compound's meaning. This is the first and clearest example of that slot-composition rule."
+      ]
     },
     {
       "id": "OR",
@@ -589,14 +521,12 @@
           "glyph": "M",
           "position": [
             0.5,
-            0.7
+            0.73
           ],
-          "scale": 0.6,
+          "scale": 0.7,
           "rotation": 0
         }
-      ],
-      "status": "settled, next session, per creator — composition resolved using RO/OR + M; no longer the provisional num_sign shape. Supersedes the earlier 'reopened... provisional' status.",
-      "etymology": "Derived from KROW by taking its 2nd and 3rd letters (R, O) and reversing them: RO -> OR. Give is named from what is given (Life's own letters), not from the giver."
+      ]
     },
     {
       "id": "MO",
@@ -606,26 +536,24 @@
       "era": "First Era",
       "composition": [
         {
-          "primitive": "gom-circle",
           "position": [
-            0.35,
+            0.5,
             0.5
           ],
-          "scale": 0.6,
-          "rotation": 90
+          "scale": 1,
+          "rotation": 0,
+          "glyph": "OP / PO"
         },
         {
-          "primitive": "gom-circle",
           "position": [
-            0.65,
-            0.5
+            0.5,
+            0.27
           ],
-          "scale": 0.6,
-          "rotation": -90
+          "scale": 0.7,
+          "rotation": 0,
+          "glyph": "W"
         }
-      ],
-      "status": "next session, per creator — both interlocking circles rebuilt from gom-circle instead of jagged-circle, matching GOM/GO's own updated base. The ORMO Diglyph itself isn't out yet, per creator — still planned, this redesign is just MO's own visual update in the meantime.",
-      "etymology": "Derived from GOM by taking its 2nd and 3rd letters (O, M) and reversing them: OM -> MO. Take is named from the one who always takes (Gom's own letters), not from the object taken — consistent with 'everything eventually returns to Gom.'"
+      ]
     },
     {
       "id": "WIM",
@@ -662,7 +590,7 @@
     {
       "id": "BIS",
       "sound": "bis",
-      "meaning": "Water; also Forget / Lose",
+      "meaning": "Water / Forget / Lose",
       "category": "diglyph",
       "era": "First Era",
       "composition": [
@@ -680,7 +608,7 @@
           "primitive": "chevron",
           "position": [
             0.3,
-            0.3
+            0.27
           ],
           "scale": 0.3,
           "rotation": 180,
@@ -700,16 +628,13 @@
           "primitive": "chevron",
           "position": [
             0.7,
-            0.3
+            0.27
           ],
           "scale": 0.3,
           "rotation": 180,
           "note": "Right column, upper — mirrors the left exactly."
         }
-      ],
-      "status": "settled — rebuilt again 2026-08-20, per creator (two side-by-side columns, each a big-upright-plus-small-inverted chevron pair, the right column an exact mirror of the left — not one shared apex or one stacked pair down the center)",
-      "etymology": "Two matching columns, left and right, each a big chevron below and a small inverted one above it. This is the exact motif WIMBIS now echoes twice, flanking WIM on both sides — BIS's own shape isn't split in half to build WIMBIS, it's reused whole, twice, at smaller scale. Follows directly from the cosmology: Liquid doesn't exist until Death does, and 'death' in Gomsdu isn't an ending, it's dissolving back into Gom — i.e. forgetting who you were. There may be no dedicated word for death at all; BIS appears to be doing that job.",
-      "notes": "Horizontal directionality carries no grammatical meaning here or anywhere else in the language — BIS read/sounded in reverse (SIB) is equally valid, per creator."
+      ]
     },
     {
       "id": "S",
@@ -1172,7 +1097,10 @@
       "era": "First Era",
       "composition": [
         {
-          "position": [0.5, 0.5],
+          "position": [
+            0.5,
+            0.5
+          ],
           "scale": 1,
           "rotation": 0,
           "primitive": "new-chevron-north"
@@ -1189,7 +1117,10 @@
       "era": "First Era",
       "composition": [
         {
-          "position": [0.5, 0.5],
+          "position": [
+            0.5,
+            0.5
+          ],
           "scale": 1,
           "rotation": 0,
           "primitive": "new-chevron-south"
@@ -1206,14 +1137,24 @@
       "era": "First Era",
       "composition": [
         {
-          "position": [0.5, 0.5],
+          "position": [
+            0.5,
+            0.5
+          ],
           "scale": 1,
           "rotation": 0,
-          "primitive": "arrow"
+          "primitive": "connect"
+        },
+        {
+          "position": [
+            0.5,
+            0.37
+          ],
+          "scale": 0.7,
+          "rotation": 0,
+          "primitive": "new-chevron-north"
         }
-      ],
-      "status": "creator-authored, next session",
-      "notes": "Flagged, not assumed: this id/sound overlaps the already-established Glyph OR (Give, sound 'or', derived from KROW's own 2nd-3rd letters RO->OR — see grammar.rules' 'Position-2-3 reversal derivation'). May be a deliberate homophone/reuse in the same spirit as S/BIS or the house style's stacked-gloss philosophy, or may be an unintended collision — worth confirming with creator rather than assuming either way."
+      ]
     },
     {
       "id": "OP / PO",
@@ -1223,13 +1164,24 @@
       "era": "First Era",
       "composition": [
         {
-          "position": [0.5, 0.5],
+          "position": [
+            0.5,
+            0.5
+          ],
           "scale": 1,
-          "rotation": 180,
-          "primitive": "arrow"
+          "rotation": 0,
+          "primitive": "connect"
+        },
+        {
+          "position": [
+            0.5,
+            0.63
+          ],
+          "scale": 0.7,
+          "rotation": 0,
+          "primitive": "new-chevron-south"
         }
-      ],
-      "status": "creator-authored, next session"
+      ]
     },
     {
       "id": "KO",
@@ -1239,13 +1191,24 @@
       "era": "First Era",
       "composition": [
         {
-          "position": [0.5, 0.5],
+          "position": [
+            0.5,
+            0.5
+          ],
           "scale": 1,
           "rotation": 90,
-          "primitive": "arrow"
+          "primitive": "connect"
+        },
+        {
+          "position": [
+            0.63,
+            0.5
+          ],
+          "scale": 0.7,
+          "rotation": 0,
+          "primitive": "new-chevron-east"
         }
-      ],
-      "status": "creator-authored, next session"
+      ]
     },
     {
       "id": "OK",
@@ -1255,13 +1218,171 @@
       "era": "First Era",
       "composition": [
         {
-          "position": [0.5, 0.5],
+          "position": [
+            0.5,
+            0.5
+          ],
           "scale": 1,
-          "rotation": -90,
-          "primitive": "arrow"
+          "rotation": 90,
+          "primitive": "connect"
+        },
+        {
+          "position": [
+            0.37,
+            0.5
+          ],
+          "scale": 0.7,
+          "rotation": 0,
+          "primitive": "new-chevron-west"
         }
-      ],
-      "status": "creator-authored, next session"
+      ]
+    },
+    {
+      "id": "SUU",
+      "sound": "suu",
+      "meaning": "Stop",
+      "category": "diglyph",
+      "era": "First Era",
+      "composition": [
+        {
+          "primitive": "cross-core",
+          "position": [
+            0.5,
+            0.5
+          ],
+          "scale": 1,
+          "rotation": 0,
+          "note": "Vertical line stays plain — inactive axis."
+        },
+        {
+          "position": [
+            0.87,
+            0.5
+          ],
+          "scale": 0.4,
+          "rotation": 90,
+          "primitive": "ownership-line"
+        },
+        {
+          "position": [
+            0.13,
+            0.5
+          ],
+          "scale": 0.4,
+          "rotation": -90,
+          "primitive": "ownership-line"
+        },
+        {
+          "position": [
+            0.5,
+            0.87
+          ],
+          "scale": 0.4,
+          "rotation": 0,
+          "primitive": "ownership-line"
+        },
+        {
+          "position": [
+            0.5,
+            0.13
+          ],
+          "scale": 0.4,
+          "rotation": 0,
+          "primitive": "ownership-line"
+        }
+      ]
+    },
+    {
+      "id": "KULOG",
+      "sound": "kulog",
+      "meaning": "Find / Hunt",
+      "category": "diglyph",
+      "era": "First Era",
+      "composition": [
+        {
+          "primitive": "cross-core",
+          "position": [
+            0.5,
+            0.5
+          ],
+          "scale": 1,
+          "rotation": 0,
+          "note": "Horizontal line stays plain — inactive axis."
+        },
+        {
+          "position": [
+            0.73,
+            0.5
+          ],
+          "scale": 0.5,
+          "rotation": 0,
+          "primitive": "new-chevron-east"
+        },
+        {
+          "position": [
+            0.5,
+            0.73
+          ],
+          "scale": 0.5,
+          "rotation": 0,
+          "primitive": "new-chevron-south"
+        },
+        {
+          "position": [
+            0.27,
+            0.5
+          ],
+          "scale": 0.5,
+          "rotation": 0,
+          "primitive": "new-chevron-west"
+        },
+        {
+          "position": [
+            0.5,
+            0.27
+          ],
+          "scale": 0.5,
+          "rotation": 0,
+          "primitive": "new-chevron-north"
+        }
+      ]
+    },
+    {
+      "id": "KALAG",
+      "sound": "kalag",
+      "meaning": "Explore / Wander",
+      "category": "diglyph",
+      "era": "First Era",
+      "composition": [
+        {
+          "primitive": "cross-core",
+          "position": [
+            0.5,
+            0.5
+          ],
+          "scale": 1,
+          "rotation": 0,
+          "note": "Vertical line stays plain — inactive axis."
+        }
+      ]
+    },
+    {
+      "id": "YO",
+      "sound": "yo",
+      "meaning": "Reference to Star Father",
+      "category": "glyph",
+      "era": "First Era",
+      "composition": [
+        {
+          "position": [
+            0.5,
+            0.5
+          ],
+          "scale": 1,
+          "rotation": 180,
+          "primitive": "triangle-invert"
+        }
+      ]
     }
   ],
   "grammar": {

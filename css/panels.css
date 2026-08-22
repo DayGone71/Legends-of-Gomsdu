@@ -278,6 +278,45 @@
 .npc-list-name{font-weight:600;}
 .npc-list-meta{color:var(--text-dim); font-family:'IBM Plex Mono',monospace; font-size:12px;}
 
+/* NPC row action buttons (2026-08-22, per dDd) — Info/Personality/
+   Relationships inspect buttons, always present ("clicked by either Player
+   or Tata"), alongside the existing TATA-only Make Active button. Own
+   flex-wrap row so a narrow panel doesn't force the whole NPC row taller. */
+.npc-row-actions{display:flex; flex-wrap:wrap; gap:4px; margin-left:auto;}
+.npc-inspect-btn{
+  flex-shrink:0; background:transparent; color:var(--text-dim); border:1px solid var(--ink-line);
+  border-radius:5px; padding:3px 8px; font-size:11px; cursor:pointer;
+}
+.npc-inspect-btn:hover{border-color:#22D3EE; color:var(--text-light);}
+
+/* Inspect-mode banner (2026-08-22) — Information/Personality/Relationships
+   all show this when displaying someone other than the viewing Player's own
+   Character (js/state.js's inspectTargetId) — a plain, unmissable "this
+   isn't you, and it's read-only" flag rather than a subtler cue. */
+.inspect-banner{
+  background:rgba(34,211,238,.12); border:1px solid #22D3EE; color:#22D3EE;
+  border-radius:6px; padding:6px 10px; font-size:12px; font-weight:600;
+  margin-bottom:10px;
+}
+
+/* Script Panel (2026-08-22, per dDd) — "Add a Script Panel button... so I can
+   set the Scripts up." Each Row's 3 Glyph selects sit side by side (.field's
+   own default is width:100% stacked, wrong for this — a Row reads as one
+   simultaneous unit, same "Horizontal = at once" grammar Message's own
+   3-Glyph picker uses) rather than stacked full-width. */
+.script-row-field{display:flex; flex-direction:column; gap:6px;}
+.script-row-field label{display:block; font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:#7A6A47; margin-bottom:0; font-weight:600;}
+.script-row-field .script-glyph-select{width:auto; flex:1;}
+.script-row-field{flex-direction:row; flex-wrap:wrap; align-items:center; margin-bottom:12px;}
+.script-row-field label{flex-basis:100%;}
+.script-row-controls{display:flex; gap:8px; margin-bottom:4px;}
+.btn-block{width:100%; display:block;}
+.script-status-line{font-size:13px; color:#7A6A47; margin-bottom:4px;}
+.script-rows-readout{margin:10px 0; display:flex; flex-direction:column; gap:4px;}
+.script-row-readout{font-size:12.5px; color:#7A6A47; padding:4px 8px; border-radius:5px; background:#F8F3E7; border:1px solid var(--parchment-line);}
+.script-row-readout.done{color:#9A9A8A; text-decoration:line-through;}
+.script-row-readout.next{color:var(--text-dark); border-color:var(--brass); font-weight:600;}
+
 .action-row{display:flex; gap:8px; margin-top:16px;}
 .action-menu{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; padding:12px; background:var(--ink); border-radius:8px; border:1px solid var(--ink-line);}
 .toggle-row{display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-light); width:100%;}
@@ -418,6 +457,60 @@
   display:flex; align-items:center; justify-content:center;
   font-size:8px; line-height:1; padding:0 2px;
 }
+
+/* Facing (2026-08-22, corrected same day per dDd) — a vision-cone marker,
+   not an arrowhead: the small black dot (::after) is where the Character
+   actually IS, the colored cone (::before) fans out from it toward the way
+   they're facing. 0deg (unrotated) points the cone North/up; --facing-deg
+   rotates the whole marker from there — same rotation values as before,
+   only the shape's own orientation (border-top instead of border-bottom)
+   flipped so the dot lands at the apex instead of the cone. Reused as-is
+   for both the Map Tile marker and the Party Facing picker below; the
+   picker's dot/cone both stay their own default ink/black, unrelated to
+   Player/NPC. Cone color defaults to currentColor but the Map Tile marker
+   overrides it per-occupant via --facing-color — see
+   FACING_COLOR_PLAYER/FACING_COLOR_NPC in js/map.js, both reused straight
+   from style-guide.md's confirmed Ally-Cyan/Enemy-Yellow rather than new
+   hues. */
+.facing-marker{
+  position:relative; display:inline-block; width:12px; height:14px;
+  transform:rotate(var(--facing-deg, 0deg));
+}
+.facing-marker::before{
+  content:''; position:absolute; top:0; left:0; width:0; height:0;
+  border-left:6px solid transparent; border-right:6px solid transparent;
+  border-top:10px solid var(--facing-color, currentColor);
+}
+.facing-marker::after{
+  content:''; position:absolute; bottom:0; left:50%; transform:translateX(-50%);
+  width:4px; height:4px; border-radius:50%; background:#000;
+}
+
+/* Self (2026-08-22, retired the corner dot same day per dDd — "should have
+   gotten deleted a long time ago") — a translucent Green wash over the
+   whole Tile instead, style-guide.md's long-reserved "Self" slot. Sits as
+   its own absolutely-positioned layer (z-index 3, same tier the Ally/Enemy
+   crowd rings use) rather than the Tile's own background/::before/::after
+   (already spoken for by the Down/Chunk gradients) — translucent enough
+   that the Triangle/labels underneath stay legible through the tint. */
+.self-overlay{
+  position:absolute; inset:0; z-index:3; border-radius:3px; pointer-events:none;
+  background:rgba(46,204,113,.3);
+}
+
+/* Party Facing (2026-08-22) — the Party Panel's direction picker, laid out
+   as a compass rose (3x3 grid, center cell empty) rather than a plain row,
+   so its spatial layout itself reads as "which way." */
+.party-facing-desc{font-size:12px; color:#7A6A47; margin-bottom:10px;}
+.party-facing-pending{font-size:11px; color:var(--brass); margin-top:8px; font-style:italic;}
+.party-facing-grid{display:grid; grid-template-columns:repeat(3, 34px); grid-template-rows:repeat(3, 34px); gap:5px; justify-content:center;}
+.party-facing-btn{
+  display:flex; align-items:center; justify-content:center;
+  background:var(--parchment); border:1px solid var(--parchment-line); border-radius:6px;
+  color:var(--text-dark); cursor:pointer; padding:0;
+}
+.party-facing-btn:hover{border-color:var(--brass);}
+.party-facing-btn.active{border-color:var(--brass); background:rgba(185,151,91,.18); color:var(--brass);}
 .move-badge-orb{width:7px; height:7px; min-width:0; border-radius:50%; background:#EAD9FF;}
 
 /* The Move Orders trail (2026-08-21) — a ghostly dashed line from the mover's
@@ -454,6 +547,40 @@
 }
 .map-toolbar{display:flex; justify-content:flex-end; align-items:center; gap:8px; margin-top:8px; flex-shrink:0;}
 
+/* Active Character display (2026-08-22, per dDd) — Avatar/Name/Key-Stats,
+   under the Map Panel's 3 buttons. Avatar color reuses this session's
+   established Player/NPC Triangle hues (Ally-Cyan/Enemy-Yellow, both
+   confirmed in style-guide.md) rather than minting new ones; The
+   Architect's placeholder gets Brass, the app's general accent, since it's
+   neither a Player nor an NPC. */
+.active-character-display{
+  display:flex; align-items:center; gap:10px; margin-top:8px; padding:8px 10px;
+  background:var(--ink); border:1px solid var(--ink-line); border-radius:8px;
+}
+.active-char-avatar{
+  flex-shrink:0; width:32px; height:32px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-weight:700; font-size:14px; color:#0A0B0D;
+}
+.active-char-avatar.ally{background:#22D3EE;}
+.active-char-avatar.enemy{background:#F5C518;}
+.active-char-avatar.architect{background:var(--brass);}
+.active-char-info{flex:1; min-width:0;}
+.active-char-name{font-weight:700; color:var(--text-light); font-size:13px;}
+.active-char-stats{display:flex; flex-wrap:wrap; gap:2px 10px; margin-top:2px;}
+.active-char-stat{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-dim);}
+.active-char-stats-empty{font-size:11px; color:var(--text-dim); font-style:italic; margin-top:2px;}
+
+/* Active Character toggle button (2026-08-22) — reuses .npc-list-item's own
+   hover/defeated treatment above; .active matches .toolbar button.active's
+   existing Brass-highlight convention (css/layout.css) rather than a new one. */
+.npc-active-btn{
+  flex-shrink:0; background:transparent; color:var(--text-dim); border:1px solid var(--ink-line);
+  border-radius:5px; padding:3px 8px; font-size:11px; cursor:pointer;
+}
+.npc-active-btn:hover{border-color:var(--brass); color:var(--text-light);}
+.npc-active-btn.active{border-color:var(--brass); color:var(--brass-bright); background:rgba(185,151,91,.15);}
+
 /* Movement popups (2026-08-20), per dDd — "Move?" / "Suggest Move?" appear
    directly on the clicked Tile (.map-tile is already position:relative).
    z-index:10 clears the Tile's own gradient/edge layers (0-3, see above). */
@@ -486,6 +613,25 @@
   border-radius:5px; padding:6px 10px; font-size:12px; cursor:pointer; text-align:left;
 }
 .craft-list-item:hover{background:var(--ink-soft);}
+
+/* Occupant list popup (2026-08-22) — same fixed-position floating pattern
+   as .craft-list-popup, deliberately its own separate element (per dDd: "A
+   separate list next to what is already there... instead of appended to
+   it") rather than folded into .tile-popup's markup. Cyan border keeps it
+   visually distinct from Craft's Brass at a glance. */
+.occupant-list-popup{
+  position:fixed; min-width:130px; z-index:56; background:var(--ink-soft);
+  border:1px solid #22D3EE; border-radius:10px; padding:6px;
+  box-shadow:0 8px 24px rgba(0,0,0,.4); display:flex; flex-direction:column; gap:4px;
+}
+.occupant-list-item{
+  background:var(--ink); color:var(--text-light); border:1px solid var(--ink-line);
+  border-radius:5px; padding:6px 10px; font-size:12px; cursor:pointer; text-align:left;
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+}
+.occupant-list-item:hover{border-color:#22D3EE;}
+.occupant-list-item.active{border-color:var(--brass); color:var(--brass-bright);}
+.occupant-active-tag{font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--brass-bright);}
 .map-tile.select-target:hover{box-shadow:inset 0 0 0 2px var(--brass-bright); z-index:4;}
 /* Bug fix, 2026-08-20, per dDd — "Suggest Move?" popped up behind the Map.
    .map-tile sets position:relative + a numeric z-index, which makes each

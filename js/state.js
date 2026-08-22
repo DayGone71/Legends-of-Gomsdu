@@ -32,6 +32,20 @@ export const AppState = {
   // into Movement's own click-detection branch — the fuller "Party becomes
   // Enemy Tiles" swap is its own separate, not-yet-built scope.
   tataActive: false,
+  // Active Character (2026-08-22, per dDd) — which real table.enemies id, if
+  // any, TATA has explicitly made Active; null means the default, The
+  // Architect (see js/activeCharacter.js). Only meaningful while tataActive
+  // is true — outside TATA the Active Character is always just the Player's
+  // own Character this pass, no override exists yet.
+  activeCharacterId: null,
+  // Inspect mode (2026-08-22, per dDd — "clicked by either Player or Tata
+  // to see what is going on with the NPCs") — which Character id, if any,
+  // the Information/Personality/Relationships panels are currently showing
+  // instead of the viewing Player's own. Set from a new NPC Panel row
+  // button, cleared the moment any of those 3 panels is opened normally
+  // (its own toolbar button) — read-only while set, per dDd's own framing
+  // ("to see," not to edit someone else's Character from here).
+  inspectTargetId: null,
   // Movement (2026-08-20) — which Tile currently has its occupancy popup(s)
   // showing ({x,y} or null), and which actor (if any) is mid tile-pick
   // ({ actorId } or null) after confirming "Move?".

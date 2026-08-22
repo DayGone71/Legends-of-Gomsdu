@@ -10,7 +10,7 @@
 
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
-import { escapeHtml } from './utils.js';
+import { escapeHtml, resolveEntityRef } from './utils.js';
 import { TECHNIQUES, hasCategoryAccess } from './techniques.js';
 
 let GLYPH_DATA = null;
@@ -73,9 +73,24 @@ function entryGlyphName(entry) {
   return glyph ? glyph.id : 'GI';
 }
 
-// Every Mindeye entry currently waiting on the logged-in Player, newest last.
+// Inspect mode (2026-08-22, per dDd) — the viewing Player's own Character by
+// default, or whichever Character AppState.inspectTargetId points at (a new
+// NPC Panel row button, js/dm.js's renderNpcList). Read-only, and skips the
+// Spotlight reveal animation entirely (see renderInformationPanel below) —
+// that's the Player's own live "a new Glyph just arrived" experience, which
+// doesn't mean anything the same way for someone inspecting a different
+// Character's Mindeye after the fact.
+function myCharacter(){
+  const id = AppState.inspectTargetId || AppState.playerId;
+  return resolveEntityRef(AppState.table, id);
+}
+function inspecting(){
+  return !!AppState.inspectTargetId;
+}
+
+// Every Mindeye entry currently on the inspected/own Character, newest last.
 function myMindeye() {
-  const me = AppState.table && AppState.table.players[AppState.playerId];
+  const me = myCharacter();
   return (me && me.mindeye) || [];
 }
 
@@ -85,7 +100,7 @@ function myMindeye() {
 // usability — per dDd: "Techniques aren't supposed to be globally available
 // for anyone to use, but they should be all available to see by everyone."
 function craftsKnownRow() {
-  const me = AppState.table && AppState.table.players[AppState.playerId];
+  const me = myCharacter();
   const row = document.createElement('div');
   row.className = 'sheet';
   const known = me ? Object.entries(TECHNIQUES).filter(([key, def]) => def.group === 'Craft' && hasCategoryAccess(me, def)) : [];
@@ -124,7 +139,7 @@ export function renderInformationPanel() {
     return;
   }
 
-  const unseen = myMindeye().filter(e => !e.seen);
+  const unseen = inspecting() ? [] : myMindeye().filter(e => !e.seen);
 
   // The Mindeye Interface (2026-08-20, dDd's spec) — replaces the old plain
   // text spotlight entirely. Renders straight onto the panel's own dark
@@ -181,7 +196,9 @@ export function renderInformationPanel() {
 
   const sheet = document.createElement('div');
   sheet.className = 'sheet';
-  sheet.innerHTML = '<div class="stat-header">Received</div>';
+  const me = myCharacter();
+  sheet.innerHTML = (inspecting() ? '<div class="inspect-banner">Inspecting ' + escapeHtml((me && me.name) || 'Unnamed') + ' — read-only</div>' : '') +
+    '<div class="stat-header">Received</div>';
 
   const gallery = document.createElement('div');
   gallery.className = 'info-gallery';

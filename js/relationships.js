@@ -15,7 +15,7 @@
 
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
-import { escapeHtml } from './utils.js';
+import { escapeHtml, resolveEntityRef } from './utils.js';
 
 let GLYPH_DATA = null;
 try {
@@ -66,8 +66,18 @@ function entryGlyphName(entry) {
   return glyph ? glyph.id : 'GI';
 }
 
+// Inspect mode (2026-08-22, per dDd) — same pattern as js/personality.js and
+// js/information.js: the viewing Player's own Character by default, or
+// AppState.inspectTargetId's Character (read-only) when set.
+function myCharacter(){
+  const id = AppState.inspectTargetId || AppState.playerId;
+  return resolveEntityRef(AppState.table, id);
+}
+function inspecting(){
+  return !!AppState.inspectTargetId;
+}
 function myMindeye() {
-  const me = AppState.table && AppState.table.players[AppState.playerId];
+  const me = myCharacter();
   return (me && me.mindeye) || [];
 }
 
@@ -83,7 +93,7 @@ async function setAxisValue(entryId, field, value) {
   });
 }
 
-function renderAxis(name, leftLabel, rightLabel, field, entry) {
+function renderAxis(name, leftLabel, rightLabel, field, entry, readOnly) {
   const value = entry[field] ?? 1;
   const el = document.createElement('div');
   el.className = 'rel-axis';
@@ -95,9 +105,14 @@ function renderAxis(name, leftLabel, rightLabel, field, entry) {
       <button class="rel-pole-btn${value === 2 ? ' active' : ''}" data-val="2">${escapeHtml(rightLabel)}</button>
     </div>
   `;
-  el.querySelectorAll('.rel-pole-btn').forEach(btn => {
-    btn.addEventListener('click', () => setAxisValue(entry.id, field, Number(btn.dataset.val)));
-  });
+  // Read-only while inspecting someone else's Character (2026-08-22, per
+  // dDd — "to see what is going on," not to edit it from here) — buttons
+  // still show the real state, they just don't respond to clicks.
+  if(!readOnly){
+    el.querySelectorAll('.rel-pole-btn').forEach(btn => {
+      btn.addEventListener('click', () => setAxisValue(entry.id, field, Number(btn.dataset.val)));
+    });
+  }
   return el;
 }
 
@@ -111,6 +126,7 @@ export function renderRelationshipsPanel() {
   }
 
   const mindeye = myMindeye();
+  const readOnly = inspecting();
   if (selectedEntryId && !mindeye.some(e => e.id === selectedEntryId)) selectedEntryId = null;
   if (!selectedEntryId && mindeye.length) selectedEntryId = mindeye[mindeye.length - 1].id;
 
@@ -118,7 +134,9 @@ export function renderRelationshipsPanel() {
 
   const rowSheet = document.createElement('div');
   rowSheet.className = 'sheet';
-  rowSheet.innerHTML = '<div class="stat-header">Remembered Glyphs</div>';
+  const me = myCharacter();
+  rowSheet.innerHTML = (readOnly ? '<div class="inspect-banner">Inspecting ' + escapeHtml((me && me.name) || 'Unnamed') + ' — read-only</div>' : '') +
+    '<div class="stat-header">Remembered Glyphs</div>';
   const gallery = document.createElement('div');
   gallery.className = 'info-gallery';
   if (!mindeye.length) {
@@ -140,8 +158,8 @@ export function renderRelationshipsPanel() {
   const selected = mindeye.find(e => e.id === selectedEntryId);
   if (selected) {
     axisSheet.innerHTML = '<div class="stat-header">Feelings toward ' + escapeHtml(entryGlyphName(selected)) + '</div>';
-    axisSheet.appendChild(renderAxis('Attachment', 'Connected', 'Separated', 'attachment', selected));
-    axisSheet.appendChild(renderAxis('Desire', 'Desirable', 'Undesirable', 'desire', selected));
+    axisSheet.appendChild(renderAxis('Attachment', 'Connected', 'Separated', 'attachment', selected, readOnly));
+    axisSheet.appendChild(renderAxis('Desire', 'Desirable', 'Undesirable', 'desire', selected, readOnly));
   } else {
     axisSheet.innerHTML = '<div class="log-empty">Select a Glyph above to see how this Character feels about it.</div>';
   }

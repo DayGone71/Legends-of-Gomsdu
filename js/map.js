@@ -1,6 +1,8 @@
 import { AppState } from './state.js';
 import { mutateTable, triggerRender } from './sync.js';
 import { escapeHtml, isDeathWounded, isDown, alliedActorIds, resolvePositionRef, resolveEntityRef, genId, timeNow } from './utils.js';
+import { showCharacterView } from './characterView.js';
+import { toggleActiveCharacter } from './activeCharacter.js';
 
 // 14x14 (was 9x9) — 2026-08-17, dDd's View 1 spec: Tiles shrunk and the grid
 // deliberately made bigger than fits the visible area without scrolling
@@ -60,6 +62,76 @@ export function defaultMap(width, height){
 
 function tileIndex(map, x, y){
   return y * map.width + x;
+}
+
+// Facing (2026-08-22, per dDd's Movement System spec) — the direction a
+// Character is actually facing, independent of Movement. Degrees are
+// clockwise from North (0deg) — matches css/panels.css's .facing-triangle,
+// which points up (North) unrotated and rotates via the --facing-deg custom
+// property. FACING_DEGREES keeps all 8 values even though only 4 are
+// exposed below — cheap to keep ready, no reason to throw the diagonals away.
+export const FACING_DEGREES = { N: 0, NE: 45, E: 90, SE: 135, S: 180, SW: 225, W: 270, NW: 315 };
+// Cardinal-only for now (2026-08-22, per dDd, after seeing it live): diagonal
+// Movement is 8-directional, but diagonal *Facing* never existed for the
+// Living Stone — real 8-directional Facing waits for Second Era development.
+// Swap this back to all 8 keys of FACING_DEGREES when that starts; nothing
+// else here needs to change, FACING_DEGREES already has them.
+export const FACING_DIRECTIONS = ['N', 'E', 'S', 'W'];
+// Faces the viewer ("down" on screen) by default — the usual top-down
+// convention for a Character with no Facing chosen yet.
+export const FACING_DEFAULT = 'S';
+
+// Player/NPC Triangle colors (2026-08-22) — Ally-Cyan and Enemy-Yellow,
+// both already confirmed in reference/style-guide.md's Enemy/Ally/Self
+// section; reused here rather than minting new hues, per that doc's own
+// rule ("before introducing a new UI color, check it against this whole
+// list first"). "NPC" doesn't have its own data bucket yet — table.enemies
+// is the same data the NPCs Panel already shows (see js/dm.js's
+// renderNpcList) — so NPC Triangles reuse the Enemy hue for now. A real
+// hostile-vs-friendly-NPC split, if it's ever needed, should vary border
+// style rather than spend a fourth hue, matching the style guide's own
+// stated pattern for splitting a category further.
+const FACING_COLOR_PLAYER = '#22D3EE'; // Ally-Cyan
+const FACING_COLOR_NPC = '#F5C518'; // Enemy-Yellow
+
+// Which absolute Cardinal a Direction Glyph reads as, independent of a
+// Character's own current Facing (per dDd, the same "Cardinal-Direction
+// meanings independent of Facing" the Movement-Glyphs-to-Map-Actions thread
+// already established). Used by the Face Behavior (js/behaviors.js/
+// js/noncombat.js — "Character can face any direction they know") to turn a
+// Character's knownGlyphs into the real set of directions they can face.
+export const DIRECTION_GLYPH_CARDINAL = { 'RO / OR': 'N', 'KO': 'E', 'OP / PO': 'S', 'OK': 'W' };
+
+// The actual mutation — sets actorId's own Facing, and per dDd's spec,
+// propagates it to their Mini-Party too ("changing a Character's own Facing
+// also updates their Mini-Party's Facing" — matching the existing
+// sandwich-model precedent of a Group moving/acting together). A Possessed
+// member (sourceEnemyId) is skipped, same exclusion tileOccupancy uses
+// above — it's a real Enemy entity with its own independent Facing, not a
+// passenger on this Character's. Pure — operates on a draft table already
+// inside a mutateTable() callback; callers own the actual mutation/render.
+export function applyFacing(t, actorId, direction){
+  const actor = resolveEntityRef(t, actorId);
+  if(!actor) return;
+  actor.facing = direction;
+  (actor.miniParty || []).forEach(mp => { if(!mp.sourceEnemyId) mp.facing = direction; });
+}
+
+// Staged, not instant (2026-08-22, per dDd: "Every Action should resolve on
+// turns. Nothing should happen immediately in Game... Combat or Non-Combat,
+// same thing"). Facing used to apply the moment the Party Facing button was
+// clicked — now it queues a real Order, same shape as Move/Message/Channel,
+// and js/noncombat.js's resolveNonCombatRound() is what actually calls
+// applyFacing() above, at Resolve.
+export async function stageFacingOrder(actorId, direction){
+  if(!FACING_DEGREES.hasOwnProperty(direction)) return;
+  await mutateTable(t => {
+    const actor = resolveEntityRef(t, actorId);
+    if(!actor) return;
+    if(!actor.orders) actor.orders = [];
+    actor.orders.push({ id: genId(), kind: 'facing', direction });
+    t.log.push({ type: 'system', text: (actor.name || 'Someone') + ' orders a turn to face ' + direction + '.', time: timeNow() });
+  });
 }
 
 // Movement is 8-directional (matches the Map's compass) — orthogonal or
@@ -172,8 +244,8 @@ export function hasLineOfSight(table, from, to){
 // visible; this just brings enemies in line with that.
 function allEntities(table){
   const out = {};
-  Object.entries(table.players || {}).forEach(([id, p]) => { out[id] = { name: p.name || 'Unnamed', dead: isDeathWounded(p) }; });
-  Object.entries(table.enemies || {}).forEach(([id, e]) => { out[id] = { name: e.name || 'Enemy', dead: isDeathWounded(e) }; });
+  Object.entries(table.players || {}).forEach(([id, p]) => { out[id] = { name: p.name || 'Unnamed', dead: isDeathWounded(p), facing: p.facing || FACING_DEFAULT, side: 'player' }; });
+  Object.entries(table.enemies || {}).forEach(([id, e]) => { out[id] = { name: e.name || 'Enemy', dead: isDeathWounded(e), facing: e.facing || FACING_DEFAULT, side: 'enemy' }; });
   return out;
 }
 
@@ -196,6 +268,49 @@ const ACTIVE_CROWD_THRESHOLD = 3; // also drives the Ally/Enemy edge coloring be
 function isTileMovementBlocked(table, x, y){
   const occ = tileOccupancy(table, x, y);
   return occ.down >= DOWN_BLOCK_THRESHOLD || occ.activeEnemies >= ACTIVE_CROWD_THRESHOLD;
+}
+
+// Behaviors, real Map execution (2026-08-22, per dDd) — turns a cardinal
+// Facing plus a clockwise turn count (see BEHAVIORS' `turn` field in
+// js/behaviors.js: Forward 0, Right 1, Backward 2, Left 3) into the actual
+// direction to step. Clockwise order, matches compass rotation.
+const FACING_ORDER = ['N', 'E', 'S', 'W'];
+export function turnFacing(facing, steps){
+  const idx = FACING_ORDER.indexOf(facing);
+  if(idx === -1) return facing;
+  return FACING_ORDER[(idx + steps + 4) % 4];
+}
+
+// One autonomous Tile-step in a cardinal direction — used by
+// resolveNonCombatRound() (js/noncombat.js) when a Character's rolled
+// Behavior is a Move* one, or (Gom/Kulkrow) every Round unconditionally.
+// Deliberately NOT the Move Order/AP path system (stageMoveOrder above) —
+// this is autonomous per-Round movement, not a Player command, so it just
+// tries the one step and silently does nothing (returns false) if it's
+// invalid, rather than erroring. Mutates table.positions directly — callers
+// run this from inside their own mutateTable() callback, same as every
+// other in-callback mutation in this codebase.
+//
+// AP-gated (2026-08-22, per dDd, caught live: "a Living Stone shouldn't be
+// able to Move, even if they wanted to; they shouldn't have any AP
+// Points"). A Living Stone's own Build has `ap:0` — same requirement
+// stageMoveOrder already enforces for Player-directed Movement (a 0-AP
+// actor's computeReachable comes back empty), just missing here for the
+// autonomous Behavior path until now.
+const DIRECTION_DELTA = { N: { dx: 0, dy: -1 }, E: { dx: 1, dy: 0 }, S: { dx: 0, dy: 1 }, W: { dx: -1, dy: 0 } };
+export function behaviorStep(table, actorId, direction){
+  const map = table.map;
+  const actor = resolveEntityRef(table, actorId);
+  const pos = table.positions && table.positions[actorId];
+  const delta = DIRECTION_DELTA[direction];
+  if(!map || !actor || !pos || !delta) return false;
+  if(!(actor.ap > 0)) return false;
+  const nx = pos.x + delta.dx, ny = pos.y + delta.dy;
+  if(nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) return false;
+  if(!map.tiles[tileIndex(map, nx, ny)]) return false;
+  if(isTileMovementBlocked(table, nx, ny)) return false;
+  table.positions[actorId] = { x: nx, y: ny };
+  return true;
 }
 
 // Tile coloring (2026-08-16, dDd's spec): two gradients layered on every
@@ -368,6 +483,7 @@ export async function handleTileClick(x, y){
   if(!table || !table.map) return;
 
   if(AppState.mapEditMode){
+    closeOccupantPopup();
     await mutateTable(t => {
       const idx = tileIndex(t.map, x, y);
       t.map.tiles[idx] = t.map.tiles[idx] ? 0 : 1;
@@ -376,6 +492,7 @@ export async function handleTileClick(x, y){
   }
 
   if(AppState.moveSelectMode){
+    closeOccupantPopup();
     const { actorId } = AppState.moveSelectMode;
     if(table.inEncounter){
       AppState.moveSelectMode = null;
@@ -390,13 +507,20 @@ export async function handleTileClick(x, y){
   // A plain Tile click — set (or move) the occupancy-popup target and
   // re-render; buildTilePopups works out what actually shows, including
   // clearing away to nothing if this Tile has nothing relevant on it.
+  // The occupant-list popup (2026-08-22) is separate and always considered
+  // — opened/repositioned fresh off the just-rendered Tile element, or
+  // closed outright if this Tile has nobody on it.
   AppState.moveClickTile = { x, y };
   renderMap();
+  const tileEl = document.querySelector('.map-tile[data-x="' + x + '"][data-y="' + y + '"]');
+  if(tileEl) openOccupantPopup(table, x, y, tileEl);
+  else closeOccupantPopup();
 }
 
 export function cancelMoveSelect(){
   AppState.moveSelectMode = null;
   AppState.moveClickTile = null;
+  closeOccupantPopup();
   renderMap();
 }
 
@@ -404,6 +528,12 @@ export function toggleTata(){
   AppState.tataActive = !AppState.tataActive;
   AppState.moveClickTile = null;
   AppState.moveSelectMode = null;
+  closeOccupantPopup();
+  // Active Character (2026-08-22, per dDd) — entering TATA always starts
+  // fresh at The Architect default, not wherever a previous TATA session
+  // left off; leaving TATA doesn't need a reset since resolveActiveCharacter()
+  // (js/activeCharacter.js) only ever reads this while tataActive is true.
+  if(AppState.tataActive){ AppState.activeCharacterId = null; AppState.actingEnemyId = null; }
   const btn = document.getElementById('tata-toggle');
   if(btn) btn.classList.toggle('toggled', AppState.tataActive);
   // Full renderAll(), not just renderMap() (2026-08-20) — TATA now also
@@ -418,42 +548,164 @@ export function toggleTata(){
 // Non-Tata: "Move?" for the Player's own Character if they're here, plus a
 // separate "Suggest Move?" if any other allied actor (another Player, or a
 // Mini-Party member — see alliedActorIds) is here too; both can fire at
-// once on a shared Tile. Tata: every non-Player Character is "Move?", no
-// "Suggest" distinction — per dDd, Tata can direct anyone.
+// once on a shared Tile. Tata: "Move?" only for the Active Character
+// specifically — bug fixed 2026-08-22, per dDd: "When Tata clicks a Tile
+// with an Inactive Character, Move appears, even though there should be no
+// Character to Move." The original 2026-08-20 spec ("every non-Player
+// Character is Move?, Tata can direct anyone") predates Active Character
+// existing as a real concept — now that it does, only the one Character
+// Tata is actually acting as should be directly movable, same as how a
+// Player can only ever Move their own Character, not any ally's.
 function buildTilePopups(table, x, y){
   let out = '';
   if(AppState.tataActive){
-    const found = Object.entries(table.positions || {}).find(([id, pos]) =>
-      pos.x === x && pos.y === y && table.enemies && table.enemies[id]
+    const activeId = AppState.activeCharacterId;
+    const activePos = activeId && table.positions && table.positions[activeId];
+    if(activePos && activePos.x === x && activePos.y === y){
+      out += '<div class="tile-popup" data-move-actor="' + activeId + '">Move?</div>';
+    }
+  }else{
+    const myId = AppState.playerId;
+    const myPos = table.positions && table.positions[myId];
+    if(myPos && myPos.x === x && myPos.y === y){
+      out += '<div class="tile-popup" data-move-actor="' + myId + '">Move?</div>';
+    }
+    const allyHere = alliedActorIds(table).some(id => {
+      if(id === myId) return false;
+      const pos = resolvePositionRef(table, id);
+      return pos && pos.x === x && pos.y === y;
+    });
+    if(allyHere) out += '<div class="tile-popup suggest" data-suggest="1">Suggest Move?</div>';
+  }
+
+  // Craft (2026-08-21, per dDd; extended to Tata 2026-08-22 — "the Tata
+  // should be able to target Characters on the Map with the Tile's 'Craft'
+  // popup, just like the Player already can"). Gated on there being a real
+  // Crafter to act as: the Player outside Tata, or a real Active Character
+  // inside it — AppState.activeCharacterId is null both outside Tata and
+  // while The Architect (no Stats) is the default, so this naturally covers
+  // both "not Tata" and "Tata, nobody made Active yet." What it actually
+  // shows once clicked (self-only Crafts here vs. other-targeting Crafts
+  // elsewhere, Combat/Non-Combat filtering, and now Tata's own hand-off to
+  // the DM's existing casting machinery) lives in js/craftPopup.js,
+  // deliberately NOT imported here — techniques.js already imports js/map.js
+  // (getDistance/hasLineOfSight), so map.js importing techniques.js's data
+  // back would cycle straight to itself.
+  const crafterId = AppState.tataActive ? AppState.activeCharacterId : AppState.playerId;
+  if(crafterId){
+    const craftOccupant = Object.entries(table.positions || {}).find(([id, pos]) =>
+      pos.x === x && pos.y === y && ((table.players && table.players[id]) || (table.enemies && table.enemies[id]))
     );
-    if(found) out += '<div class="tile-popup" data-move-actor="' + found[0] + '">Move?</div>';
-    return out;
+    if(craftOccupant) out += '<div class="tile-popup craft" data-craft-target="' + craftOccupant[0] + '">Craft</div>';
   }
-
-  const myId = AppState.playerId;
-  const myPos = table.positions && table.positions[myId];
-  if(myPos && myPos.x === x && myPos.y === y){
-    out += '<div class="tile-popup" data-move-actor="' + myId + '">Move?</div>';
-  }
-  const allyHere = alliedActorIds(table).some(id => {
-    if(id === myId) return false;
-    const pos = resolvePositionRef(table, id);
-    return pos && pos.x === x && pos.y === y;
-  });
-  if(allyHere) out += '<div class="tile-popup suggest" data-suggest="1">Suggest Move?</div>';
-
-  // Craft (2026-08-21, per dDd) — any real Player/Enemy occupant (not a
-  // Mini-Party member, which has no Tile of its own) gets a Craft button.
-  // What it actually shows once clicked (self-only Crafts here vs.
-  // other-targeting Crafts elsewhere, Combat/Non-Combat filtering) lives in
-  // js/craftPopup.js, deliberately NOT imported here — techniques.js already
-  // imports js/map.js (getDistance/hasLineOfSight), so map.js importing
-  // techniques.js's data back would cycle straight to itself.
-  const craftOccupant = Object.entries(table.positions || {}).find(([id, pos]) =>
-    pos.x === x && pos.y === y && ((table.players && table.players[id]) || (table.enemies && table.enemies[id]))
-  );
-  if(craftOccupant) out += '<div class="tile-popup craft" data-craft-target="' + craftOccupant[0] + '">Craft</div>';
   return out;
+}
+
+// Occupant list popup (2026-08-22, per dDd) — "should always exist,"
+// separate from the Move/Suggest/Craft popups above rather than appended to
+// them. Every real occupant of a Tile (Players, their Mini-Party, Enemies),
+// click behavior split by kind: a Player/Mini-Party row always opens their
+// read-only Character Sheet; an Enemy row toggles them as Active Character
+// while Tata is on ("if they already are the Active Character it should be
+// indicated visually"), otherwise also just opens their Character Sheet.
+function buildOccupantList(table, x, y){
+  const list = [];
+  Object.entries(table.positions || {}).forEach(([id, pos]) => {
+    if(pos.x !== x || pos.y !== y) return;
+    if(table.players && table.players[id]) list.push({ id, kind: 'player', name: table.players[id].name || 'Unnamed' });
+    else if(table.enemies && table.enemies[id]) list.push({ id, kind: 'enemy', name: table.enemies[id].name || 'Enemy' });
+  });
+  // Mini-Party members ride along on their own Player's Tile, same
+  // exclusion the Map's own occupant rendering already uses — a Possessed
+  // member is a real Enemy already listed above via its own position.
+  Object.entries(table.players || {}).forEach(([pid, p]) => {
+    const pos = table.positions && table.positions[pid];
+    if(!pos || pos.x !== x || pos.y !== y || !p.miniParty) return;
+    p.miniParty.forEach((mp, idx) => {
+      if(mp.sourceEnemyId) return;
+      list.push({ id: 'mp:' + pid + ':' + idx, kind: 'player', name: mp.name || 'Follower' });
+    });
+  });
+  return list;
+}
+
+function closeOccupantPopup(){
+  const popup = document.getElementById('occupant-list-popup');
+  if(popup) popup.classList.add('hidden');
+}
+
+// Fixed 2026-08-22, per dDd: "The pop panel for Characters in a Tile
+// persists when other Panels pop up, though it should disappear." Root
+// cause: initMapPopupDismiss() below only ever sees clicks that actually
+// bubble to document — plenty of buttons that open a Panel (the Craft list
+// popup's own craft-list-item, for one) call ev.stopPropagation() first for
+// unrelated reasons, which silently blocks it from ever seeing that click at
+// all. A direct call from panels.js's openPanel() doesn't depend on
+// bubbling surviving intact, so it can't be defeated the same way.
+export function closeMapPopups(){
+  if(AppState.moveClickTile){ AppState.moveClickTile = null; renderMap(); }
+  closeOccupantPopup();
+}
+
+// Positioned beside the Tile (left or right, never overlapping it) rather
+// than centered on top the way Move/Craft are — per dDd's spec, whichever
+// side keeps it closer to the center of the map so it's less likely to run
+// off the visible edge. Simplification, noted rather than hidden: "center"
+// here is the total map's own width, not the actually-scrolled-into-view
+// portion of a map bigger than the fixed viewport — close enough for every
+// Scene so far, worth revisiting if a wide scrolled map ever makes it read
+// wrong in practice.
+function openOccupantPopup(table, x, y, anchorEl){
+  const popup = document.getElementById('occupant-list-popup');
+  if(!popup) return;
+  const list = buildOccupantList(table, x, y);
+  if(!list.length){ popup.classList.add('hidden'); return; }
+
+  popup.innerHTML = list.map(o => {
+    const isActive = AppState.tataActive && o.kind === 'enemy' && o.id === AppState.activeCharacterId;
+    return '<button class="occupant-list-item' + (isActive ? ' active' : '') + '" data-occupant-id="' + o.id + '" data-occupant-kind="' + o.kind + '">' +
+      escapeHtml(o.name) + (isActive ? ' <span class="occupant-active-tag">Active</span>' : '') + '</button>';
+  }).join('');
+
+  const rect = anchorEl.getBoundingClientRect();
+  const showRight = x < table.map.width / 2;
+  popup.style.top = rect.top + 'px';
+  if(showRight){
+    popup.style.left = (rect.right + 6) + 'px';
+    popup.style.right = 'auto';
+  }else{
+    popup.style.right = (window.innerWidth - rect.left + 6) + 'px';
+    popup.style.left = 'auto';
+  }
+  popup.classList.remove('hidden');
+
+  popup.querySelectorAll('.occupant-list-item').forEach(btn => {
+    btn.onclick = (ev) => {
+      ev.stopPropagation();
+      const id = btn.dataset.occupantId;
+      if(AppState.tataActive && btn.dataset.occupantKind === 'enemy'){
+        toggleActiveCharacter(id);
+        triggerRender();
+      }else{
+        const entity = resolveEntityRef(AppState.table, id);
+        if(entity) showCharacterView(entity);
+      }
+      closeOccupantPopup();
+    };
+  });
+}
+
+// Click-away dismiss (2026-08-22, per dDd — "clicking anywhere else on the
+// Map should cause it to go away"). Clicking a different Tile already
+// handles itself (handleTileClick overwrites/repositions both popups); the
+// real gap this closes is clicking outside every Tile entirely — elsewhere
+// on the Map row, or the page beyond it.
+export function initMapPopupDismiss(){
+  document.addEventListener('click', (ev) => {
+    if(ev.target.closest('.map-tile') || ev.target.closest('#occupant-list-popup')) return;
+    if(AppState.moveClickTile){ AppState.moveClickTile = null; renderMap(); }
+    closeOccupantPopup();
+  });
 }
 
 export function renderMap(){
@@ -465,6 +717,10 @@ export function renderMap(){
   const map = table.map;
   const positions = table.positions || {};
   const entities = allEntities(table);
+  // Self (2026-08-22) — the one Tile that's specifically the viewing
+  // Player's own Character, per style-guide.md's Green "Self" slot (locked
+  // since 2026-08-16, unused until now).
+  const selfPos = positions[AppState.playerId];
 
   // Move Orders (2026-08-21) — reachability, computed once per render rather
   // than per-Tile, then looked up O(1) below for each Tile's tier class/badge.
@@ -500,7 +756,7 @@ export function renderMap(){
     p.miniParty.forEach(mp => {
       if(mp.sourceEnemyId) return; // already placed at its own Tile
       if(!occupants[idx]) occupants[idx] = [];
-      occupants[idx].push({ name: mp.name || 'Follower', dead: false });
+      occupants[idx].push({ name: mp.name || 'Follower', dead: false, facing: mp.facing || FACING_DEFAULT, side: 'player' });
     });
   });
 
@@ -589,15 +845,25 @@ export function renderMap(){
       styleParts.push('grid-column:' + (COL_OFFSET + 1 + x), 'grid-row:' + (ROW_OFFSET + 1 + y));
       const style = ' style="' + styleParts.join(';') + '"';
 
-      const label = here.length ? escapeHtml(here.map(n => n.name[0]).join(',')) : '';
+      // Facing (2026-08-22) — a single occupant renders as a rotated Triangle
+      // (base indicating Facing) instead of a plain initial letter. A Tile
+      // with more than one occupant keeps the old comma-letter-list for now —
+      // multiple positioned Triangles on one Tile is the Mini-Tiles/Zoom
+      // work (see reference/ROADMAP.md, Movement System's Map Evolution),
+      // not yet built.
+      const facingColor = here.length === 1 ? (here[0].side === 'enemy' ? FACING_COLOR_NPC : FACING_COLOR_PLAYER) : null;
+      const label = here.length === 1
+        ? '<span class="facing-marker" style="--facing-deg:' + FACING_DEGREES[here[0].facing || FACING_DEFAULT] + 'deg; --facing-color:' + facingColor + '"></span>'
+        : (here.length ? escapeHtml(here.map(n => n.name[0]).join(',')) : '');
       const titleBits = here.map(n => n.name + (n.dead ? ' (dead)' : '')).join(', ');
       const titleMeta = (occ.down ? ' — ' + occ.down + ' Down' : '') + (chunkCount ? ' — ' + chunkCount + ' Chunks' : '');
       const popupHtml = (AppState.moveClickTile && AppState.moveClickTile.x === x && AppState.moveClickTile.y === y)
         ? buildTilePopups(table, x, y) : '';
       const selectableCls = AppState.moveSelectMode ? ' select-target' : '';
       const popupCls = popupHtml ? ' has-popup' : '';
+      const selfBadge = (selfPos && selfPos.x === x && selfPos.y === y) ? '<span class="self-overlay" title="You"></span>' : '';
       html += '<div class="' + cls + selectableCls + popupCls + '" data-x="' + x + '" data-y="' + y + '"' + style + ' title="' +
-        tileKey(map, x, y) + (titleBits ? ' — ' + escapeHtml(titleBits) : '') + escapeHtml(titleMeta) + '">' + label + moveBadge + popupHtml + '</div>';
+        tileKey(map, x, y) + (titleBits ? ' — ' + escapeHtml(titleBits) : '') + escapeHtml(titleMeta) + '">' + label + moveBadge + selfBadge + popupHtml + '</div>';
     }
   }
   // Move Orders trail (2026-08-21) — a Tile-sized SVG overlay spanning the

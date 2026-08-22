@@ -1,5 +1,6 @@
 import { mutateTable } from './sync.js';
 import { timeNow } from './utils.js';
+import { FACING_DEFAULT } from './map.js';
 
 // The "sandwich" model (see reference/ROADMAP.md, Party System item C):
 // every Character sits between Possessors (Above) and a Mini-Party (Below).
@@ -46,7 +47,10 @@ export async function addMiniPartyMember(targetPlayerId, name, extraStats){
     if(!target) return;
     if(!target.miniParty) target.miniParty = [];
     if(target.miniParty.length >= MAX_MINI_PARTY) return;
-    target.miniParty.push({ name: trimmed, ...(extraStats || {}) });
+    // Joins facing the same way the Group's own Character currently does
+    // (see applyFacing/stageFacingOrder in map.js) — not a hardcoded default, so a
+    // member added after a Facing change doesn't start out contradicting it.
+    target.miniParty.push({ name: trimmed, facing: target.facing || FACING_DEFAULT, ...(extraStats || {}) });
     t.log.push({ type: 'system', text: trimmed + ' joins ' + (target.name || 'the') + '’s mini-party', time: timeNow() });
   });
 }

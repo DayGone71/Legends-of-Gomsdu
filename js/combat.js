@@ -1,6 +1,6 @@
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
-import { escapeHtml, timeNow, targetShorthand, computeEntryTick, computeCounterMax, apCostForControl, describeAction, powerToDamage, DEATH_WOUNDS_DEFAULT, isDown, isDeathWounded, resolveEntityRef, ownerTypeOf, possessedEnemyIds } from './utils.js';
+import { escapeHtml, timeNow, targetShorthand, computeEntryTick, computeCounterMax, apCostForControl, describeAction, powerToDamage, DEATH_WOUNDS_DEFAULT, isDown, isDeathWounded, resolveEntityRef, ownerTypeOf, possessedEnemyIds, deliverMindeyeEntry } from './utils.js';
 import { removeEnemy } from './dm.js';
 import { TECHNIQUES } from './techniques.js';
 import { MAX_MINI_PARTY } from './possession.js';
@@ -52,7 +52,8 @@ export function selectTarget(id){
 
 // Ally Targeting (2026-08-16): the Player, every other Player at the table,
 // and their statted Mini-Party members are all valid targets, same as
-// Enemies — for Techniques like Embolden/Anchor eventually, but per dDd
+// Enemies — for Techniques like Empower (2026-08-22, merged from the former
+// Embolden/Anchor) eventually, but per dDd
 // "the same way Enemy Characters can be targeted" applies generally, so
 // Attack/Block/Essence can target an ally too (anybody-can-target-anybody,
 // same testing-scope precedent as Techniques). Un-statted Mini-Party stubs
@@ -611,6 +612,28 @@ export async function resolveRound(){
         const def = TECHNIQUES[entry.techniqueKey];
         const target = resolveEntityRef(t, entry.targetId);
         const targetName = (target && target.name) || entry.targetName || '(target)';
+        // Message (2026-08-22, per dDd — "Messages shouldn't arrive as
+        // Information until the Resolve"). Was delivering instantly at
+        // staging time (js/techniques.js's stageTechnique) — moved here to
+        // match Non-Combat's own Message Order, which already correctly
+        // deferred to its own Resolve. Delivers every staged Glyph, in
+        // order, as that many separate Mindeye entries.
+        if(entry.techniqueKey === 'message'){
+          (entry.glyphs || []).forEach(g => deliverMindeyeEntry(t, entry.targetId, actorName, g));
+          logCombat(targetName, (entry.glyphs || []).length + ' Glyph' + ((entry.glyphs || []).length === 1 ? '' : 's') + ' delivered.');
+          return;
+        }
+        // Channel (found 2026-08-22, while fixing Message's same instant-
+        // delivery bug) — "Crafter recovers 1 Lightning Point," Crafter
+        // meaning whoever staged it. This never had a Combat-side resolution
+        // at all until now — only the Non-Combat Order path (js/noncombat.js)
+        // ever actually applied it, so staging Channel mid-Encounter quietly
+        // did nothing. Fixed to match "Combat or Non-Combat, same thing."
+        if(entry.techniqueKey === 'channel'){
+          actor.lightningSpent = Math.max(0, (actor.lightningSpent || 0) - 1);
+          logCombat(actorName, 'Recovers 1 Lightning Point.');
+          return;
+        }
         if(entry.techniqueKey === 'separation'){
           const pos = t.positions && t.positions[item.actorId];
           let result = def ? def.effect : 'Effect not yet implemented';

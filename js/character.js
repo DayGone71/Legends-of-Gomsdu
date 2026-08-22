@@ -5,6 +5,7 @@ import { clampInt, timeNow, flashHint, isDown, escapeHtml } from './utils.js';
 import { addPossessor, addMiniPartyMember } from './possession.js';
 import { possessorGridHtml, miniPartyGridHtml, wirePossessorMiniPartyClicks } from './possessionView.js';
 import { showCharacterView } from './characterView.js';
+import { FACING_DEFAULT } from './map.js';
 
 // Species (2026-08-16): the immutable structural defaults a Character starts
 // from — Death Wounds (z, the wound count that kills — NOT the same thing as
@@ -106,13 +107,13 @@ export function blankCharacter(name){
       name, archetype: '', wounds: 0, woundsMax: b.woundsMax, ap: b.ap, flow: b.flowMax, flowMax: b.flowMax,
       recovery: b.recovery, power: b.power, quickness: b.quickness, resilience: b.resilience,
       lightning: b.lightning, lava: b.lava, focus: b.focus, control: b.control ?? 0, attunement: b.attunement ?? 0,
-      life: b.life ?? 1, apSpent: 0, focusSpent: 0, sequence: [], possessors: [], miniParty: []
+      life: b.life ?? 1, apSpent: 0, focusSpent: 0, sequence: [], possessors: [], miniParty: [], facing: FACING_DEFAULT
     });
   }
   // Defensive fallback only — BUILDS finishes loading (top-level await)
   // before this module is even importable, so 'living-stone' is always
   // real by the time blankCharacter() is actually called.
-  return withSpecies('rock', { name, archetype: '', wounds: 0, woundsMax: 1, ap: 0, flow: 0, flowMax: 0, recovery: 0, power: 0, quickness: 0, resilience: 1, lightning: 1, lava: 0, focus: 0, control: 0, attunement: 1, life: 1, apSpent: 0, focusSpent: 0, sequence: [], possessors: [], miniParty: [] });
+  return withSpecies('rock', { name, archetype: '', wounds: 0, woundsMax: 1, ap: 0, flow: 0, flowMax: 0, recovery: 0, power: 0, quickness: 0, resilience: 1, lightning: 1, lava: 0, focus: 0, control: 0, attunement: 1, life: 1, apSpent: 0, focusSpent: 0, sequence: [], possessors: [], miniParty: [], facing: FACING_DEFAULT });
 }
 
 // Character Templates (2026-08-16) — BUILDS now loads from data/characters.json

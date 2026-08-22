@@ -30,15 +30,67 @@ export const LONGING_INCREMENT = 5;
 export const LONGING_CAP = 100;
 export const STAND_AROUND_BASELINE = 20; // per dDd: "20 is a good baseline" for Stand Around's own inertia
 
+// Gom/Kulkrow — the two exceptions to Stand Around entirely (per dDd).
+// Lives here, not js/noncombat.js, so js/personality.js's own distribution
+// display can be accurate for these two as well, not just the actual
+// Round-resolution logic.
+export const NO_STAND_AROUND_ARCHETYPES = ['Gom', 'Kulkrow'];
+
+// `kind` (2026-08-22) — which execution path js/noncombat.js's
+// resolveBehavior() dispatches to; `turn` (only on the Move family) is
+// clockwise steps away from a Character's current Facing (see turnFacing()
+// in js/map.js): Forward 0, Right 1, Backward 2, Left 3. Stand Around has
+// neither — it's the one Behavior that's a genuine no-op.
 export const BEHAVIORS = {
   standAround: { name: 'Stand Around' },
-  moveForward: { name: 'Move Forward' }
+  moveForward: { name: 'Move Forward', kind: 'move', turn: 0 },
+  moveRight: { name: 'Move Right', kind: 'move', turn: 1 },
+  moveBackward: { name: 'Move Backward', kind: 'move', turn: 2 },
+  moveLeft: { name: 'Move Left', kind: 'move', turn: 3 },
+  // Wander (2026-08-22, per dDd — KULOG) — a real, general Behavior version
+  // of the random-Cardinal movement Gom/Kulkrow already had hardcoded
+  // (js/noncombat.js's NO_STAND_AROUND_ARCHETYPES) — that special case is
+  // deliberately left untouched (already verified, no reason to risk it on
+  // a same-effect refactor); this is what any *other* Character who learns
+  // KULOG rolls through the normal weighted pipeline instead.
+  wander: { name: 'Wander', kind: 'wander' },
+  // Face (2026-08-22, per dDd — KALAG) — "Character can face any direction
+  // they know." Turns to a random Cardinal among the Character's own known
+  // Direction Glyphs (js/map.js's DIRECTION_GLYPH_CARDINAL), not a relative
+  // Move-style turn — this sets Facing directly, absolute compass reading.
+  face: { name: 'Face', kind: 'face' },
+  // Teach (2026-08-22, per dDd — WIM) — advances the Character's own active
+  // Script (actor.activeScript, js/scripts.js) one Row at a time: sends
+  // that Row's Outcome Glyph(s) as one Message to the Script's Target, per
+  // dDd's own breakdown ("Actor action WIM, Target Outcome XXX... once
+  // Player has received XXX, Gom could move onto other Rows"). A no-op,
+  // same as Stand Around, when there's no active Script queued.
+  teach: { name: 'Teach', kind: 'teach' },
+  // Maintain Empower (2026-08-22, per dDd — KA, "wants to maintain Empower
+  // with the Living Stone, his dominant behavior, but not exclusive") — a
+  // no-op for now, same as Stand Around, since Empower's own +1 Control/+1
+  // AP effect isn't mechanically built yet (see ROADMAP.md's Techniques
+  // Panel section) — nothing real to "maintain" until that lands. Still
+  // real and rollable through the normal weighted pipeline, so its %
+  // shows up honestly in the distribution even though performing it does
+  // nothing observable yet.
+  maintainEmpower: { name: 'Maintain Empower' }
 };
 
-// Which Behavior a remembered Glyph nudges a Character toward. Only RO/OR is
-// mapped so far — every other Glyph currently has no Behavior association.
+// Which Behavior a remembered Glyph nudges a Character toward. The 4
+// Direction Glyphs (see js/techniques.js's DIRECTION_GLYPHS) match their own
+// Up/Forward, Down/Back, Left, Right meanings 1:1 onto the 4 Move
+// Behaviors; KULOG/KALAG/WIM/KA (2026-08-22, per dDd) map onto Wander/Face/
+// Teach/maintain-Empower. Every other Glyph currently has no association.
 export const GLYPH_BEHAVIOR = {
-  'RO / OR': 'moveForward'
+  'RO / OR': 'moveForward',
+  'OP / PO': 'moveBackward',
+  'OK': 'moveLeft',
+  'KO': 'moveRight',
+  'KULOG': 'wander',
+  'KALAG': 'face',
+  'WIM': 'teach',
+  'KA': 'maintainEmpower'
 };
 
 // Desirable(0) -> +unit, Mid(1) -> 0, Undesirable(2) -> -unit.
@@ -70,9 +122,23 @@ export function tickLonging(entry){
 // Behavior association contributes its own Pursuit score into that
 // Behavior's running total; totally unassociated Glyphs (the overwhelming
 // majority right now — only RO/OR maps to anything) just contribute 0.
-export function computeBehaviors(actor){
+// `excludeStandAround` (2026-08-22, per dDd's Gom/Kulkrow spec — "they
+// don't have Stand Around") — leaves Stand Around's baseline out of the
+// seed entirely, so it never dilutes the real competition between whatever
+// Behaviors the actor's own Mindeye actually weighs. Used instead of the
+// old hardcoded bypass in js/noncombat.js that skipped this function for
+// Gom/Kulkrow altogether — that made sense before Wander/Teach/Face/Maintain
+// Empower existed as real Behaviors they could roll, but it also meant Gom
+// could never actually Teach no matter what was in his Mindeye or
+// activeScript. A tiny Stand Around sliver can still surface from rounding
+// (see the roundedSum correction below) — resolveBehavior() in
+// js/noncombat.js treats a rolled 'standAround' here as "nothing else had
+// real weight" and falls back to a guaranteed Wander instead, preserving
+// the original "never truly idle" intent without the hard bypass.
+export function computeBehaviors(actor, opts){
+  const excludeStandAround = !!(opts && opts.excludeStandAround);
   const mindeye = (actor && actor.mindeye) || [];
-  const behaviorPursuit = { standAround: STAND_AROUND_BASELINE };
+  const behaviorPursuit = excludeStandAround ? {} : { standAround: STAND_AROUND_BASELINE };
 
   const perGlyph = mindeye.map(entry => {
     const behaviorKey = entry.glyph && GLYPH_BEHAVIOR[entry.glyph];
@@ -102,4 +168,26 @@ export function sortedBehaviors(distribution){
   return Object.entries(distribution)
     .sort((a, b) => b[1] - a[1])
     .map(([key, pct]) => ({ key, name: BEHAVIORS[key].name, pct }));
+}
+
+// Real Map execution (2026-08-22, per dDd) — which Behavior actually
+// happens this Round is a genuine weighted random draw across the whole
+// distribution, NOT always the Likely (highest-%) one. Per dDd: "There is a
+// chance they will actually get performed" — with the deterministic
+// top-pick this replaced, a Behavior sitting under Stand Around's flat
+// STAND_AROUND_BASELINE would never fire at all until it actually
+// overtook 50%+, which (with Pursuit needing sustained Longing to climb
+// that high) reads exactly like "my Characters always do Stand Around, no
+// matter what" — a real weighted roll gives it its actual %-chance to win
+// every single Round instead.
+export function rollBehavior(distribution){
+  const entries = Object.entries(distribution).filter(([, pct]) => pct > 0);
+  if(!entries.length) return 'standAround';
+  const total = entries.reduce((sum, [, pct]) => sum + pct, 0);
+  let r = Math.random() * total;
+  for(const [key, pct] of entries){
+    if(r < pct) return key;
+    r -= pct;
+  }
+  return entries[entries.length - 1][0];
 }

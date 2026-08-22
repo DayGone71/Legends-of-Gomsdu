@@ -197,6 +197,23 @@ Non-Combat Techniques. Two things worth naming explicitly:
   standing piece of architecture going forward, not folded silently into
   whichever feature happened to need it first.
 
+**Addendum, 2026-08-22 — Composition-to-Behavior confirmed as the actual
+Combat engine, not just a Movement feature; the Universal Characters Table
+named for the first time.** Full detail in `dialogue-system.md`'s matching
+dated section, triggered by chasing a Techniques-targeting bug all the way
+to its root. The headline: the `computeBehaviors()`/`rollBehavior()` engine
+already built and verified for autonomous Movement (2026-08-22, see
+`CHANGELOG.md`) is confirmed as the same engine meant to drive Combat action
+selection (Fast Attack vs. Block) — both are just differently-memorized
+Glyphs, weighted by Personality, per dDd's own framing. This also reframes
+Ally/Enemy as strictly Combat-scoped rather than a permanent structural
+split, and names the data-model implication directly: one Universal
+Characters Table, not separate Player/Enemy structures — with the actual
+storage shape (separate connected tables vs. a key on one table) an
+explicit, still-open question. Nothing here is scoped for implementation
+yet; it's the foundation the eventual targeting fix (and Combat-via-Behaviors
+work) has to sit on.
+
 ## Open, not yet started
 
 - **Dialogue System Skeleton** (item 1) — has a real skeleton standing now,

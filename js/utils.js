@@ -105,9 +105,18 @@ export function resolveEntityRef(table, targetId){
 // Intelligence just governs how many Expressions (Mindeye entries) a
 // Character can remember at once. Lives here, not personality.js, so
 // deliverMindeyeEntry (below) can enforce it without importing the panel.
-export const INTELLIGENCE_DEFAULT = 3;
+// Rescaled 2026-08-22, per dDd: "1 Intelligence point granted 10 Memories,
+// Gom having 10 Intelligence and the Living Stone 1" — Mindeye capacity is
+// now the raw stat times 10, not a 1:1 count. Default dropped 3 → 1 to
+// match "1 Intelligence for everything except Gom and Kulkrow is default"
+// for First Era.
+export const INTELLIGENCE_DEFAULT = 1;
+export const MINDEYE_CAPACITY_PER_POINT = 10;
 export function getIntelligence(actor){
   return (actor && actor.personality && actor.personality.head && actor.personality.head.intelligence) ?? INTELLIGENCE_DEFAULT;
+}
+export function mindeyeCapacity(actor){
+  return getIntelligence(actor) * MINDEYE_CAPACITY_PER_POINT;
 }
 
 // Mindeye (2026-08-20) — where a Character's received Glyphs show up, per
@@ -122,7 +131,7 @@ export function deliverMindeyeEntry(table, targetId, fromName, glyphId){
   target.mindeye.push({ id: genId(), from: fromName, glyph: glyphId || null, seen: false, receivedAt: timeNow() });
   // Capacity is Intelligence-gated — the oldest Expression is forgotten (not
   // just left unseen) once the Character's remembered count exceeds it.
-  const capacity = getIntelligence(target);
+  const capacity = mindeyeCapacity(target);
   while(target.mindeye.length > capacity){
     target.mindeye.shift();
   }
@@ -156,6 +165,48 @@ export function alliedActorIds(table){
     });
   });
   return ids;
+}
+
+// Crafter-relative targeting (2026-08-22, per dDd) — the logic-layer fix for
+// targetSide: 'ally' meaning an absolute "the Player-controlled roster"
+// instead of something relative to whoever's actually Crafting (caught live:
+// "If Gom is an NPC than how can the Player be a valid target of that?").
+// A deliberate logical view over the existing table.players/table.enemies
+// split, NOT a storage migration — see reference/dialogue-system.md's
+// 2026-08-22 entries for the full reasoning this sits on. Every real
+// Character, Player or Enemy, is a valid Crafter here; there's no separate
+// caster-type check anywhere below.
+//
+// Which side a Character is standing on, for targeting purposes only — a
+// Mini-Party member is always their Player's own side.
+export function casterSide(table, casterId){
+  if(!casterId || casterId.startsWith('mp:')) return 'player';
+  if(table && table.enemies && table.enemies[casterId]) return 'enemy';
+  return 'player';
+}
+
+// Every real Character at the table, both sides at once — the pool
+// 'ally'-flagged Techniques draw from outside Combat, since Ally/Enemy
+// doesn't exist as a concept until an Encounter actually starts (per dDd:
+// "Enemies and Allies is strictly Combat").
+export function allCharacterIds(table){
+  return [...alliedActorIds(table), ...Object.keys((table && table.enemies) || {})];
+}
+
+// The actual fix: a Technique's targetSide resolves relative to whoever's
+// Crafting, not a hardcoded side. Outside Combat, everyone's reachable
+// (Ally/Enemy isn't a real concept yet). Inside Combat, 'ally' means the
+// Crafter's own side, anything else means the opposing side — this also
+// quietly fixes the reverse case (an Enemy Crafter hostile-targeting) for
+// whenever a non-Player caster actually reaches this function, even though
+// today's only real caller (js/techniques.js's Player-only Technique Use
+// panel) never exercises that branch.
+export function crafterTargetPoolIds(table, casterId, targetSide){
+  if(!table || !table.inEncounter) return allCharacterIds(table);
+  const side = casterSide(table, casterId);
+  const sameSideAsCaster = side === 'player' ? alliedActorIds(table) : Object.keys((table && table.enemies) || {});
+  const oppositeSide = side === 'player' ? Object.keys((table && table.enemies) || {}) : alliedActorIds(table);
+  return targetSide === 'ally' ? sameSideAsCaster : oppositeSide;
 }
 
 // A Mini-Party member has no position of its own (see alliedActorIds above)

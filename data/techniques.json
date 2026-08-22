@@ -23,35 +23,20 @@
     "range": 5,
     "effect": "Target is possessed for the next Sequence."
   },
-  "embolden": {
-    "name": "Embolden",
+  "empower": {
+    "name": "Empower",
     "group": "Powers",
     "column": "Focus",
     "type": "Mystic Influence",
     "costs": {
-      "ap": 20,
-      "focus": 2
-    },
-    "range": 5,
-    "effect": "Target gains +2 Control for the rest of this Sequence.",
-    "duration": {
-      "sequences": 1
-    },
-    "targetSide": "ally"
-  },
-  "anchor": {
-    "name": "Anchor",
-    "group": "Powers",
-    "column": "Focus",
-    "type": "Mystic Influence",
-    "costs": {
-      "ap": 20,
+      "ap": 1,
       "focus": 1
     },
     "range": 5,
-    "effect": "Target gains +1 Control for the next 3 Sequences.",
+    "effect": "The Target Character receives +1 Control and +1 AP until the Crafter either cancels the effect or has insufficient AP to maintain the effect.",
     "duration": {
-      "sequences": 3
+      "upkeep": 1,
+      "sequences": 0
     },
     "targetSide": "ally"
   },

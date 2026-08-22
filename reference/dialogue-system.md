@@ -873,6 +873,193 @@ solve first:
   what this is about") — needs a concrete example next time it's raised,
   not just the abstract description above.
 
+## 2026-08-22 — The Universal Characters Table, and Glyphs as the game's one true primitive
+
+Surfaced while chasing what looked like a small bug (`targetSide: 'ally'` on
+Techniques resolving to an absolute "the Player-controlled roster" instead of
+something relative to whoever's actually Crafting — see `ROADMAP.md`'s
+Techniques Panel section and `CHANGELOG.md` 2026-08-22 for how it was found).
+dDd's own trigger, worth preserving: *"If Gom is an NPC than how can the
+Player be a valid target of that? They wouldn't be allies, according to what
+is going on with game logic."* Chasing that one question all the way down
+produced the fullest architecture statement yet — per dDd, *"Let's take a
+second to stand all this up, since it informs all the Gameplay decisions we
+are taking going forward."* Nothing below is built yet; this is the
+foundation the eventual fix (and a lot else) has to sit on.
+
+**The Universal Characters Table.** Extends "Character, defined" from the
+previous session's section above (*"anything with a Stat Sheet... applies
+uniformly to Players, Mini-Party members, Enemies, and NPCs — there's no
+separate 'NPC' data shape, just another Character"*) from a conceptual
+framing into the actual data layer: **one single Characters table, full
+stop** — not `table.players` and `table.enemies` as two separate structures
+the way the engine currently splits them. Players aren't a separate category
+either, per dDd: *"Same thing with Players... that's really just another
+Character on a Universal Table."*
+
+**Ally/Enemy is strictly a Combat concept — not a permanent structural
+split.** Per dDd: *"Enemies and Allies is strictly Combat."* Outside a Combat
+Encounter, "which side" something is on doesn't meaningfully exist as a
+category at all — it's not that every Character defaults to neutral, it's
+that the concept itself doesn't apply. This is the real answer to the
+`targetSide` question: `'ally'`/`'enemy'` were never supposed to be
+permanent tags on a Character, they're a Combat-scoped relationship.
+**Explicitly left open by dDd, not resolved here**: whether that Combat-scoped
+relationship lives as separate connected tables, or as a key/tag on the one
+Universal Characters Table — *"Separate connected Tables or a Key in the
+Universal Table is an open question."*
+
+**Factions/allegiances are the same kind of fleeting, per dDd**: *"Factions
+are temporary. Allegiances and all that are fleeting in the Game. Maybe
+permanent for an NPC, but it's just a tag really."* Not a rigid structural
+category anywhere in the data model — at most a tag that happens to hold
+steady for some NPCs specifically, never a schema-level split.
+
+**Active Character, reconfirmed as a temporary state on a Universal
+Character, not a type.** Per dDd: *"Active Characters are a temporary state
+that comes and goes round to round while Tata. Always the Player [outside
+Tata]. But that's really just another Character on a Universal Table."*
+Matches exactly how the 2026-08-22 first pass (see `CHANGELOG.md`) was
+already scoped — this just confirms the data-model reasoning underneath it
+was the right instinct.
+
+**The big unlock: Characters + Information already explains all of this, and
+it's the same engine already running for Movement.** Per dDd: *"All of this
+is going to be handled by Characters and Information. Personality and
+Behavior works with that. It is going to decide the autonomous Behavior,
+which we've already got working for Movement. That'll work in Combat and
+Non-Combat the same."* Concretely: **Fast Attack vs. Block are not a
+different kind of thing from Move Forward vs. Stand Around** — per dDd,
+*"they are both different Glyphs, memorized Information that enables the
+Character to perform emergent patterns from constrained data. Personality a
+factor in it all."* The exact `computeBehaviors()`/`rollBehavior()` machinery
+already built and verified for autonomous Movement (`js/behaviors.js`,
+`js/noncombat.js`, see `CHANGELOG.md` 2026-08-22) is the intended engine for
+Combat action selection too, not a separate system to build later — this is
+the concrete, load-bearing form of the "Composition-to-Behavior" thread
+`VISION.md` and this doc's own previous section already flagged as real
+("Head to Information... that information informs Movement on the Map and
+choices in Combat").
+
+**Glyphs are the one universal primitive — Combat, interaction,
+communication, and movement are all the same underlying thing wearing
+different clothes.** Per dDd: *"The universal things are Glyphs, which make
+Combat possible, interaction possible, communication, movement."* Every
+current hardcoded UI button — Fast Attack, Strong Attack, Block, Move,
+Craft, all of it — is really standing in for a Glyph a Character has to
+actually **know** (have memorized, the same Mindeye mechanism Information
+already uses) before they can do it: *"You know how we have buttons right
+now? Those all turn into Glyphs, which need to be taught to a Character via
+WIM."* Nothing today gates any button on Glyph-knowledge — this is a real,
+not-yet-built implication for every existing Technique/Attack/Move control.
+
+**WIM — the teaching primitive, self-referential by design.** Per dDd: *"If
+a Character knows WIM, they can use WIM to teach other Characters WIM, and
+with WIM teach what they already know (how to move, attack, block)."* WIM is
+itself a Glyph/concept — a Character has to know WIM before they can teach
+*anything*, including WIM itself to a third Character (the bootstrap case),
+and once known, WIM is the general mechanism for propagating any other Glyph
+a teaching Character already has (movement, attack, block, ...) to whoever
+they're teaching. **This is why the earliest Glyphs skew primitive/Religious
+in theme**, per dDd: *"That leads to more advanced concepts, hence why the
+Glyphs focused on primitive Religious ideas relevant to what will be
+available on the Game Map and in the Lore."* — they're the foundational,
+bootstrappable vocabulary the whole civilizational teaching-chain has to
+build up from, which lines up directly with scenes.md's First Era Legend
+entry (Living-Stone Personality clusters, Gom/Kulkrow roaming and presumably
+being the first real teachers).
+
+### Follow-up, same day — WIM's real mechanics, Writing vs. Speaking, and the storage-shape decision
+
+**WIM exists because it's literally what Gom is using.** Per dDd: *"WIM
+exists cause that's what GOM is using. He's presenting information directly
+with the directions."* Directly ties WIM to the existing 4 Direction
+Glyphs/engraving mechanism already live in-game (Move Forward's RO/OR, etc.)
+— Gom teaching a Living Stone to move *is* WIM in action, not a separate
+future system layered on top of it. **WIM's meaning widens to Speech and
+Communication generally**, not just the narrower "names the teacher-pupil
+relationship" reading the Glyph data previously flagged as advanced-for-later.
+
+**For Living Stones specifically, WIM is mostly received, not spoken — "a
+Laser Engraving Memory."** Per dDd: *"A pair or group of Living Stone can
+come together to use WIM physically, but mostly it's a Laser Engraving
+Memory to them."* Real, active, physical WIM-use between Living Stones is
+possible but rare/secondary — matches the already-established lore that a
+Living Stone "can act and 'think' via Gom's engravings but cannot originate
+direction, only receive it." Answers last turn's open question (1): First
+Era Living Stones don't generally *learn via WIM* the way a fuller
+teacher-pupil exchange implies — their baseline capability mostly arrives as
+a received engraving, from Gom, not peer instruction.
+
+**A real new mechanical axis: Letter/Mark composability is gated by
+Biology, separate from simply "knowing" a Glyph.** Per dDd: *"It's about
+their Biology. A Stone might know W, but not M. Even if knows both, they are
+very unlikely to be able to do anything with WM together, cause they won't
+have I. That's related to Vibration, which the Crystal use to make their
+Harmonic Language."* So knowing individual Marks (the Chevron's W/M
+orientations) doesn't imply the ability to *combine* them — a Character's
+own biology caps which combinations are even physically expressible, and
+"I" (GI, Vibration) specifically is Crystal-Being territory, not Living
+Stone. This is a second gate on top of "does this Character know this
+Glyph" — worth keeping distinct once Glyph-gating gets built for real, not
+collapsed into one flat yes/no.
+
+**Mindeye vs. Sonic is the Writing/Speaking split — dDd's own reaction:
+"That is huge."** Per dDd, expanding on "Mindeye and Sonic stuff is
+slightly different (basically just a reskin, but there is some neat Logic
+behind it)": the two aren't just a cosmetic reskin of the same mechanic,
+they map onto **Writing vs. Speaking** as the two channels Language actually
+travels through. Not fully specified yet — flagged here specifically so
+it doesn't get lost before the "neat Logic" behind it gets unpacked for
+real in a future session.
+
+**Four new First Era Glyphs adopted**, from dDd's own direct hand-edit of
+`language/gomsdu-glyphic-system.json` (now the project's live copy): `SUU`
+("Stop"), `KULOG` ("Find / Hunt"), `KALAG` ("Explore / Wander" — composition
+currently just the bare `cross-core` primitive with no distinguishing Marks
+yet, reads as still in progress, not treated as a bug), `YO` ("Reference to
+Star Father"). No lore attached to these in the file itself — worth folding
+in whenever dDd has more on them.
+
+**The migration approach, settled: merge feature by feature, not a
+rewrite.** Per dDd: *"We will keep both, merging feature by feature... It's
+mostly about getting these foundational ideas into a practical working
+state."* Concrete worked example, Movement specifically: *"Plotting Moves
+works great. Suppose a Character only knew RO? They could only move closer
+to the row, but be unable to move to the proper column. That would get
+factored into the Line logic."* I.e. a Character's actual pathing options
+should eventually be constrained to only the axes their known Glyphs cover
+— and that constraint is meant to run through Wimbis's own Line/grammar
+machinery (the Arranger's follow/goto/wildcard/yield markers), not a
+parallel, Glyph-unaware pathfinding rule bolted on separately. Direct,
+concrete next step once Glyph-knowledge gating is real: `behaviorStep()`/
+`computeReachable()` (`js/map.js`) would need to know which cardinal
+Glyphs an actor actually has, not just resolve every direction as
+universally available the way they do today.
+
+**The storage-shape question — delegated to Claude, decided.** Per dDd:
+*"You let me know. That's your Domain... whatever is going to cause the
+least headache for us both down the line is what makes sense to me."*
+**Recommendation: don't migrate the storage layer yet — build the Universal
+Character as a logical/virtual layer on top of the existing
+`table.players`/`table.enemies` split, not a literal merge.** Reasoning:
+`table.players[id]`/`table.enemies[id]` lookups are threaded through roughly
+15 files (`combat.js`, `dm.js`, `map.js`, `techniques.js`, `possession.js`,
+`noncombat.js`, `utils.js`'s `resolveEntityRef`/`alliedActorIds`, and more)
+— collapsing them into one literal structure now would be a sweeping,
+high-risk, all-at-once rewrite, which is exactly the opposite of "merge
+feature by feature." The conceptual fix (every Character is uniform,
+Ally/Enemy is Combat-scoped, targeting is Crafter-relative) doesn't actually
+require changing *storage* — it requires new **functions** that treat the
+existing split as one logical space: an `allCharacters(table)` that reads
+across both buckets, and a Combat-scoped relationship check (only meaningful
+while `table.inEncounter`, per "Enemies and Allies is strictly Combat") that
+Techniques' `targetPoolIds()` can call relative to the actual Crafter
+instead of a hardcoded Player-roster assumption. This becomes the first real
+proof point for "merge feature by feature," and a literal storage migration
+stays available later if something concrete ever actually needs it — not
+committed to now on spec.
+
 ## Closing framing
 
 The goal was never to simulate an infinite conversation — that's the LLM
