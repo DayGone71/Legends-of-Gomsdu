@@ -1,6 +1,6 @@
 import { AppState } from './state.js';
 import { mutateTable, triggerRender } from './sync.js';
-import { escapeHtml, isDeathWounded, isDown, alliedActorIds, resolvePositionRef } from './utils.js';
+import { escapeHtml, isDeathWounded, isDown, alliedActorIds, resolvePositionRef, resolveEntityRef, genId, timeNow } from './utils.js';
 
 // 14x14 (was 9x9) — 2026-08-17, dDd's View 1 spec: Tiles shrunk and the grid
 // deliberately made bigger than fits the visible area without scrolling
@@ -236,8 +236,10 @@ function showBannerError(msg){
 
 // Actually relocates actorId (a Player, or an Enemy/NPC when Tata-driven) to
 // (x,y) — must be traversable, adjacent to their current position, and not
-// too crowded to step into. Shared by both the Player's own "Move?" and
-// Tata's NPC "Move?" — same validation either way, just a different actor.
+// too crowded to step into. Combat-only now (table.inEncounter) — Combat
+// doesn't have its own Move action yet (still a separate future Mechanical
+// Fix), so this is the original, unchanged single-Tile instant move. Outside
+// an Encounter, stageMoveOrder (below) is what handleTileClick uses instead.
 async function tryMoveActor(actorId, x, y){
   const table = AppState.table;
   const positions = table.positions || {};
@@ -251,6 +253,109 @@ async function tryMoveActor(actorId, x, y){
     if(!t.positions) t.positions = {};
     t.positions[actorId] = { x, y };
   });
+}
+
+// Move Orders (2026-08-21, per dDd's spec) — the Non-Combat multi-Tile
+// pathing system. Every Tile costs 1 AP to move into; a Character can still
+// order a destination further than their own AP covers in one Round — the
+// path just takes multiple Rounds to finish, consumed AP-many Tiles at a
+// time by resolveNonCombatRound() (js/noncombat.js). dDd's own worked
+// example (AP 3): Tiles 1-3 resolve this Round (0 extra Rounds needed),
+// 4-6 need 1 more Round, 7-9 need 2, 10-12 need 3 — capped at 3 extra
+// Rounds max for now (MOVE_MAX_EXTRA_ROUNDS below), so with AP 3 the
+// farthest orderable Tile is distance 12.
+const MOVE_MAX_EXTRA_ROUNDS = 3;
+
+// How many extra Rounds (beyond this one) a Tile at `dist` steps away needs,
+// given `ap` Tiles covered per Round — null if the Character has no AP to
+// move with at all. 0 means "resolves this Round."
+function moveExtraRounds(dist, ap){
+  if(!ap || ap <= 0) return null;
+  return Math.ceil(dist / ap) - 1;
+}
+
+// 8-directional BFS from `origin`, respecting only hard Obstacles (map.tiles)
+// — crowding is checked separately, only against the final destination (see
+// stageMoveOrder), same as the original single-Tile tryMoveActor did. Capped
+// at ap*(MOVE_MAX_EXTRA_ROUNDS+1) steps, since nothing farther is orderable
+// right now anyway. Returns a Map: tileIndex -> {x, y, dist, extraRounds,
+// parentIdx} for every reachable Tile except the origin itself.
+function computeReachable(table, origin, ap){
+  const reach = new Map();
+  if(!ap || ap <= 0) return reach;
+  const map = table.map;
+  const maxDist = ap * (MOVE_MAX_EXTRA_ROUNDS + 1);
+  const originIdx = tileIndex(map, origin.x, origin.y);
+  const visited = new Set([originIdx]);
+  const queue = [{ x: origin.x, y: origin.y, dist: 0, parentIdx: null }];
+  let head = 0;
+  while(head < queue.length){
+    const cur = queue[head++];
+    if(cur.dist > 0){
+      reach.set(tileIndex(map, cur.x, cur.y), {
+        x: cur.x, y: cur.y, dist: cur.dist, extraRounds: moveExtraRounds(cur.dist, ap), parentIdx: cur.parentIdx
+      });
+    }
+    if(cur.dist >= maxDist) continue;
+    const curIdx = tileIndex(map, cur.x, cur.y);
+    for(let dx = -1; dx <= 1; dx++){
+      for(let dy = -1; dy <= 1; dy++){
+        if(dx === 0 && dy === 0) continue;
+        const nx = cur.x + dx, ny = cur.y + dy;
+        if(nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) continue;
+        const nIdx = tileIndex(map, nx, ny);
+        if(visited.has(nIdx) || !map.tiles[nIdx]) continue;
+        visited.add(nIdx);
+        queue.push({ x: nx, y: ny, dist: cur.dist + 1, parentIdx: curIdx });
+      }
+    }
+  }
+  return reach;
+}
+
+// Walks a reach Map's parent pointers back from (destX,destY) to just past
+// the origin — the actual Trail, in travel order, origin excluded.
+function reconstructPath(table, reach, destX, destY){
+  const map = table.map;
+  const path = [];
+  let idx = tileIndex(map, destX, destY);
+  let info = reach.get(idx);
+  while(info){
+    path.unshift({ x: info.x, y: info.y });
+    idx = info.parentIdx;
+    info = idx === null ? null : reach.get(idx);
+  }
+  return path;
+}
+
+async function stageMoveOrder(actorId, destX, destY){
+  const table = AppState.table;
+  const actor = resolveEntityRef(table, actorId);
+  if(!actor) return;
+  const mine = (table.positions || {})[actorId] || { x: 0, y: 0 };
+  const reach = computeReachable(table, mine, actor.ap || 0);
+  const idx = tileIndex(table.map, destX, destY);
+  const info = reach.get(idx);
+  if(!info || info.extraRounds === null || info.extraRounds > MOVE_MAX_EXTRA_ROUNDS){
+    showBannerError('That Tile is out of Move range.');
+    return;
+  }
+  if(isTileMovementBlocked(table, destX, destY)){ showBannerError('That Tile is too crowded to move into.'); return; }
+
+  const path = reconstructPath(table, reach, destX, destY);
+  const roundsNote = info.extraRounds > 0 ? (' (' + (info.extraRounds + 1) + ' Rounds)') : '';
+
+  await mutateTable(t => {
+    const a = resolveEntityRef(t, actorId);
+    if(!a) return;
+    if(!a.orders) a.orders = [];
+    a.orders.push({ id: genId(), kind: 'move', path });
+    t.log.push({ type: 'system', text: (a.name || 'Someone') + ' orders a move to ' + tileKey(t.map, destX, destY) + roundsNote, time: timeNow() });
+  });
+
+  AppState.moveSelectMode = null;
+  AppState.moveHoverTile = null;
+  renderMap();
 }
 
 // Movement (2026-08-20), per dDd's own spec: clicking a Tile no longer moves
@@ -272,9 +377,13 @@ export async function handleTileClick(x, y){
 
   if(AppState.moveSelectMode){
     const { actorId } = AppState.moveSelectMode;
-    AppState.moveSelectMode = null;
-    await tryMoveActor(actorId, x, y);
-    renderMap();
+    if(table.inEncounter){
+      AppState.moveSelectMode = null;
+      await tryMoveActor(actorId, x, y);
+      renderMap();
+    }else{
+      await stageMoveOrder(actorId, x, y);
+    }
     return;
   }
 
@@ -332,6 +441,18 @@ function buildTilePopups(table, x, y){
     return pos && pos.x === x && pos.y === y;
   });
   if(allyHere) out += '<div class="tile-popup suggest" data-suggest="1">Suggest Move?</div>';
+
+  // Craft (2026-08-21, per dDd) — any real Player/Enemy occupant (not a
+  // Mini-Party member, which has no Tile of its own) gets a Craft button.
+  // What it actually shows once clicked (self-only Crafts here vs.
+  // other-targeting Crafts elsewhere, Combat/Non-Combat filtering) lives in
+  // js/craftPopup.js, deliberately NOT imported here — techniques.js already
+  // imports js/map.js (getDistance/hasLineOfSight), so map.js importing
+  // techniques.js's data back would cycle straight to itself.
+  const craftOccupant = Object.entries(table.positions || {}).find(([id, pos]) =>
+    pos.x === x && pos.y === y && ((table.players && table.players[id]) || (table.enemies && table.enemies[id]))
+  );
+  if(craftOccupant) out += '<div class="tile-popup craft" data-craft-target="' + craftOccupant[0] + '">Craft</div>';
   return out;
 }
 
@@ -344,6 +465,18 @@ export function renderMap(){
   const map = table.map;
   const positions = table.positions || {};
   const entities = allEntities(table);
+
+  // Move Orders (2026-08-21) — reachability, computed once per render rather
+  // than per-Tile, then looked up O(1) below for each Tile's tier class/badge.
+  // Non-Combat only (Combat keeps the plain adjacent-only tryMoveActor, no
+  // range preview at all).
+  let moveReach = null;
+  if(AppState.moveSelectMode && !table.inEncounter){
+    const moveActorId = AppState.moveSelectMode.actorId;
+    const moveActor = resolveEntityRef(table, moveActorId);
+    const moveOrigin = positions[moveActorId] || { x: 0, y: 0 };
+    moveReach = computeReachable(table, moveOrigin, (moveActor && moveActor.ap) || 0);
+  }
 
   // Build a lookup: tile index -> array of short labels occupying it.
   const occupants = {};
@@ -433,8 +566,20 @@ export function renderMap(){
       const edgeCls = occ.activeEnemies >= ACTIVE_CROWD_THRESHOLD ? ' edge-enemy'
         : occ.activeAllies >= ACTIVE_CROWD_THRESHOLD ? ' edge-ally' : '';
       const chunkCount = (map.chunks && map.chunks[idx]) || 0;
+      // Move Orders (2026-08-21) — two shades of one color: dark for
+      // reachable-this-Round (extraRounds 0), light for anything beyond that
+      // but still within range (1-3). A Tile outside range (or blocked/
+      // unreachable) gets neither — "looks the same as it already does," per
+      // dDd, so no class/badge at all in that case.
+      const moveInfo = moveReach && moveReach.get(idx);
+      const moveCls = moveInfo ? (moveInfo.extraRounds === 0 ? ' move-immediate' : ' move-future') : '';
+      const moveBadge = moveInfo
+        ? (moveInfo.extraRounds === 0
+            ? '<span class="move-badge move-badge-orb" title="Reachable this Round"></span>'
+            : '<span class="move-badge move-badge-num" title="' + moveInfo.extraRounds + ' more Round' + (moveInfo.extraRounds === 1 ? '' : 's') + ' needed">' + moveInfo.extraRounds + '</span>')
+        : '';
       const cls = 'map-tile' + (blocked ? ' blocked' : '') + (here.length ? ' occupied' : '') +
-        (crowdBlocked ? ' crowd-blocked' : '') + edgeCls + (chunkCount >= 30 ? ' chunk-spill' : '');
+        (crowdBlocked ? ' crowd-blocked' : '') + edgeCls + (chunkCount >= 30 ? ' chunk-spill' : '') + moveCls;
 
       const dTier = downTier(occ.down);
       const cTier = chunkTier(chunkCount);
@@ -452,9 +597,19 @@ export function renderMap(){
       const selectableCls = AppState.moveSelectMode ? ' select-target' : '';
       const popupCls = popupHtml ? ' has-popup' : '';
       html += '<div class="' + cls + selectableCls + popupCls + '" data-x="' + x + '" data-y="' + y + '"' + style + ' title="' +
-        tileKey(map, x, y) + (titleBits ? ' — ' + escapeHtml(titleBits) : '') + escapeHtml(titleMeta) + '">' + label + popupHtml + '</div>';
+        tileKey(map, x, y) + (titleBits ? ' — ' + escapeHtml(titleBits) : '') + escapeHtml(titleMeta) + '">' + label + moveBadge + popupHtml + '</div>';
     }
   }
+  // Move Orders trail (2026-08-21) — a Tile-sized SVG overlay spanning the
+  // whole grid, sitting above every Tile (pointer-events:none, so it never
+  // steals a click). Its actual line content is filled in by updateMoveTrail
+  // below, off AppState.moveHoverTile — geometry only needs TILE_SIZE/
+  // TILE_GAP, the same constants the grid's own CSS Grid tracks use, so a
+  // Tile's pixel center here always matches its real rendered position.
+  const trailW = map.width * TILE_SIZE + (map.width - 1) * TILE_GAP;
+  const trailH = map.height * TILE_SIZE + (map.height - 1) * TILE_GAP;
+  html += '<svg id="move-trail-svg" style="grid-column:' + (COL_OFFSET + 1) + ' / span ' + map.width +
+    '; grid-row:' + (ROW_OFFSET + 1) + ' / span ' + map.height + ';" viewBox="0 0 ' + trailW + ' ' + trailH + '"></svg>';
   el.innerHTML = html;
 
   // Cap the visible viewport to VIEWPORT_TILES x VIEWPORT_TILES (2026-08-20)
@@ -511,6 +666,54 @@ export function renderMap(){
       hintText.textContent = 'Choose a Tile to move ' + (actor && actor.name || 'them') + ' to.';
     }
   }
+
+  // Move Orders trail hover (2026-08-21) — one delegated listener on the grid
+  // itself rather than one per Tile, so hovering never has to fight a full
+  // renderMap() rebuild mid-gesture. Only updates the trail SVG (see
+  // updateMoveTrail), never re-renders the grid — cheap enough to run on
+  // every mousemove.
+  el.onmousemove = (ev) => {
+    const tile = ev.target.closest('.map-tile');
+    const x = tile ? Number(tile.dataset.x) : null;
+    const y = tile ? Number(tile.dataset.y) : null;
+    const cur = AppState.moveHoverTile;
+    if(x === null || (cur && cur.x === x && cur.y === y)) return;
+    AppState.moveHoverTile = tile ? { x, y } : null;
+    updateMoveTrail();
+  };
+  el.onmouseleave = () => {
+    if(!AppState.moveHoverTile) return;
+    AppState.moveHoverTile = null;
+    updateMoveTrail();
+  };
+  updateMoveTrail();
+}
+
+function tileCenterPx(x, y){
+  return { cx: x * (TILE_SIZE + TILE_GAP) + TILE_SIZE / 2, cy: y * (TILE_SIZE + TILE_GAP) + TILE_SIZE / 2 };
+}
+
+// Redraws just the Move Orders trail line (see the SVG built in renderMap)
+// off AppState.moveHoverTile — the one thing hovering the Map needs to
+// update live without rebuilding every Tile.
+function updateMoveTrail(){
+  const svg = document.getElementById('move-trail-svg');
+  if(!svg) return;
+  const table = AppState.table;
+  const hover = AppState.moveHoverTile;
+  if(!hover || !AppState.moveSelectMode || !table || table.inEncounter){ svg.innerHTML = ''; return; }
+
+  const actorId = AppState.moveSelectMode.actorId;
+  const actor = resolveEntityRef(table, actorId);
+  const mine = (table.positions || {})[actorId] || { x: 0, y: 0 };
+  const reach = computeReachable(table, mine, (actor && actor.ap) || 0);
+  const idx = tileIndex(table.map, hover.x, hover.y);
+  if(!reach.has(idx)){ svg.innerHTML = ''; return; }
+
+  const path = reconstructPath(table, reach, hover.x, hover.y);
+  const points = [mine, ...path].map(p => tileCenterPx(p.x, p.y));
+  const d = points.map((p, i) => (i === 0 ? 'M' : 'L') + p.cx + ',' + p.cy).join(' ');
+  svg.innerHTML = '<path d="' + d + '" class="move-trail-line"/>';
 }
 
 export function toggleMapEditMode(){

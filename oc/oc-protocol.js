@@ -92,25 +92,21 @@
 //   The real Player/DM-facing feature is tracked in reference/ROADMAP.md
 //   (DM Panel / Movement System) — building this helper does not resolve
 //   that roadmap item, it just unblocks testing until it's built for real.
-// - Firing several table mutations back-to-back in a tight loop can silently
-//   clobber each other. js/sync.js's mutateTable() resolves as soon as the
-//   network write lands — it does NOT wait for the realtime echo that
-//   actually refreshes AppState.table, and saveSession() is a whole-row
-//   upsert with no version check. A second mutation that starts before the
-//   first one's echo arrives builds on a stale copy and overwrites it,
-//   losing the first change entirely. Found live 2026-08-17 spawning 6
-//   enemies and moving 9 in one script — several writes vanished. Always use
-//   ocMutate() below instead of importing mutateTable directly, and await
-//   each OC action before starting the next one. (dDd's read on this, worth
-//   keeping in mind: ordinary gameplay mostly avoids the underlying race by
-//   design — a human Player only ever writes their own Character/Mini-Party,
-//   the DM is the only actor touching everything else, and human click speed
-//   naturally paces writes far enough apart to round-trip. OC is the one
-//   actor that can fire calls faster than that on purpose, which is exactly
-//   why this file, not js/sync.js itself, is where the fix belongs for now.
-//   The deeper case — genuine same-instant collisions — is tracked as its
-//   own item in reference/ROADMAP.md's Networking & Sync section, not solved
-//   here.)
+// - RESOLVED 2026-08-21 — js/sync.js's mutateTable() itself is now race-safe:
+//   every table carries its own _version counter, saveSession() in
+//   js/supabaseClient.js does a conditional write keyed on it, and a version
+//   conflict (someone else's write landed first) triggers an automatic
+//   re-fetch-and-replay rather than silently losing either side's change.
+//   This was the actual root cause of the clobbering originally found here
+//   2026-08-17 (6 enemies spawned, 9 moved in one script, several writes
+//   vanished) — fixed at the source rather than worked around per-caller.
+//   ocMutate() below still works the same way (immediate fetch-then-mutate,
+//   direct local update instead of waiting on the echo) and is still fine to
+//   use, but importing plain mutateTable from js/sync.js directly is no
+//   longer unsafe for a fast OC loop either — both now retry-and-replay on
+//   conflict. Kept ocMutate() itself rather than removing it, since its
+//   "skip waiting on the echo" property is still a real, separate
+//   convenience for chaining several OC actions in a row.
 //
 // -----------------------------------------------------------------------------
 
@@ -135,8 +131,8 @@ export async function ocMutate(mutatorFn){
   const fresh = await loadSession(AppState.currentCode);
   if(!fresh) throw new Error('ocMutate: could not fetch the current session state.');
   mutatorFn(fresh);
-  const ok = await saveSession(AppState.currentCode, fresh);
-  if(!ok) throw new Error('ocMutate: save failed.');
+  const result = await saveSession(AppState.currentCode, fresh);
+  if(!result.ok) throw new Error('ocMutate: save failed.');
   AppState.table = fresh;
   return fresh;
 }

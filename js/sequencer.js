@@ -6,6 +6,57 @@ import { escapeHtml, computeEntryTick, computeCounterMax, alliedActorIds, resolv
 // since nothing here needs to be dynamic, just consistent with that value.
 const NEEDLE_SWEEP_MS = 6500;
 
+// Twilight Milk — the Time Mechanic (2026-08-21), per dDd. The First/Second
+// Era sky is permanent Twilight: Gom (a Black Hole) eats the light Yom/Star
+// Father constantly feeds him, which for whatever reason reads as a milky
+// haze to the Planet's inhabitants. Repurposes the Sequencer Bar's own 13
+// tick positions (6 per Wing, the Orb as the 7th/center) as a literal
+// globe-lighting model — table.timeTick (0-12, where the "light" currently
+// sits) advances by one every Non-Combat Round (js/noncombat.js's
+// resolveNonCombatRound()). Per dDd's own spec, neither a literal tick mark
+// nor a needle renders here — the whole Wing background IS the display, and
+// moving the (invisible) needle just changes how that background looks.
+export const TWILIGHT_TICK_COUNT = 13;
+export const TWILIGHT_CENTER_TICK = 6;
+const TWILIGHT_DARK = [13, 10, 34];       // #0D0A22 — Gom's own black-hole dark, deeper than the app's usual ink
+const TWILIGHT_BRIGHT = [243, 238, 255];  // #F3EEFF — the Milk itself: pale, faintly violet, never plain daylight-white
+
+function mixColor(a, b, t){
+  const r = Math.round(a[0] + (b[0] - a[0]) * t);
+  const g = Math.round(a[1] + (b[1] - a[1]) * t);
+  const bl = Math.round(a[2] + (b[2] - a[2]) * t);
+  return `rgb(${r},${g},${bl})`;
+}
+
+// dDd's own instruction: "for opposite, use 26, cause globe physics." 13
+// ticks is odd, so there's no exact integer opposite in 13-space (6.5 isn't
+// a tick). Doubling to a 26-slot circle first fixes that cleanly — every
+// tick's doubled coordinate is even, so its true antipode (+13 in 26-space)
+// always lands on an odd number, i.e. exactly halfway between two OTHER
+// ticks rather than forcing a rounding error onto one side. Brightness then
+// falls off with a cosine curve (real sphere lighting: brightest at the
+// sub-point, darkest at the antipode, smooth in between) — the same "globe
+// physics" idea carried all the way through, not just the opposite-point math.
+function twilightColorAt(tick, needleTick){
+  const doubledDist = Math.abs(tick * 2 - needleTick * 2);
+  const circDist = Math.min(doubledDist, TWILIGHT_TICK_COUNT * 2 - doubledDist); // 0..13
+  const brightness = (Math.cos((circDist / TWILIGHT_TICK_COUNT) * Math.PI) + 1) / 2;
+  return mixColor(TWILIGHT_DARK, TWILIGHT_BRIGHT, brightness);
+}
+
+function renderTwilightSky(){
+  const leftWing = document.querySelector('.sequencer-divider-wing.left');
+  const rightWing = document.querySelector('.sequencer-divider-wing.right');
+  if(!leftWing || !rightWing) return;
+  const table = AppState.table;
+  const needleTick = (table && table.timeTick) ?? TWILIGHT_CENTER_TICK;
+
+  const leftStops = [0, 1, 2, 3, 4, 5].map(i => twilightColorAt(i, needleTick));
+  const rightStops = [7, 8, 9, 10, 11, 12].map(i => twilightColorAt(i, needleTick));
+  leftWing.style.background = `linear-gradient(to right, ${leftStops.join(', ')})`;
+  rightWing.style.background = `linear-gradient(to right, ${rightStops.join(', ')})`;
+}
+
 // Last-rendered events + scale, kept so the hover popover (mousemove-driven,
 // not a render pass) can answer "what's near this cursor position" without
 // recomputing the whole staged-actions gather on every mouse move.
@@ -462,6 +513,7 @@ export function initSequencerHover(){
 // slashes + Blood Drops took over showing staged actions, and to condense
 // the screen. This function is now just the divider/badge driver.
 export function renderSequencer(){
+  renderTwilightSky();
   const badge = document.getElementById('sequencer-ap-badge');
   const table = AppState.table;
   if(!table){
@@ -478,7 +530,21 @@ export function renderSequencer(){
   const replaying = !!frozenEvents;
   const counterMax = replaying ? frozenCounterMax : liveCounterMax;
   const events = replaying ? frozenEvents : (table.inEncounter ? computeStagedEvents(table, liveCounterMax) : []);
-  if(badge) badge.textContent = (table.inEncounter || replaying) ? String(counterMax) : '';
+  if(badge){
+    if(table.inEncounter || replaying){
+      badge.textContent = String(counterMax);
+    }else{
+      // Non-Combat Round (2026-08-21) — the Orb still has a job outside
+      // Combat: showing how many Orders the viewing Player currently has
+      // stacked, waiting on the next Resolve. Inlined rather than importing
+      // js/noncombat.js, which itself imports js/combat.js — that would
+      // circle straight back to this file (combat.js already imports
+      // freezeSequencerReveal from here).
+      const me = table.players && table.players[AppState.playerId];
+      const orderCount = (me && me.orders && me.orders.length) || 0;
+      badge.textContent = orderCount ? String(orderCount) : '';
+    }
+  }
   // The hover popover has to respect the same fog-of-war rule as the
   // slashes themselves — otherwise hovering blank space where a hidden
   // Enemy slash *would* be still leaks its name/action through the

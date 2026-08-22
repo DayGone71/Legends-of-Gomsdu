@@ -1,6 +1,6 @@
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
-import { escapeHtml, timeNow, isDeathWounded, resolveEntityRef, resolvePositionRef, alliedActorIds, deliverMindeyeEntry } from './utils.js';
+import { escapeHtml, timeNow, genId, isDeathWounded, resolveEntityRef, resolvePositionRef, alliedActorIds, deliverMindeyeEntry } from './utils.js';
 import { openPanel, closePanel } from './panels.js';
 import { getDistance, hasLineOfSight } from './map.js';
 import { MAX_MINI_PARTY } from './possession.js';
@@ -25,7 +25,32 @@ function showBannerError(msg){
 // imports TECHNIQUES can run before it's real data.
 export const TECHNIQUES = await fetch('/data/techniques.json').then(r => r.json());
 
+// Message's Glyph picker (2026-08-21, per dDd) — its own independent fetch
+// of the Glyphic System, same pattern js/information.js already uses (no
+// shared loader module for this yet). Sorted into Category groups; only
+// Directions has real content right now, per dDd — "Other" is every
+// remaining Glyph in the file, labeled by its own id since most don't have
+// a plain-English name yet.
+let GLYPH_DATA = null;
+try {
+  const glyphRes = await fetch('/language/gomsdu-glyphic-system.json');
+  GLYPH_DATA = await glyphRes.json();
+} catch (err) {
+  GLYPH_DATA = null;
+}
+const DIRECTION_GLYPHS = [
+  { id: 'RO / OR', label: 'RO — Up / Forward' },
+  { id: 'OP / PO', label: 'OP — Down / Back' },
+  { id: 'OK', label: 'OK — Left' },
+  { id: 'KO', label: 'KO — Right' }
+];
+
 const RESOURCE_LABELS = { ap: 'AP', focus: 'Focus', flow: 'Flow', lightning: 'Lightning', lava: 'Lava' };
+
+// Techniques stageable outside an Encounter (2026-08-21, per dDd), each
+// going through the Non-Combat Order flow (js/noncombat.js's
+// resolveNonCombatRound()) instead of the AP-tracked Combat sequence.
+export const NONCOMBAT_TECHNIQUES = ['message', 'channel'];
 
 // Technique Lists (2026-08-16) — per-Character access, but at the category
 // level dDd asked for (Flow Powers/Focus Powers/Lightning Crafts/Lava
@@ -106,7 +131,33 @@ export function openTechniqueUse(key){
       }).join('')
     : '<option value="">' + (isAlly ? 'No Allies to target' : 'No enemies to target') + '</option>';
 
+  // Message's Glyph picker (2026-08-21) — only Message needs it; every other
+  // Technique keeps the field hidden.
+  const glyphField = document.getElementById('tu-glyph-field');
+  const glyphSelect = document.getElementById('tu-glyph');
+  if(key === 'message' && GLYPH_DATA){
+    glyphField.classList.remove('hidden');
+    glyphSelect.innerHTML = glyphOptionsHtml();
+  }else{
+    glyphField.classList.add('hidden');
+  }
+
   openPanel('technique-use');
+}
+
+// Shared Directions/Other optgroup markup for Message's Glyph picker — used
+// by the Player-facing Technique Use panel above and the DM's own Essence
+// menu (js/dm.js), so "Acting As" an Enemy gets the exact same picker
+// instead of always sending the RO/OR default.
+export function glyphOptionsHtml(){
+  if(!GLYPH_DATA) return '';
+  const otherGlyphs = GLYPH_DATA.glyphs.filter(g => !DIRECTION_GLYPHS.some(d => d.id === g.id));
+  return '<optgroup label="Directions">' +
+      DIRECTION_GLYPHS.map(d => '<option value="' + escapeHtml(d.id) + '">' + escapeHtml(d.label) + '</option>').join('') +
+    '</optgroup>' +
+    '<optgroup label="Other">' +
+      otherGlyphs.map(g => '<option value="' + escapeHtml(g.id) + '">' + escapeHtml(g.id) + '</option>').join('') +
+    '</optgroup>';
 }
 
 // Anybody can stage any Technique — no ownership/unlock gating (per dDd:
@@ -117,12 +168,45 @@ export async function stageTechnique(){
   if(!def) return;
   const me = AppState.table.players[AppState.playerId];
   if(!me) return;
-  if(!AppState.table.inEncounter){ showBannerError('Techniques can only be staged during an Encounter.'); return; }
   if(!hasCategoryAccess(me, def)){ showBannerError('Your Character doesn’t have access to this Technique.'); return; }
 
   const targetId = document.getElementById('tu-target').value;
   const target = resolveEntityRef(AppState.table, targetId);
   if(!target || isDeathWounded(target)){ showBannerError('Pick a target first.'); return; }
+  const glyphId = currentTechniqueKey === 'message' ? document.getElementById('tu-glyph').value : null;
+
+  // Non-Combat Round (2026-08-21, per dDd) — Message and Channel ("Crafter
+  // recovers 1 Lightning Point") are staged outside an Encounter through the
+  // same stage-then-resolve Order flow Move uses (js/noncombat.js's
+  // resolveNonCombatRound()), not the AP-tracked Combat sequence below.
+  // Non-Combat doesn't scale to AP, per dDd, so AP costs are skipped
+  // entirely here; every other resource cost is still charged immediately
+  // at staging, same as Combat.
+  if(!AppState.table.inEncounter){
+    if(!NONCOMBAT_TECHNIQUES.includes(currentTechniqueKey)){ showBannerError('Techniques can only be staged during an Encounter.'); return; }
+    for(const [resource, amount] of Object.entries(def.costs)){
+      if(resource === 'ap') continue;
+      if(remaining(me, resource) < amount){ showBannerError('Not enough ' + RESOURCE_LABELS[resource] + ' left.'); return; }
+    }
+    await mutateTable(t => {
+      const actor = t.players[AppState.playerId];
+      Object.entries(def.costs).forEach(([resource, amount]) => {
+        if(resource === 'ap') return;
+        if(resource === 'flow') actor.flow = Math.max(0, (actor.flow || 0) - amount);
+        else actor[resource + 'Spent'] = (actor[resource + 'Spent'] || 0) + amount;
+      });
+      if(!actor.orders) actor.orders = [];
+      if(currentTechniqueKey === 'message'){
+        actor.orders.push({ id: genId(), kind: 'message', targetId, targetName: target.name, glyph: glyphId });
+        t.log.push({ type: 'system', text: (actor.name || 'Someone') + ' orders a Message to ' + target.name, time: timeNow() });
+      }else{
+        actor.orders.push({ id: genId(), kind: 'channel' });
+        t.log.push({ type: 'system', text: (actor.name || 'Someone') + ' orders a Channel', time: timeNow() });
+      }
+    });
+    closePanel();
+    return;
+  }
 
   if(currentTechniqueKey === 'possess' && (me.miniParty || []).length >= MAX_MINI_PARTY){
     showBannerError('Your Mini-Party is already full (' + MAX_MINI_PARTY + ') — Possession would exceed it.');
@@ -159,7 +243,7 @@ export async function stageTechnique(){
     actor.lightningSpent = (actor.lightningSpent || 0) + entry.lightningCost;
     actor.lavaSpent = (actor.lavaSpent || 0) + entry.lavaCost;
     if(entry.flowCost) actor.flow = Math.max(0, (actor.flow || 0) - entry.flowCost);
-    if(currentTechniqueKey === 'message') deliverMindeyeEntry(t, targetId, actor.name || 'Someone');
+    if(currentTechniqueKey === 'message') deliverMindeyeEntry(t, targetId, actor.name || 'Someone', glyphId);
     t.log.push({ type: 'system', text: (actor.name || 'Someone') + ' stages ' + def.name + ' on ' + target.name, time: timeNow() });
   });
 

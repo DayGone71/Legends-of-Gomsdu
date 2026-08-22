@@ -101,16 +101,31 @@ export function resolveEntityRef(table, targetId){
   return (table.players && table.players[targetId]) || (table.enemies && table.enemies[targetId]) || null;
 }
 
+// Personality/Head's first Axis (2026-08-21, per dDd's Notebook) — for now,
+// Intelligence just governs how many Expressions (Mindeye entries) a
+// Character can remember at once. Lives here, not personality.js, so
+// deliverMindeyeEntry (below) can enforce it without importing the panel.
+export const INTELLIGENCE_DEFAULT = 3;
+export function getIntelligence(actor){
+  return (actor && actor.personality && actor.personality.head && actor.personality.head.intelligence) ?? INTELLIGENCE_DEFAULT;
+}
+
 // Mindeye (2026-08-20) — where a Character's received Glyphs show up, per
 // dDd. Called from inside a mutateTable draft, both from the Player-side
 // Technique engine (techniques.js) and the DM's own Craft staging (dm.js),
 // so Message works identically staged by either side. Just a single GI per
 // arrival for now — Message has no content-authoring UI yet.
-export function deliverMindeyeEntry(table, targetId, fromName){
+export function deliverMindeyeEntry(table, targetId, fromName, glyphId){
   const target = resolveEntityRef(table, targetId);
   if(!target) return;
   if(!target.mindeye) target.mindeye = [];
-  target.mindeye.push({ id: genId(), from: fromName, seen: false, receivedAt: timeNow() });
+  target.mindeye.push({ id: genId(), from: fromName, glyph: glyphId || null, seen: false, receivedAt: timeNow() });
+  // Capacity is Intelligence-gated — the oldest Expression is forgotten (not
+  // just left unseen) once the Character's remembered count exceeds it.
+  const capacity = getIntelligence(target);
+  while(target.mindeye.length > capacity){
+    target.mindeye.shift();
+  }
 }
 
 // Every Enemy currently riding along as someone's Possessed Mini-Party

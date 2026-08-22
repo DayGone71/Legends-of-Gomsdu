@@ -28,20 +28,44 @@ export async function loadSession(code){
   }
 }
 
-// Creates or overwrites the state blob for a session code.
-export async function saveSession(code, state){
+// Creates or overwrites the state blob for a session code. With no
+// expectedVersion, this is a plain upsert (table creation — see
+// createNewSession below). With an expectedVersion, it's a CONDITIONAL
+// update (2026-08-21, optimistic concurrency — see mutateTable in sync.js):
+// only writes if state's own embedded _version still matches what the
+// caller last read, using PostgREST's JSON-path filter syntax directly on
+// the jsonb column rather than needing a real schema migration for a
+// dedicated version column. Returns {ok, conflict} so the caller can tell
+// "a real error" (conflict:false) apart from "someone else wrote first,
+// please retry" (conflict:true).
+export async function saveSession(code, state, expectedVersion){
   try{
-    const { error } = await getClient()
-      .from('sessions')
-      .upsert({ code, state }, { onConflict: 'code' });
+    let query = getClient().from('sessions');
+    if(expectedVersion === undefined){
+      const { error } = await query.upsert({ code, state }, { onConflict: 'code' });
+      if(error){
+        console.error('saveSession error from Supabase:', error.message, error);
+        return { ok: false, conflict: false };
+      }
+      return { ok: true, conflict: false };
+    }
+
+    const { data, error } = await query
+      .update({ state })
+      .eq('code', code)
+      .eq('state->>_version', String(expectedVersion))
+      .select('code');
     if(error){
       console.error('saveSession error from Supabase:', error.message, error);
-      return false;
+      return { ok: false, conflict: false };
     }
-    return true;
+    if(!data || data.length === 0){
+      return { ok: false, conflict: true }; // 0 rows matched — version race, not a real error
+    }
+    return { ok: true, conflict: false };
   }catch(e){
     console.error('saveSession failed (network/client error):', e);
-    return false;
+    return { ok: false, conflict: false };
   }
 }
 

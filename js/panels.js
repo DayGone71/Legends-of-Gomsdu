@@ -1,6 +1,6 @@
 import { AppState } from './state.js';
 
-const PANEL_IDS = ['character', 'combat', 'dm', 'dmtest', 'character-view', 'stats', 'techniques', 'party', 'npcs', 'technique-use', 'help', 'information'];
+const PANEL_IDS = ['character', 'combat', 'dm', 'dmtest', 'character-view', 'stats', 'techniques', 'party', 'npcs', 'technique-use', 'help', 'information', 'personality', 'relationships'];
 
 // Attack/Block/Essence submenus otherwise remember whatever open/closed state
 // they were left in — force them collapsed every time the panel opens instead.
@@ -74,7 +74,11 @@ export function updateEncounterUI(){
   const resolveBtn = document.getElementById('btn-resolve');
   if(startBtn) startBtn.disabled = inEncounter || !hasEnemies;
   if(endBtn) endBtn.disabled = !inEncounter;
-  if(resolveBtn) resolveBtn.classList.toggle('hidden', !inEncounter);
+  // Resolve stays visible always now (2026-08-21) — the Non-Combat Round is
+  // the default state of the Game, not a special mode, so there's always
+  // something for it to do. Combat Round vs Non-Combat Round changes what it
+  // actually resolves (see the click wiring in main.js), just the label here.
+  if(resolveBtn) resolveBtn.textContent = inEncounter ? 'Resolve round' : 'Resolve';
 }
 
 // Backdrop click closes whatever's open.

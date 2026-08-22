@@ -449,7 +449,10 @@ function computeRestMultiplier(actor){
 // before. Otherwise the target is still actively exposed, and Recovery instead
 // claws hitPercent back down (at double rate) \u2014 Flow itself stays at 0 and
 // can't start rebuilding until hitPercent finishes bottoming out.
-function applyRecoveryTick(actor){
+// Exported (2026-08-21) — the Non-Combat Round (js/noncombat.js) reuses these
+// two verbatim, so Lightning/Lava/Focus/Flow recharge the same way whether
+// the table's currently in a Combat Encounter or not.
+export function applyRecoveryTick(actor){
   const recovery = (actor.recovery || 0) * computeRestMultiplier(actor);
   const hitPercent = actor.hitPercent ?? 1;
   if(hitPercent <= 1){
@@ -466,7 +469,7 @@ function applyRecoveryTick(actor){
 // between them (Attunement 3 means +3 Lightning AND +3 Lava AND +3 Focus,
 // not +1 each). Most current Builds sit at Attunement 0, so this is a real
 // behavior change — Focus in particular no longer freely resets every round.
-function applyAttunementTick(actor){
+export function applyAttunementTick(actor){
   const attunement = actor.attunement || 0;
   if(!attunement) return;
   actor.focusSpent = Math.max(0, (actor.focusSpent || 0) - attunement);

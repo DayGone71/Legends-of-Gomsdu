@@ -195,7 +195,8 @@
     "focus": 1,
     "control": 10,
     "attunement": 10,
-    "life": 1
+    "life": 1,
+    "techniqueAccess": { "lavaCrafts": false }
   },
   "sandworm": {
     "archetype": "Gigantic Sandworm",

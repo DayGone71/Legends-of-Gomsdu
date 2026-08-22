@@ -228,17 +228,24 @@
   transform:translate(-50%,-50%);
 }
 .sequencer-divider-tick.major{height:20px; background:var(--text-dim);}
+/* Twilight Milk (2026-08-21) — background is set live by js/sequencer.js's
+   renderTwilightSky(), a per-Tick gradient standing in for the First/Second
+   Era's permanent Twilight sky. background here is just a pre-JS fallback. */
 .sequencer-divider-wing{
-  flex:1; height:16px; background:var(--brass); opacity:.55; max-width:640px;
-  position:relative; z-index:2;
+  flex:1; height:16px; background:var(--brass); max-width:640px;
+  position:relative; z-index:2; transition:background 1.4s ease;
 }
 .sequencer-divider-wing.left{clip-path:polygon(100% 0%, 100% 100%, 0% 50%);}
 .sequencer-divider-wing.right{clip-path:polygon(0% 0%, 0% 100%, 100% 50%);}
+/* Kulkrow Colors (2026-08-21, dDd's ask) — true black is Kulkrow's own
+   reserved tertiary (see style-guide.md), a deliberate, rare use rather than
+   just another dark tone. */
 .sequencer-divider-circle{
   flex-shrink:0; width:52px; height:52px; margin:0 -2px; border-radius:50%;
-  background:var(--ink-soft); border:2px solid var(--brass);
+  background:var(--kulkrow-tertiary); border:2px solid var(--kulkrow-primary);
+  box-shadow:0 0 10px 2px rgba(176,40,30,.5), inset 0 0 8px rgba(232,121,46,.2);
   display:flex; align-items:center; justify-content:center; z-index:3; position:relative;
-  font-family:'IBM Plex Mono',monospace; font-size:15px; font-weight:600; color:var(--brass-bright);
+  font-family:'IBM Plex Mono',monospace; font-size:15px; font-weight:600; color:var(--kulkrow-primary);
 }
 
 /* The moving needle — a vertical "reptile eye" marker (3 nested lens-shaped

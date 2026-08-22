@@ -174,6 +174,29 @@ a small working model of the Founding Rule itself — which is the most
 
 ---
 
+**Addendum, 2026-08-21 — the Non-Combat Round landed, and it's bigger than
+any single Priority item.** A single session built: Personality's first Axis
+(Intelligence, tied to Mindeye capacity), the Non-Combat Round itself
+(`resolveNonCombatRound()`, the Non-Combat equivalent of Combat's
+`resolveRound()` — "the default state of the Game," per dDd, not a special
+mode), Move Orders (multi-Tile pathing, range preview, a ghost trail) riding
+on top of it, Twilight Milk (the Time Mechanic, a real First/Second-Era sky
+driven by the Sequencer Bar), and Message/Channel becoming genuinely usable
+Non-Combat Techniques. Two things worth naming explicitly:
+- **Move Orders is Priority item 5's "AP-costed/queued movement"** — the
+  first of the 4 Minor Mechanical Fixes, built ahead of where it sat in
+  dDd's own stated attack order (Personality → Composition-to-Behavior →
+  Mechanical Fixes). Not a deviation flagged as a problem — the Non-Combat
+  Round it needed to exist inside wasn't itself on that list at all; picking
+  it up made this piece newly buildable, not out of turn on purpose.
+- **The Non-Combat Round turned out to be connective tissue, not just a
+  Movement feature.** Move, Message, and the Attunement/Recovery tick all
+  now resolve through the exact same mechanism — the first real seam between
+  the tactical engine (Movement, resources) and the Information/Language
+  track (Message delivering into the Mindeye). Worth treating as its own
+  standing piece of architecture going forward, not folded silently into
+  whichever feature happened to need it first.
+
 ## Open, not yet started
 
 - **Dialogue System Skeleton** (item 1) — has a real skeleton standing now,

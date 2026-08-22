@@ -171,6 +171,8 @@
         <button id="toolbar-party">Party</button>
         <button id="toolbar-npcs">NPCs</button>
         <button id="toolbar-information">Information</button>
+        <button id="toolbar-personality">Personality</button>
+        <button id="toolbar-relationships">Relationships</button>
         <button id="toolbar-help">Help</button>
       </div>
 
@@ -190,7 +192,7 @@
       <div class="side-toolbar">
         <button id="btn-start-encounter" class="btn-brass" disabled>Start encounter</button>
         <button id="btn-end-encounter" class="btn-ghost" disabled>End encounter</button>
-        <button id="btn-resolve" class="btn-brass hidden">Resolve round</button>
+        <button id="btn-resolve" class="btn-brass">Resolve</button>
         <button id="toolbar-combat">Combat</button>
         <button id="toolbar-dm">Dungeon Master</button>
       </div>
@@ -255,6 +257,11 @@
       </div>
       <button id="btn-confirm-add-party-member" class="btn-brass btn-small btn-block">Add</button>
     </div>
+
+    <!-- Craft list popup (2026-08-21) — same small-contextual-popup pattern
+         as #party-add-popup above, triggered by a Tile's "Craft" button
+         (js/craftPopup.js). Positioned via JS, not a full-screen modal. -->
+    <div id="craft-list-popup" class="craft-list-popup hidden"></div>
 
     <!-- PANELS -->
     <div id="panel-backdrop" class="hidden"></div>
@@ -601,6 +608,7 @@
             <button class="tech-item" data-technique="possess">Possess</button>
             <button class="tech-item" data-technique="embolden">Embolden</button>
             <button class="tech-item" data-technique="anchor">Anchor</button>
+            <button class="tech-item" data-technique="resonance">Resonance</button>
           </div>
         </div>
         <div class="tech-main-header">Craft</div>
@@ -609,6 +617,8 @@
             <div class="tech-column-label">Lightning</div>
             <button class="tech-item" data-technique="heartAttack">Heart Attack</button>
             <button class="tech-item" data-technique="skullExplosion">Skull Explosion</button>
+            <button class="tech-item" data-technique="message">Message</button>
+            <button class="tech-item" data-technique="channel">Channel</button>
           </div>
           <div class="tech-column">
             <div class="tech-column-label">Lava</div>
@@ -640,6 +650,22 @@
         <button id="panel-close-information" class="btn-ghost btn-small">Close</button>
       </div>
       <div id="info-received-list"></div>
+    </div>
+
+    <div id="panel-personality" class="panel-overlay hidden">
+      <div class="panel-overlay-header">
+        <h2>Personality</h2>
+        <button id="panel-close-personality" class="btn-ghost btn-small">Close</button>
+      </div>
+      <div id="personality-head-list"></div>
+    </div>
+
+    <div id="panel-relationships" class="panel-overlay hidden">
+      <div class="panel-overlay-header">
+        <h2>Relationships</h2>
+        <button id="panel-close-relationships" class="btn-ghost btn-small">Close</button>
+      </div>
+      <div id="relationships-content"></div>
     </div>
 
     <div id="panel-help" class="panel-overlay hidden">
@@ -694,6 +720,10 @@
       <div class="field">
         <label>Target</label>
         <select id="tu-target"></select>
+      </div>
+      <div class="field hidden" id="tu-glyph-field">
+        <label>Glyph</label>
+        <select id="tu-glyph"></select>
       </div>
       <button id="btn-tu-stage" class="btn-brass btn-block" style="margin-top:10px;">Stage</button>
     </div>

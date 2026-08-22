@@ -5,7 +5,7 @@ import { BUILDS } from './character.js';
 import { getSavedCharacters } from './savedCharacters.js';
 import { getSavedEncounters, saveEncounterTemplate } from './savedEncounters.js';
 import { updateEncounterUI } from './panels.js';
-import { TECHNIQUES, hasCategoryAccess, remaining, costText } from './techniques.js';
+import { TECHNIQUES, hasCategoryAccess, remaining, costText, glyphOptionsHtml } from './techniques.js';
 import { getDistance, hasLineOfSight } from './map.js';
 import { showCharacterView } from './characterView.js';
 
@@ -297,6 +297,15 @@ function renderDMEssenceMenu(crafts){
     '<button class="btn-ghost btn-small' + (AppState.dmPendingCraftKey === key ? ' toggled' : '') +
     '" data-craft="' + key + '">' + escapeHtml(def.name) + ' \u2014 ' + costText(def.costs) + '</button>'
   ).join('');
+  // Message's Glyph picker (2026-08-21, per dDd \u2014 picking what Message to
+  // send as an Enemy was "pretty awkward," always defaulting to RO/OR). Same
+  // Directions/Other picker the Player-facing Technique Use panel uses,
+  // reused directly (js/techniques.js's glyphOptionsHtml()) rather than
+  // rebuilt \u2014 so Acting As Gom gets exactly the same real choice Moving him
+  // already has, not a cruder DM-only version of it.
+  if(AppState.dmPendingCraftKey === 'message'){
+    el.innerHTML += '<div class="field"><label>Glyph</label><select id="dm-glyph-select">' + glyphOptionsHtml() + '</select></div>';
+  }
   el.querySelectorAll('[data-craft]').forEach(btn => {
     btn.onclick = () => dmSelectCraft(btn.dataset.craft);
   });
@@ -471,11 +480,13 @@ export async function dmCommitAction(){
       if(remaining(actor, resource) < amount){ showBannerError('Not enough ' + resource + ' left.'); return; }
     }
 
+    const glyphSelect = document.getElementById('dm-glyph-select');
     entry = {
       apCost: def.costs.ap || 0, focusCost: def.costs.focus || 0, flowCost: def.costs.flow || 0,
       lightningCost: def.costs.lightning || 0, lavaCost: def.costs.lava || 0,
       actionLabel: def.name, targetLabel: playerShorthand(target), targetName: target.name,
-      kind: 'technique', techniqueKey: AppState.dmPendingCraftKey, targetId: AppState.dmSelectedTargetId
+      kind: 'technique', techniqueKey: AppState.dmPendingCraftKey, targetId: AppState.dmSelectedTargetId,
+      glyph: AppState.dmPendingCraftKey === 'message' && glyphSelect ? glyphSelect.value : undefined
     };
   }else{
     showBannerError('Open Attack, Block, or Essence and choose something first.');
@@ -491,7 +502,16 @@ export async function dmCommitAction(){
     a.lightningSpent = (a.lightningSpent || 0) + (entry.lightningCost || 0);
     a.lavaSpent = (a.lavaSpent || 0) + (entry.lavaCost || 0);
     if(entry.flowCost) a.flow = Math.max(0, (a.flow || 0) - entry.flowCost);
-    if(entry.techniqueKey === 'message') deliverMindeyeEntry(t, entry.targetId, a.name || 'Someone');
+    // The DM's own Essence menu now has the same Glyph picker the Player-
+    // facing Technique Use panel does (2026-08-21, per dDd — picking what
+    // Message to send as an Enemy was "pretty awkward," always defaulting to
+    // RO/OR) — see renderDMEssenceMenu's #dm-glyph-select.
+    if(entry.techniqueKey === 'message') deliverMindeyeEntry(t, entry.targetId, a.name || 'Someone', entry.glyph);
+    // Channel (2026-08-21, per dDd) — "Crafter recovers 1 Lightning Point,"
+    // Crafter meaning whoever's staging it (here, the Enemy the DM is Acting
+    // As — Gom included). This staging tool has no Encounter gate at all
+    // already, so this just works whether or not Combat's running.
+    if(entry.techniqueKey === 'channel') a.lightningSpent = Math.max(0, (a.lightningSpent || 0) - 1);
     t.log.push({ type: 'system', text: a.name + ' stages ' + describeAction(entry) + (entry.targetName ? (' on ' + entry.targetName) : ''), time: timeNow() });
   });
 }

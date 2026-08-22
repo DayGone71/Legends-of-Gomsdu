@@ -354,6 +354,17 @@
 .map-tile.blocked{background:#0A0B0D; cursor:default;}
 .map-tile.occupied{background:var(--brass); color:#221A0E; font-weight:700;}
 
+/* Move Orders range preview (2026-08-21, per dDd) — one hue, two shades: dark
+   for reachable-this-Round, light for anything beyond that but still within
+   the 3-extra-Round cap. Violet, picked fresh against every other claimed
+   hue on this Map (see the Ally/Enemy edge comment below for the full list —
+   Gom white/blue/indigo, Kulkrow orange/red/black, brass occupied, burgundy
+   Down, pink Chunks, cyan/gold Ally/Enemy edges). Comes after .occupied in
+   the cascade on purpose, so an ally standing in your path still reads as
+   "on the route" rather than just "occupied." */
+.map-tile.move-immediate{background:#4E3078;}
+.map-tile.move-future{background:#C4AEE8; color:#2A1B45;}
+
 /* Crowding-blocked (5+ Down, either side, or 3+ living Enemies-of-the-mover)
    — a soft, occupancy-driven obstacle, distinct from a real (black) Obstacle
    Tile: still enterable by nothing further, but never blocks line of sight
@@ -395,6 +406,29 @@
    Chunks) — see reference/ROADMAP.md's Color Schemes note for the reasoning. */
 .map-tile.edge-ally{box-shadow:inset 0 0 0 2px #22D3EE; z-index:3;}
 .map-tile.edge-enemy{box-shadow:inset 0 0 0 2px #F5C518; z-index:3;}
+
+/* Move Orders badges (2026-08-21) — corner-positioned so they never collide
+   with a Tile's own occupant-initial label, which stays centered. Fixed dark
+   pill + light violet text/dot regardless of the Tile's own move-immediate/
+   move-future shade underneath, so contrast never depends on which one it's
+   sitting on. */
+.move-badge{
+  position:absolute; top:1px; right:1px; z-index:4; min-width:11px; height:11px;
+  border-radius:6px; background:rgba(20,14,36,.88); color:#EAD9FF;
+  display:flex; align-items:center; justify-content:center;
+  font-size:8px; line-height:1; padding:0 2px;
+}
+.move-badge-orb{width:7px; height:7px; min-width:0; border-radius:50%; background:#EAD9FF;}
+
+/* The Move Orders trail (2026-08-21) — a ghostly dashed line from the mover's
+   own Tile through to whichever Tile is currently hovered, cleared the
+   instant nothing's hovered or the Move gets confirmed. pointer-events:none
+   so it never steals a click meant for the Tile underneath it; z-index above
+   plain Tiles but below an open .has-popup Tile (z-index:20, see the
+   z-index/stacking-context fix note above) so Move?/Suggest Move? buttons
+   still show through it. */
+#move-trail-svg{position:relative; z-index:10; pointer-events:none; overflow:visible;}
+.move-trail-line{fill:none; stroke:#C4AEE8; stroke-width:2.5; stroke-dasharray:5 4; opacity:.75;}
 .map-corner, .map-col-header, .map-row-header{
   display:flex; align-items:center; justify-content:center;
   font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-dim);
@@ -434,6 +468,24 @@
   top:auto; bottom:-2px; transform:translate(-50%,100%);
   color:#22D3EE; border-color:#22D3EE;
 }
+/* Craft (2026-08-21) — sits above the Tile so it never collides with a
+   simultaneous Move?/Suggest Move? popup on the same Tile. Plain brass, same
+   as the default .tile-popup — it's an action button like Move?, not a
+   status indicator, so it doesn't need its own claimed hue. */
+.tile-popup.craft{ top:-2px; bottom:auto; transform:translate(-50%,-100%); }
+
+/* The Craft list popup (2026-08-21) — same small-contextual-popup pattern as
+   .party-add-popup above (position:fixed, JS-set left/top, no backdrop). */
+.craft-list-popup{
+  position:fixed; min-width:150px; z-index:55; background:var(--ink-soft);
+  border:1px solid var(--brass); border-radius:10px; padding:6px;
+  box-shadow:0 8px 24px rgba(0,0,0,.4); display:flex; flex-direction:column; gap:4px;
+}
+.craft-list-item{
+  background:var(--ink); color:var(--brass-bright); border:1px solid var(--brass);
+  border-radius:5px; padding:6px 10px; font-size:12px; cursor:pointer; text-align:left;
+}
+.craft-list-item:hover{background:var(--ink-soft);}
 .map-tile.select-target:hover{box-shadow:inset 0 0 0 2px var(--brass-bright); z-index:4;}
 /* Bug fix, 2026-08-20, per dDd — "Suggest Move?" popped up behind the Map.
    .map-tile sets position:relative + a numeric z-index, which makes each
@@ -489,6 +541,33 @@
 .info-line{width:70px; margin:4px 0;}
 .info-line svg{width:100%; height:auto; display:block;}
 
+/* Personality Pillar — Head domain, first Axis (2026-08-21). First Era Beings
+   only need Head (Heart/Stomach are Second/Third Era), so that's all that
+   renders for now — see js/personality.js. */
+.personality-axis{text-align:center; padding:6px 4px 4px;}
+.personality-axis-name{font-size:13px; font-weight:700; color:var(--text-dark);}
+.personality-axis-desc{font-size:11px; color:#7A6A47; margin:4px auto 12px; max-width:280px; line-height:1.4;}
+.personality-stepper{display:flex; align-items:center; justify-content:center; gap:14px;}
+.personality-value{font-family:'IBM Plex Mono',monospace; font-size:18px; color:var(--text-dark); min-width:20px;}
+.personality-capacity{font-size:11px; color:#7A6A47; margin-top:10px;}
+
+/* Behaviors (2026-08-22) — Likely/Runner Up summary + per-Glyph breakdown.
+   Foundation only, per dDd: math and display, nothing plays out on the Map. */
+.behavior-summary{display:flex; gap:12px; margin-bottom:14px;}
+.behavior-summary-col{flex:1; text-align:center; background:#F8F3E7; border:1px solid var(--parchment-line); border-radius:8px; padding:10px 6px;}
+.behavior-summary-label{font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:#7A6A47; font-weight:700; margin-bottom:6px;}
+.behavior-summary-value{font-size:13.5px; color:var(--text-dark); font-weight:600;}
+.behavior-summary-pct{font-family:'IBM Plex Mono',monospace; font-size:12px; color:#7A6A47; margin-top:2px;}
+.behavior-glyph-list{display:flex; flex-direction:column; gap:5px;}
+.behavior-glyph-row{
+  display:grid; grid-template-columns:1fr 1.4fr auto; gap:8px; align-items:center;
+  background:#F8F3E7; border:1px solid var(--parchment-line); border-radius:5px; padding:6px 10px; font-size:11.5px;
+}
+.behavior-glyph-id{color:var(--text-dark); font-weight:600;}
+.behavior-glyph-assoc{color:#7A6A47;}
+.behavior-glyph-longing{font-family:'IBM Plex Mono',monospace; font-size:10px; opacity:.75;}
+.behavior-glyph-pct{font-family:'IBM Plex Mono',monospace; color:var(--text-dark); text-align:right;}
+
 /* Mindeye gallery (2026-08-20) — the full "screen with all Glyphs" a
    received Message lands in, per dDd. Grid of small tiles; the permanent
    origin Expression keeps its own click-to-expand, dynamic arrivals are
@@ -497,6 +576,33 @@
 .info-tile{width:80px; display:flex; flex-direction:column; align-items:center; padding:8px; border-radius:8px;}
 .info-tile .info-glyph{width:56px;}
 .info-tile-label{font-size:9.5px; text-align:center; color:var(--text-dark); opacity:.65; margin-top:4px; line-height:1.3;}
+/* Relationships' own selected-Glyph highlight (2026-08-21) — reuses .info-tile
+   itself (see js/relationships.js), just adds a ring for "this one's active". */
+.info-tile.selected{box-shadow:inset 0 0 0 2px var(--brass); border-radius:8px;}
+
+/* Relationships Pillar — Attachment/Desire Axes (2026-08-21, per dDd's
+   Notebook). Same 3-position Pole/Mid/Pole shape the personality-pillar
+   prototype established, built for real here for the first time. */
+.rel-axis{text-align:center; margin:14px 0;}
+.rel-axis-name{font-size:12px; font-weight:700; color:var(--text-dark); margin-bottom:8px;}
+.rel-axis-3way{display:flex; gap:6px; max-width:320px; margin:0 auto;}
+.rel-pole-btn{
+  flex:1; background:#F8F3E7; border:1px solid var(--parchment-line); color:#7A6A47;
+  border-radius:5px; padding:8px 6px; font-size:11px; cursor:pointer; text-align:center;
+}
+.rel-pole-btn:hover{border-color:var(--brass);}
+.rel-pole-btn.mid{font-style:italic;}
+.rel-pole-btn.active{background:var(--brass); border-color:var(--brass); color:#221A0E; font-weight:700;}
+
+/* Crafts Known row (2026-08-21) — a standing list on the Information panel,
+   separate from the Mindeye Gallery above it. Visibility only, matching
+   dDd's own framing ("available to see by everyone") — plain chips, no
+   click action, distinct from the Techniques Panel's real staging buttons. */
+.info-crafts-row{display:flex; flex-wrap:wrap; gap:6px; justify-content:center;}
+.info-craft-chip{
+  background:#F8F3E7; border:1px solid var(--parchment-line); border-radius:5px;
+  padding:5px 10px; font-size:11.5px; color:var(--text-dark);
+}
 
 /* The Mindeye Interface (2026-08-20, dDd's spec, followed close to verbatim)
    — replaces the old text-caption Spotlight entirely. Renders straight on
@@ -545,7 +651,11 @@
   cursor:pointer; z-index:2; filter:drop-shadow(0 0 6px rgba(245,245,240,.65));
 }
 .mindeye-gi svg{width:100%; height:auto; display:block; color:var(--gom-primary);}
-.mindeye-gi-b{opacity:0; cursor:default;}
+/* pointer-events:none is load-bearing, not decorative: GI-b sits at the exact
+   same center point as GI-a and paints after it (later in DOM order, same
+   z-index), so without this every click meant for GI-a's listener silently
+   lands on GI-b instead — which has none — and the reveal never starts. */
+.mindeye-gi-b{opacity:0; cursor:default; pointer-events:none;}
 .mindeye-stage.split .mindeye-gi-a{transform:translate(-50%, calc(-50% - 50px));}
 .mindeye-stage.split .mindeye-gi-b{transform:translate(-50%, calc(-50% + 50px)); opacity:1;}
 /* Dark purple / electric blue, dDd's own colors — big enough for exactly one

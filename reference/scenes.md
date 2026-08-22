@@ -10,6 +10,44 @@ anything. Add more Scenes here as they come up, same running-file pattern as
 
 ---
 
+## First Era Legend — the Map vision (seeded 2026-08-22)
+
+Not built, not fully scoped — dDd shared this live, unprompted, as context for
+why the Interface work (Facing, Active Character, the Map Evolution — see
+[ROADMAP.md](ROADMAP.md)'s Movement System/Party System/Personality-Behaviors
+sections) matters: it's what the First Era Legend's actual Map is *for*.
+Worth preserving at this level of detail rather than letting it thin back
+down to a one-line reminder.
+
+**The idea**: the First Era Legend's Map has roughly 5 parts. Mostly Living
+Stone, clustered by Personality:
+
+-   **Standers** — think standing is the best thing ever. (The literal
+    Stand-Around-dominant cluster — see the Behaviors system, [CHANGELOG.md](CHANGELOG.md) 2026-08-22.)
+-   **Learners** — always going around asking Gom stuff.
+-   **Fighters** — just like rumbling.
+-   **Watchers** — follow Kulkrow around the Map as he melts stuff.
+-   **Elites** — get Marked by Gom, go around doing whatever they please.
+
+**Gom and Kulkrow both roam the Map doing their own thing.** Kulkrow mostly
+moves around making Tiles unenterable for a while — lava flows that
+solidify, a real, literal use of the Map's existing blocked/traversable Tile
+toggle, not a new mechanic. He sometimes carves stuff that Gom then uses to
+make *more* Living Stone with unique Personalities — a direct callback to
+the Genesis Scene above (Gom shaping Kulkrow's own Matter into a new Stone).
+
+**Why the Map's styling is basically already done, per dDd**: "the First
+Era has zero foliage, terrain, water, geography; it's literally just a
+massive barren ball of Iron, so 0 reason to create [visual] features on the
+Map besides the toggle to enable/disable travel." The existing
+blocked/traversable Tile system already covers everything First Era's Map
+visually needs — no new art/terrain work implied by this vision, just the
+Interface pieces (Facing, Active Character, Behaviors already built) needed
+to actually populate and animate it.
+
+dDd's own read on how close this already is: "the crazy part is that we
+have the infrastructure for all of that like 70% complete."
+
 ## Genesis: Gom and the First Stone
 
 Built 2026-08-18, across a long, deliberately "get in the headspace"

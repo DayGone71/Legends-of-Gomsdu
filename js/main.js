@@ -12,6 +12,10 @@ import { openPanel, closePanel, togglePanel, updateEncounterUI, initPanelBackdro
 import { renderDMTestPanel, runDMTestRound, runDMTestNRounds, runDMTestUntilDefeat } from './dmtest.js';
 import { initTechniquesUI, renderTechniquesPanel } from './techniques.js';
 import { renderInformationPanel, hasUnseenMindeye } from './information.js';
+import { renderPersonalityPanel } from './personality.js';
+import { renderRelationshipsPanel } from './relationships.js';
+import { resolveNonCombatRound } from './noncombat.js';
+import { initCraftPopup } from './craftPopup.js';
 
 // ---------- Screen helpers ----------
 function showLoading(v){ document.getElementById('loading').classList.toggle('hidden', !v); }
@@ -92,6 +96,8 @@ function renderAll(){
   renderInformationPanel();
   const infoBtn = document.getElementById('toolbar-information');
   if(infoBtn) infoBtn.classList.toggle('pulsing-gom', hasUnseenMindeye());
+  renderPersonalityPanel();
+  renderRelationshipsPanel();
   renderCombatCounters();
   renderTargetRange();
   renderAllyRange();
@@ -747,6 +753,8 @@ function wireEvents(){
   document.getElementById('toolbar-party').addEventListener('click', () => togglePanel('party'));
   document.getElementById('toolbar-npcs').addEventListener('click', () => togglePanel('npcs'));
   document.getElementById('toolbar-information').addEventListener('click', () => togglePanel('information'));
+  document.getElementById('toolbar-personality').addEventListener('click', () => togglePanel('personality'));
+  document.getElementById('toolbar-relationships').addEventListener('click', () => togglePanel('relationships'));
   document.getElementById('toolbar-help').addEventListener('click', () => togglePanel('help'));
   document.getElementById('panel-close-character').addEventListener('click', closePanel);
   document.getElementById('panel-close-combat').addEventListener('click', closePanel);
@@ -758,6 +766,8 @@ function wireEvents(){
   document.getElementById('panel-close-npcs').addEventListener('click', closePanel);
   document.getElementById('panel-close-party').addEventListener('click', closePanel);
   document.getElementById('panel-close-information').addEventListener('click', closePanel);
+  document.getElementById('panel-close-personality').addEventListener('click', closePanel);
+  document.getElementById('panel-close-relationships').addEventListener('click', closePanel);
   document.getElementById('panel-close-help').addEventListener('click', closePanel);
   document.getElementById('panel-close-technique-use').addEventListener('click', closePanel);
 
@@ -788,7 +798,10 @@ function wireEvents(){
   document.getElementById('cast-lava').addEventListener('click', () => selectEssenceSchool('Lava'));
   document.getElementById('btn-commit').addEventListener('click', commitAction);
   document.getElementById('btn-undo').addEventListener('click', undoAction);
-  document.getElementById('btn-resolve').addEventListener('click', resolveRound);
+  document.getElementById('btn-resolve').addEventListener('click', () => {
+    if(AppState.table && AppState.table.inEncounter) resolveRound();
+    else resolveNonCombatRound();
+  });
   document.getElementById('btn-rest').addEventListener('click', stageRest);
 
   // DM
@@ -828,8 +841,11 @@ function wireEvents(){
   initAddPartyMemberUI();
   initTechniquesUI();
   renderInformationPanel();
+  renderPersonalityPanel();
+  renderRelationshipsPanel();
 
   initPanelBackdrop();
+  initCraftPopup();
 }
 
 // ---------- Init ----------

@@ -55,6 +55,18 @@
     },
     "targetSide": "ally"
   },
+  "resonance": {
+    "name": "Resonance",
+    "group": "Powers",
+    "column": "Focus",
+    "type": "Mystic Transformation",
+    "costs": {
+      "ap": 1,
+      "focus": 1
+    },
+    "range": 5,
+    "effect": "Whenever a Lava or Lightning Spell is cast, immediately regain 1 Focus Point"
+  },
   "heartAttack": {
     "name": "Heart Attack",
     "group": "Craft",
@@ -113,6 +125,20 @@
       "lightning": 1
     },
     "range": 7,
-    "effect": "Sets an Expression in another Character's Mindeye. (Mindeye itself isn't built yet — this just needs to stage.)"
+    "effect": "Sets an Expression in another Character's Mindeye."
+  },
+  "channel": {
+    "name": "Channel",
+    "group": "Craft",
+    "column": "Lightning",
+    "type": "Mystic Transformation",
+    "targetSide": "ally",
+    "selfOnly": true,
+    "costs": {
+      "ap": 1,
+      "focus": 1
+    },
+    "range": 5,
+    "effect": "Recover 1 Lightning Point"
   }
 }

@@ -11,6 +11,7 @@
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
 import { escapeHtml } from './utils.js';
+import { TECHNIQUES, hasCategoryAccess } from './techniques.js';
 
 let GLYPH_DATA = null;
 try {
@@ -60,10 +61,39 @@ function giMarkup() {
   return svgWrap(glyphMarkup(lookupGlyph('GI')));
 }
 
+// The specific Glyph a Mindeye entry actually carries (2026-08-21, per dDd's
+// Message Glyph picker) — falls back to plain GI for the permanent origin
+// item and any older entry that predates this field.
+function entryGlyphMarkup(entry) {
+  const glyph = entry && entry.glyph && lookupGlyph(entry.glyph);
+  return glyph ? svgWrap(glyphMarkup(glyph)) : giMarkup();
+}
+function entryGlyphName(entry) {
+  const glyph = entry && entry.glyph && lookupGlyph(entry.glyph);
+  return glyph ? glyph.id : 'GI';
+}
+
 // Every Mindeye entry currently waiting on the logged-in Player, newest last.
 function myMindeye() {
   const me = AppState.table && AppState.table.players[AppState.playerId];
   return (me && me.mindeye) || [];
+}
+
+// Crafts Known (2026-08-21, per dDd) — a standing row on the Information
+// panel listing every Craft-group Technique the viewed Character has access
+// to, regardless of Mindeye state (reveal stage or Gallery). Visibility, not
+// usability — per dDd: "Techniques aren't supposed to be globally available
+// for anyone to use, but they should be all available to see by everyone."
+function craftsKnownRow() {
+  const me = AppState.table && AppState.table.players[AppState.playerId];
+  const row = document.createElement('div');
+  row.className = 'sheet';
+  const known = me ? Object.entries(TECHNIQUES).filter(([key, def]) => def.group === 'Craft' && hasCategoryAccess(me, def)) : [];
+  row.innerHTML = '<div class="stat-header">Crafts Known</div>' +
+    (known.length
+      ? '<div class="info-crafts-row">' + known.map(([key, def]) => '<div class="info-craft-chip">' + escapeHtml(def.name) + '</div>').join('') + '</div>'
+      : '<div class="log-empty">No Crafts known.</div>');
+  return row;
 }
 
 async function markSeen(entryId) {
@@ -118,13 +148,14 @@ export function renderInformationPanel() {
     stage.innerHTML = `
       <div class="mindeye-smoke mindeye-smoke-a"></div>
       <div class="mindeye-smoke mindeye-smoke-b"></div>
-      <div class="mindeye-glyph-box">${giMarkup()}</div>
+      <div class="mindeye-glyph-box">${entryGlyphMarkup(newest)}</div>
       <div class="mindeye-gi mindeye-gi-a">${giMarkup()}</div>
       <div class="mindeye-gi mindeye-gi-b">${giMarkup()}</div>
       <div class="mindeye-caption">${revealing ? escapeHtml(newest.from || 'Someone') + ' sent a Message' : 'Click to open Mindeye'}</div>
     `;
     container.innerHTML = '';
     container.appendChild(stage);
+    container.appendChild(craftsKnownRow());
 
     // Both listeners are wired on every render, regardless of `revealing` —
     // not just the one relevant to the current stage. The split itself is
@@ -182,13 +213,14 @@ export function renderInformationPanel() {
   myMindeye().forEach(entry => {
     const tile = document.createElement('div');
     tile.className = 'info-tile';
-    tile.innerHTML = `<div class="info-glyph">${giMarkup()}</div><div class="info-tile-label">${escapeHtml(entry.from || 'Someone')}</div>`;
+    tile.innerHTML = `<div class="info-glyph">${entryGlyphMarkup(entry)}</div><div class="info-glyph-label">${escapeHtml(entryGlyphName(entry))}</div><div class="info-tile-label">${escapeHtml(entry.from || 'Someone')}</div>`;
     gallery.appendChild(tile);
   });
 
   sheet.appendChild(gallery);
   container.innerHTML = '';
   container.appendChild(sheet);
+  container.appendChild(craftsKnownRow());
 }
 
 // Whether the current Player's own Information toolbar button should be
