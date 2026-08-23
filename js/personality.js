@@ -14,7 +14,7 @@
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
 import { getIntelligence, mindeyeCapacity, INTELLIGENCE_DEFAULT, escapeHtml, resolveEntityRef } from './utils.js';
-import { computeBehaviors, sortedBehaviors, NO_STAND_AROUND_ARCHETYPES } from './behaviors.js';
+import { computeBehaviors, sortedBehaviors, NO_STAND_AROUND_ARCHETYPES, BEHAVIOR_CATEGORIES } from './behaviors.js';
 
 // Inspect mode (2026-08-22, per dDd) — the viewing Player's own Character by
 // default, or whichever Character AppState.inspectTargetId points at (set
@@ -47,52 +47,63 @@ async function adjustIntelligence(delta){
   });
 }
 
-// Behaviors (2026-08-22, per dDd) — tracks Information (remembered Glyphs)
-// and the Character's Relationship to it; a Behavior is the result. Only the
-// math/display live here — nothing actually plays out on the Map yet (see
-// js/noncombat.js's resolveNonCombatRound(), which logs the computed Likely
-// Behavior to the Ledger instead of executing it, per dDd's explicit scope).
+// Behaviors (2026-08-22, per dDd; split into 3 independent columns same day
+// after playtesting — "Characters should have 3 separate Behaviors. This is
+// for moving, selecting, acting basically... it's basically the same
+// layout, just 3 times in the same area... 3 columns would be best.") —
+// tracks Information (remembered Glyphs) and the Character's Relationship
+// to it; a Behavior is the result. Only the math/display live here for
+// Actions/Targeting (Crafter-initiated, not yet auto-executed) — Movement
+// really does play out on the Map (js/noncombat.js's resolveNonCombatRound()).
 function behaviorsHtml(me){
   const excludeStandAround = NO_STAND_AROUND_ARCHETYPES.includes(me.archetype);
-  const { distribution, perGlyph } = computeBehaviors(me, { excludeStandAround });
-  const ranked = sortedBehaviors(distribution);
-  // A rounding remainder still always lands on Stand Around internally
-  // (computeBehaviors, js/behaviors.js) even with it excluded from the
-  // seed — matching js/noncombat.js's own real resolution, relabel a
-  // Stand-Around top rank as the actual Wander fallback it'd become there,
-  // rather than showing a Behavior Gom/Kulkrow can never really roll.
-  if(excludeStandAround && ranked[0] && ranked[0].key === 'standAround') ranked[0].name = 'Wander (default)';
-  const likely = ranked[0];
-  const runnerUp = ranked[1];
+  const categories = computeBehaviors(me, { excludeStandAround });
 
-  const glyphRows = perGlyph.length
-    ? perGlyph.map(g =>
-        '<div class="behavior-glyph-row">' +
-          '<span class="behavior-glyph-id">' + escapeHtml(g.glyphId) + '</span>' +
-          '<span class="behavior-glyph-assoc">' + escapeHtml(g.behaviorName || 'No associated Behavior') +
-            (g.behaviorKey ? ' <span class="behavior-glyph-longing">(Longing ' + g.longing + ')</span>' : '') +
-          '</span>' +
-          '<span class="behavior-glyph-pct">' + g.impactPct + '%</span>' +
-        '</div>'
-      ).join('')
-    : '<div class="log-empty">No Glyphs remembered yet.</div>';
+  const columns = BEHAVIOR_CATEGORIES.map(cat => {
+    const { distribution, perGlyph } = categories[cat.key];
+    const ranked = sortedBehaviors(distribution);
+    // A rounding remainder still always lands on Stand Around internally
+    // (computeBehaviors, js/behaviors.js) even with it excluded from the
+    // seed — matching js/noncombat.js's own real resolution, relabel a
+    // Stand-Around top rank as the actual Wander fallback it'd become there,
+    // rather than showing a Behavior Gom/Kulkrow can never really roll.
+    // Only ever surfaces in the Movement column — Actions/Targeting never
+    // seed a Stand Around baseline in the first place.
+    if(excludeStandAround && ranked[0] && ranked[0].key === 'standAround') ranked[0].name = 'Wander (default)';
+    const likely = ranked[0];
+    const runnerUp = ranked[1];
 
-  return `
-    <div class="stat-header">Behaviors</div>
-    <div class="behavior-summary">
-      <div class="behavior-summary-col">
-        <div class="behavior-summary-label">Likely Behavior</div>
-        <div class="behavior-summary-value">${escapeHtml(likely.name)}</div>
-        <div class="behavior-summary-pct">${likely.pct}%</div>
-      </div>
-      <div class="behavior-summary-col">
-        <div class="behavior-summary-label">Runner Up</div>
-        <div class="behavior-summary-value">${runnerUp ? escapeHtml(runnerUp.name) : '—'}</div>
-        <div class="behavior-summary-pct">${runnerUp ? runnerUp.pct + '%' : ''}</div>
-      </div>
-    </div>
-    <div class="behavior-glyph-list">${glyphRows}</div>
-  `;
+    const glyphRows = perGlyph.length
+      ? perGlyph.map(g =>
+          '<div class="behavior-glyph-row">' +
+            '<span class="behavior-glyph-id">' + escapeHtml(g.glyphId) + '</span>' +
+            '<span class="behavior-glyph-assoc">' + escapeHtml(g.behaviorName) +
+              ' <span class="behavior-glyph-longing">(Longing ' + g.longing + ')</span>' +
+            '</span>' +
+            '<span class="behavior-glyph-pct">' + g.impactPct + '%</span>' +
+          '</div>'
+        ).join('')
+      : '<div class="log-empty">Nothing yet.</div>';
+
+    return '<div class="behavior-column">' +
+      '<div class="behavior-column-label">' + escapeHtml(cat.label) + '</div>' +
+      '<div class="behavior-summary">' +
+        '<div class="behavior-summary-col">' +
+          '<div class="behavior-summary-label">Likely</div>' +
+          '<div class="behavior-summary-value">' + (likely ? escapeHtml(likely.name) : '—') + '</div>' +
+          '<div class="behavior-summary-pct">' + (likely ? likely.pct + '%' : '') + '</div>' +
+        '</div>' +
+        '<div class="behavior-summary-col">' +
+          '<div class="behavior-summary-label">Runner Up</div>' +
+          '<div class="behavior-summary-value">' + (runnerUp ? escapeHtml(runnerUp.name) : '—') + '</div>' +
+          '<div class="behavior-summary-pct">' + (runnerUp ? runnerUp.pct + '%' : '') + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="behavior-glyph-list">' + glyphRows + '</div>' +
+    '</div>';
+  }).join('');
+
+  return '<div class="stat-header">Behaviors</div><div class="behavior-columns">' + columns + '</div>';
 }
 
 export function renderPersonalityPanel(){

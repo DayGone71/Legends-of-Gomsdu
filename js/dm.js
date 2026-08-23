@@ -1,6 +1,6 @@
 import { AppState } from './state.js';
 import { mutateTable, triggerRender } from './sync.js';
-import { escapeHtml, timeNow, playerShorthand, apCostForControl, describeAction, flashHint, isDeathWounded, resolveEntityRef, resolvePositionRef } from './utils.js';
+import { escapeHtml, timeNow, playerShorthand, apCostForControl, describeAction, flashHint, isDeathWounded, resolveEntityRef, resolvePositionRef, enemyRoster, allCharacterRoster, showBannerError } from './utils.js';
 import { BUILDS } from './character.js';
 import { getSavedCharacters } from './savedCharacters.js';
 import { getSavedEncounters, saveEncounterTemplate } from './savedEncounters.js';
@@ -9,14 +9,6 @@ import { TECHNIQUES, hasCategoryAccess, remaining, costText, glyphOptionsHtml } 
 import { getDistance, hasLineOfSight, FACING_DEFAULT } from './map.js';
 import { showCharacterView } from './characterView.js';
 import { toggleActiveCharacter } from './activeCharacter.js';
-
-function showBannerError(msg){
-  const el = document.getElementById('banner-error');
-  if(!el) return;
-  el.textContent = msg;
-  el.classList.remove('hidden');
-  setTimeout(() => el.classList.add('hidden'), 5000);
-}
 
 // Spawned enemies stack on the upper-right-most Tile until there are 5, then
 // additional ones spawn on the Tile below that — straight down the rightmost
@@ -152,18 +144,18 @@ export function renderDMEnemyPicker(){
   const el = document.getElementById('dm-enemy-picker');
   if(!el) return;
   const enemies = (AppState.table && AppState.table.enemies) || {};
-  const list = Object.entries(enemies);
+  const rows = enemyRoster(AppState.table);
   if(AppState.actingEnemyId && !enemies[AppState.actingEnemyId]) AppState.actingEnemyId = null;
-  if(!list.length){ el.innerHTML = '<div class="log-empty">No enemies to control yet.</div>'; return; }
+  if(!rows.length){ el.innerHTML = '<div class="log-empty">No enemies to control yet.</div>'; return; }
 
-  el.innerHTML = list.map(([id, e]) => {
-    const defeated = isDeathWounded(e);
+  el.innerHTML = rows.map(r => {
+    const e = r.entity;
     let cls = 'target-chip';
-    if(id === AppState.actingEnemyId) cls += ' selected';
-    if(id === AppState.dmSelectedTargetId) cls += ' self-targeted';
-    if(defeated) cls += ' defeated';
-    const removeX = defeated ? '<span class="chip-remove-x" data-id="' + id + '">✕</span>' : '';
-    return '<div class="' + cls + '" data-id="' + id + '">' + escapeHtml(e.name) + ' &mdash; ' + Math.max(0, e.wounds) + '/' + e.woundsMax + removeX + '</div>';
+    if(r.id === AppState.actingEnemyId) cls += ' selected';
+    if(r.id === AppState.dmSelectedTargetId) cls += ' self-targeted';
+    if(r.dead) cls += ' defeated';
+    const removeX = r.dead ? '<span class="chip-remove-x" data-id="' + r.id + '">✕</span>' : '';
+    return '<div class="' + cls + '" data-id="' + r.id + '">' + escapeHtml(r.name) + ' &mdash; ' + Math.max(0, e.wounds) + '/' + e.woundsMax + removeX + '</div>';
   }).join('');
 
   el.querySelectorAll('.target-chip').forEach(chip => {
@@ -191,9 +183,8 @@ export function renderDMEnemyPicker(){
 export function renderNpcList(containerId){
   const el = document.getElementById(containerId || 'npc-list');
   if(!el) return;
-  const enemies = (AppState.table && AppState.table.enemies) || {};
-  const list = Object.entries(enemies);
-  if(!list.length){ el.innerHTML = '<div class="log-empty">No NPCs at the Table yet.</div>'; return; }
+  const rows = enemyRoster(AppState.table);
+  if(!rows.length){ el.innerHTML = '<div class="log-empty">No NPCs at the Table yet.</div>'; return; }
 
   // Active Character (2026-08-22, per dDd) — "A Character has to be made
   // Active directly, via the NPC Panel or TATA Ledger." Both surfaces
@@ -202,8 +193,9 @@ export function renderNpcList(containerId){
   // adding the button here covers both at once. TATA-only — outside TATA
   // the Active Character is always just the Player's own Character, no
   // button needed.
-  el.innerHTML = list.map(([id, e]) => {
-    const defeated = isDeathWounded(e);
+  el.innerHTML = rows.map(r => {
+    const e = r.entity;
+    const id = r.id;
     const isActive = AppState.tataActive && id === AppState.activeCharacterId;
     const activeBtn = AppState.tataActive
       ? '<button class="npc-active-btn' + (isActive ? ' active' : '') + '" data-active-id="' + id + '">' + (isActive ? 'Active' : 'Make Active') + '</button>'
@@ -216,8 +208,8 @@ export function renderNpcList(containerId){
     const inspectBtns = ['information', 'personality', 'relationships'].map(panel =>
       '<button class="npc-inspect-btn" data-inspect-panel="' + panel + '" data-inspect-id="' + id + '">' + panel[0].toUpperCase() + panel.slice(1) + '</button>'
     ).join('');
-    return '<div class="npc-list-item' + (defeated ? ' defeated' : '') + '" data-id="' + id + '">' +
-      '<span class="npc-list-name">' + escapeHtml(e.name || 'Unnamed') + '</span>' +
+    return '<div class="npc-list-item' + (r.dead ? ' defeated' : '') + '" data-id="' + id + '">' +
+      '<span class="npc-list-name">' + escapeHtml(r.name) + '</span>' +
       '<span class="npc-list-meta">' + escapeHtml(e.archetype || '') + ' &mdash; ' + Math.max(0, e.wounds) + '/' + e.woundsMax + '</span>' +
       '<span class="npc-row-actions">' + inspectBtns + activeBtn + '</span>' +
     '</div>';
@@ -321,15 +313,25 @@ export function renderDMCounters(){
   dmRenderToggleStates();
 }
 
-// Which Crafts (Lightning or Lava column Techniques) the acting Enemy
+// Which Crafts AND Powers (any column, per dDd \u2014 Gom needs Focus Powers
+// reachable here specifically so he can cast Empower) the acting Enemy
 // actually knows \u2014 gated by category access (defaults to granted, same as
 // the Player-side Techniques Panel) and by actually having the resource
-// stat above 0, same visibility rule the old flat Lightning/Lava buttons used.
+// stat above 0, same visibility rule the old flat Lightning/Lava buttons
+// used. Found 2026-08-22, per dDd (\"why can't he use Focus Powers?\"): this
+// only ever looked at group:\"Craft\" \u2014 Empower's own group is \"Powers\",
+// so it (and every other Powers-group Technique \u2014 Wound, Possess,
+// Resonance) was structurally unreachable from this menu for ANY Enemy,
+// techniqueAccess notwithstanding. dmCommitAction() below already handles
+// any TECHNIQUES entry generically (cost/range/LOS by key, not by group),
+// so broadening this is a real fix, not a narrow Empower-only patch.
 function craftsKnownBy(actor){
   return Object.entries(TECHNIQUES).filter(([, def]) => {
-    if(def.group !== 'Craft') return false;
+    if(def.group !== 'Craft' && def.group !== 'Powers') return false;
     if(def.column === 'Lightning' && !(actor.lightning > 0)) return false;
     if(def.column === 'Lava' && !(actor.lava > 0)) return false;
+    if(def.column === 'Focus' && !(actor.focus > 0)) return false;
+    if(def.column === 'Flow' && !(actor.flow > 0)) return false;
     return hasCategoryAccess(actor, def);
   });
 }
@@ -364,32 +366,23 @@ function renderDMEssenceMenu(crafts){
   });
 }
 
-// Mirrors combat.js's renderAllyRange() — Mini-Party Characters weren't part
-// of the original Ally Targeting System's three concrete changes (Combat's
-// Ally Range, DM's Acting-As self-target, DM Test's Players list all got it;
-// this picker didn't), reconfirmed live 2026-08-17 (dDd: "Enemies need to be
-// able to target Mini-Parties"). Same row-building shape as Ally Range, just
-// with no "(You)" sub-label since the DM isn't a Player at the table.
+// Now the canonical "everybody" roster (2026-08-22, per dDd's Lists
+// consolidation) — every Player, their Mini-Party, AND every Enemy, not
+// just the Player side. Real fix, not cosmetic: this was Player-only ever
+// since it was written (flagged in ROADMAP.md's Techniques Panel section),
+// silently inconsistent with today's own "targetSide should not even exist
+// really, all Characters have to be able to be targeted" call — an Enemy
+// acting via the DM Panel can now actually target another Enemy here, same
+// as everywhere else.
 export function renderDMTargetRange(){
   const el = document.getElementById('dm-target-range');
   if(!el) return;
   const table = AppState.table;
   if(!table){ el.innerHTML = ''; return; }
 
-  const rows = [];
-  Object.entries(table.players || {}).forEach(([pid, p]) => {
-    rows.push({ id: pid, name: p.name || 'Unnamed', dead: isDeathWounded(p) });
-    (p.miniParty || []).forEach((mp, idx) => {
-      if(mp.sourceEnemyId){
-        const src = table.enemies && table.enemies[mp.sourceEnemyId];
-        if(src) rows.push({ id: mp.sourceEnemyId, name: src.name, dead: isDeathWounded(src), sub: '(' + (p.name || '?') + '’s Mini-Party)' });
-      }else if(mp.woundsMax != null){
-        rows.push({ id: 'mp:' + pid + ':' + idx, name: mp.name || 'Follower', dead: isDeathWounded(mp), sub: '(' + (p.name || '?') + '’s Mini-Party)' });
-      }
-    });
-  });
+  const rows = allCharacterRoster(table);
 
-  if(!rows.length){ el.innerHTML = '<div class="log-empty">No players to target.</div>'; return; }
+  if(!rows.length){ el.innerHTML = '<div class="log-empty">No Characters to target.</div>'; return; }
 
   el.innerHTML = rows.map(r => {
     let cls = 'target-chip';

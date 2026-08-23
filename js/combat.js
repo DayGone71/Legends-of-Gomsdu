@@ -1,36 +1,27 @@
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
-import { escapeHtml, timeNow, targetShorthand, computeEntryTick, computeCounterMax, apCostForControl, describeAction, powerToDamage, DEATH_WOUNDS_DEFAULT, isDown, isDeathWounded, resolveEntityRef, ownerTypeOf, possessedEnemyIds, deliverMindeyeEntry } from './utils.js';
+import { escapeHtml, timeNow, targetShorthand, computeEntryTick, computeCounterMax, apCostForControl, describeAction, powerToDamage, DEATH_WOUNDS_DEFAULT, isDown, isDeathWounded, resolveEntityRef, ownerTypeOf, possessedEnemyIds, deliverMindeyeEntry, enemyRoster, alliedRoster, showBannerError } from './utils.js';
 import { removeEnemy } from './dm.js';
 import { TECHNIQUES } from './techniques.js';
 import { MAX_MINI_PARTY } from './possession.js';
 import { addChunksAt } from './map.js';
 import { freezeSequencerReveal } from './sequencer.js';
 
-function showBannerError(msg){
-  const el = document.getElementById('banner-error');
-  if(!el) return;
-  el.textContent = msg;
-  el.classList.remove('hidden');
-  setTimeout(() => el.classList.add('hidden'), 5000);
-}
-
 export function renderTargetRange(){
   const el = document.getElementById('target-range');
   if(!el) return;
-  const enemies = (AppState.table && AppState.table.enemies) || {};
   const possessed = possessedEnemyIds(AppState.table);
-  const list = Object.entries(enemies).filter(([id]) => !possessed.has(id));
-  if(!list.length){ el.innerHTML = '<div class="log-empty">No enemies in the encounter.</div>'; return; }
+  const rows = enemyRoster(AppState.table).filter(r => !possessed.has(r.id));
+  if(!rows.length){ el.innerHTML = '<div class="log-empty">No enemies in the encounter.</div>'; return; }
 
-  el.innerHTML = list.map(([id, e]) => {
-    const defeated = isDeathWounded(e);
+  el.innerHTML = rows.map(r => {
+    const e = r.entity;
     let cls = 'target-chip';
-    if(id === AppState.selectedTargetId && AppState.selectedTargetSide === 'enemy') cls += ' selected';
-    if(defeated) cls += ' defeated';
-    const removeX = defeated ? '<span class="chip-remove-x" data-id="' + id + '">✕</span>' : '';
-    return '<div class="' + cls + '" data-id="' + id + '">' +
-      escapeHtml(e.name) + ' &mdash; ' + Math.max(0, e.wounds) + '/' + e.woundsMax + removeX + '</div>';
+    if(r.id === AppState.selectedTargetId && AppState.selectedTargetSide === 'enemy') cls += ' selected';
+    if(r.dead) cls += ' defeated';
+    const removeX = r.dead ? '<span class="chip-remove-x" data-id="' + r.id + '">✕</span>' : '';
+    return '<div class="' + cls + '" data-id="' + r.id + '">' +
+      escapeHtml(r.name) + ' &mdash; ' + Math.max(0, e.wounds) + '/' + e.woundsMax + removeX + '</div>';
   }).join('');
 
   el.querySelectorAll('.target-chip').forEach(chip => {
@@ -65,18 +56,11 @@ export function renderAllyRange(){
   const table = AppState.table;
   if(!table){ el.innerHTML = ''; return; }
 
-  const rows = [];
-  Object.entries(table.players || {}).forEach(([pid, p]) => {
-    rows.push({ id: pid, name: p.name || 'Unnamed', dead: isDeathWounded(p), sub: pid === AppState.playerId ? '(You)' : '' });
-    (p.miniParty || []).forEach((mp, idx) => {
-      if(mp.sourceEnemyId){
-        const src = table.enemies && table.enemies[mp.sourceEnemyId];
-        if(src) rows.push({ id: mp.sourceEnemyId, name: src.name, dead: isDeathWounded(src), sub: '(' + (p.name || '?') + '’s Mini-Party)' });
-      }else if(mp.woundsMax != null){
-        rows.push({ id: 'mp:' + pid + ':' + idx, name: mp.name || 'Follower', dead: isDeathWounded(mp), sub: '(' + (p.name || '?') + '’s Mini-Party)' });
-      }
-    });
-  });
+  // "(You)" is this render's own overlay on the shared roster row — every
+  // other list reading alliedRoster() has no notion of a single "viewing"
+  // Player, so it stays local to Combat's own Ally Range rather than baked
+  // into the canonical helper (js/utils.js).
+  const rows = alliedRoster(table).map(r => r.id === AppState.playerId ? { ...r, sub: '(You)' } : r);
 
   if(!rows.length){ el.innerHTML = '<div class="log-empty">No Allies to target.</div>'; return; }
 
@@ -470,12 +454,45 @@ export function applyRecoveryTick(actor){
 // between them (Attunement 3 means +3 Lightning AND +3 Lava AND +3 Focus,
 // not +1 each). Most current Builds sit at Attunement 0, so this is a real
 // behavior change — Focus in particular no longer freely resets every round.
+// Empower's Attunement cost (2026-08-22, per dDd, correcting the same-day
+// first pass: "with Attunement, that's close to correct. It's a permanent
+// debuff to the Max. Attunement should always reset to it's Max Value,
+// unless Debuffs from being attuned to things. I didn't think you meant it
+// draining consecutively. It's about having lots of attunements at once,
+// not one attunement for a long time."). NOT a per-Round drain — the first
+// pass literally decremented actor.attunement every Round, which was wrong;
+// Attunement never actually depletes over time on its own. The real cost is
+// a live debuff sized by how many Empower relationships are CURRENTLY
+// active at once (breadth, not duration), applied only where Attunement's
+// own effect is read — the base stat itself is never mutated.
+export function effectiveAttunement(actor){
+  return Math.max(0, (actor.attunement || 0) - (actor.maintainingEmpower || []).length);
+}
+
 export function applyAttunementTick(actor){
-  const attunement = actor.attunement || 0;
+  const attunement = effectiveAttunement(actor);
   if(!attunement) return;
   actor.focusSpent = Math.max(0, (actor.focusSpent || 0) - attunement);
   actor.lightningSpent = Math.max(0, (actor.lightningSpent || 0) - attunement);
   actor.lavaSpent = Math.max(0, (actor.lavaSpent || 0) - attunement);
+}
+
+// Cleanup pass only now (2026-08-22, corrected alongside the above) — drops
+// a maintained Empower relationship whose Target no longer resolves (dead/
+// removed), so a stale entry doesn't keep counting against
+// effectiveAttunement forever. No longer a drain/cancellation tick.
+export function tickEmpowerUpkeep(t, actorId, actor){
+  if(!actor.maintainingEmpower || !actor.maintainingEmpower.length) return;
+  actor.maintainingEmpower = actor.maintainingEmpower.filter(targetId => !!resolveEntityRef(t, targetId));
+}
+
+// Whether actor can take on one more simultaneous Empower relationship —
+// "It's about having lots of attunements at once": capped at the actor's
+// own base Attunement stat, checked once, at the moment a NEW relationship
+// would start (not a Round-by-Round check — existing relationships are
+// never force-cancelled by this).
+export function canMaintainAnotherEmpower(actor){
+  return (actor.maintainingEmpower || []).length < (actor.attunement || 0);
 }
 
 // Commits some or all of this round's remaining AP to resting instead of acting.
@@ -580,6 +597,13 @@ export async function resolveRound(){
 
     t.log.push({ type: 'system', text: '\u2014 resolving the round \u2014', time: timeNow() });
 
+    // Influence Orders (2026-08-22, per dDd) \u2014 collected during the
+    // actionEntries pass below, resolved in one pass right after it
+    // finishes, so a Glyph picked from "Pending (staged Message)" reliably
+    // finds the real Mindeye entry a Message elsewhere in this same
+    // actionEntries pass just created.
+    const pendingInfluences = [];
+
     blockRegistry.forEach(b => {
       const label = b.kind === 'general' ? 'General Block' : 'Target Block';
       t.log.push({ type: 'system', text: (b.owner.name || 'Someone') + ' sets a ' + label + (b.counter ? ' with Counter' : ''), time: timeNow() });
@@ -632,6 +656,38 @@ export async function resolveRound(){
         if(entry.techniqueKey === 'channel'){
           actor.lightningSpent = Math.max(0, (actor.lightningSpent || 0) - 1);
           logCombat(actorName, 'Recovers 1 Lightning Point.');
+          return;
+        }
+        // Empower (2026-08-22, per dDd, after playtesting — its real
+        // mechanical effect, previously stage/cost/log-only). Applies the
+        // stated +1 Control/+1 AP once per Crafter-Target relationship (a
+        // second Empower from the same Crafter on the same Target while it's
+        // already active is a no-op, not a stack) and tracks who's
+        // maintaining it on both ends — target.empoweredBy (read by
+        // js/map.js for the Ally-color Triangle) and actor.maintainingEmpower
+        // (read by the per-Round Attunement drain below). Ends automatically
+        // once the Crafter's Attunement can't sustain it — see the tick loop
+        // further down, same place Recovery/Attunement already tick.
+        if(entry.techniqueKey === 'empower'){
+          if(!target) return;
+          if(!target.empoweredBy) target.empoweredBy = [];
+          if(!actor.maintainingEmpower) actor.maintainingEmpower = [];
+          if(!target.empoweredBy.includes(item.actorId)){
+            if(!canMaintainAnotherEmpower(actor)){
+              logCombat(targetName, 'Not enough Attunement to Empower another target — already maintaining ' + actor.maintainingEmpower.length + '.');
+            }else{
+              target.empoweredBy.push(item.actorId);
+              actor.maintainingEmpower.push(entry.targetId);
+              target.control = (target.control || 0) + 1;
+              target.ap = (target.ap || 0) + 1;
+              logCombat(targetName, 'Empowered — +1 Control, +1 AP.');
+            }
+          }
+          return;
+        }
+        if(entry.techniqueKey === 'influence'){
+          pendingInfluences.push({ targetId: entry.targetId, glyph: entry.influenceGlyph, axis: entry.influenceAxis, direction: entry.influenceDirection });
+          logCombat(targetName, 'Influence staged — resolves after this Round’s Messages land.');
           return;
         }
         if(entry.techniqueKey === 'separation'){
@@ -733,6 +789,23 @@ export async function resolveRound(){
       }
     });
 
+    // Influence, resolved last (2026-08-22, per dDd) — see the matching
+    // js/noncombat.js pass for the full reasoning (axis-value semantics,
+    // "most recent matching entry," silent no-op if the Glyph never
+    // actually arrived). Same logic, Combat side.
+    pendingInfluences.forEach(order => {
+      const target = resolveEntityRef(t, order.targetId);
+      if(!target || !target.mindeye) return;
+      for(let i = target.mindeye.length - 1; i >= 0; i--){
+        if(target.mindeye[i].glyph === order.glyph){
+          const cur = target.mindeye[i][order.axis] ?? 1;
+          const delta = order.direction === '+1' ? -1 : 1;
+          target.mindeye[i][order.axis] = Math.max(0, Math.min(2, cur + delta));
+          break;
+        }
+      }
+    });
+
     // Statted Mini-Party members go through the exact same end-of-round
     // upkeep as a real Player/Enemy — collected once here since it's needed
     // for both the Recovery/Attunement tick and the sequence/apSpent reset
@@ -746,8 +819,8 @@ export async function resolveRound(){
     // Rest multiplier reads each actor's sequence, so this has to run before it's cleared.
     // "Alive" now means not-yet-Dead, not wounds>0 — a merely-Down
     // character (still x<10) keeps recovering same as anyone else.
-    Object.values(t.players || {}).forEach(p => { if(!isDeathWounded(p)){ applyRecoveryTick(p); applyAttunementTick(p); } });
-    Object.values(t.enemies || {}).forEach(e => { if(!isDeathWounded(e)){ applyRecoveryTick(e); applyAttunementTick(e); } });
+    Object.entries(t.players || {}).forEach(([id, p]) => { if(!isDeathWounded(p)){ applyRecoveryTick(p); applyAttunementTick(p); tickEmpowerUpkeep(t, id, p); } });
+    Object.entries(t.enemies || {}).forEach(([id, e]) => { if(!isDeathWounded(e)){ applyRecoveryTick(e); applyAttunementTick(e); tickEmpowerUpkeep(t, id, e); } });
     miniPartyStubs.forEach(mp => { if(!isDeathWounded(mp)){ applyRecoveryTick(mp); applyAttunementTick(mp); } });
 
     // AP is still a flat per-round allowance — sequence/apSpent always clear.

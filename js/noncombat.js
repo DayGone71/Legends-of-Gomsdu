@@ -18,9 +18,9 @@
 
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
-import { isDeathWounded, deliverMindeyeEntry, timeNow } from './utils.js';
-import { applyRecoveryTick, applyAttunementTick } from './combat.js';
-import { computeBehaviors, tickLonging, rollBehavior, BEHAVIORS, NO_STAND_AROUND_ARCHETYPES } from './behaviors.js';
+import { isDeathWounded, deliverMindeyeEntry, timeNow, resolveEntityRef } from './utils.js';
+import { applyRecoveryTick, applyAttunementTick, tickEmpowerUpkeep, canMaintainAnotherEmpower } from './combat.js';
+import { computeBehaviors, tickLonging, rollBehavior, BEHAVIORS, BEHAVIOR_CATEGORIES, NO_STAND_AROUND_ARCHETYPES } from './behaviors.js';
 import { behaviorStep, turnFacing, tileKey, FACING_DEFAULT, applyFacing, DIRECTION_GLYPH_CARDINAL } from './map.js';
 const CARDINALS = ['N', 'E', 'S', 'W'];
 
@@ -30,6 +30,14 @@ export async function resolveNonCombatRound(){
 
   await mutateTable(t => {
     if(!t.positions) t.positions = {};
+
+    // Influence Orders (2026-08-22, per dDd) — collected here, resolved in
+    // one pass at the very end of this Round (below, after both the Order
+    // sweep AND the DM's own sequence walk) so a Glyph picked from "Pending
+    // (staged Message)" reliably finds the real Mindeye entry a Message
+    // elsewhere this same Round just created, regardless of which staging
+    // path (Player Order or DM sequence) either action came through.
+    const pendingInfluences = [];
 
     function processOrders(id, actor){
       const remainingOrders = [];
@@ -58,6 +66,26 @@ export async function resolveNonCombatRound(){
           // Resolve occurs") — staged by js/map.js's stageFacingOrder,
           // applied here via the same mutation Behavior's own Face kind uses.
           applyFacing(t, id, order.direction);
+        }else if(order.kind === 'empower'){
+          // Empower (2026-08-22) — the Player's own staged Order path
+          // (js/techniques.js's stageTechnique, generic Non-Combat branch).
+          // Same real effect as js/combat.js's resolveRound() Empower case
+          // and the DM sequence-walker just above — kept in sync by hand,
+          // no shared helper, since the three staging paths (Player order,
+          // DM sequence, Combat sequence) don't share a common entry shape.
+          const target = resolveEntityRef(t, order.targetId);
+          if(target){
+            if(!target.empoweredBy) target.empoweredBy = [];
+            if(!actor.maintainingEmpower) actor.maintainingEmpower = [];
+            if(!target.empoweredBy.includes(id) && canMaintainAnotherEmpower(actor)){
+              target.empoweredBy.push(id);
+              actor.maintainingEmpower.push(order.targetId);
+              target.control = (target.control || 0) + 1;
+              target.ap = (target.ap || 0) + 1;
+            }
+          }
+        }else if(order.kind === 'influence'){
+          pendingInfluences.push(order);
         }
       });
       actor.orders = remainingOrders;
@@ -75,8 +103,8 @@ export async function resolveNonCombatRound(){
       (p.miniParty || []).forEach(mp => { if(!mp.sourceEnemyId && mp.woundsMax != null) miniPartyStubs.push(mp); });
     });
 
-    Object.values(t.players || {}).forEach(p => { if(!isDeathWounded(p)){ applyRecoveryTick(p); applyAttunementTick(p); } });
-    Object.values(t.enemies || {}).forEach(e => { if(!isDeathWounded(e)){ applyRecoveryTick(e); applyAttunementTick(e); } });
+    Object.entries(t.players || {}).forEach(([id, p]) => { if(!isDeathWounded(p)){ applyRecoveryTick(p); applyAttunementTick(p); tickEmpowerUpkeep(t, id, p); } });
+    Object.entries(t.enemies || {}).forEach(([id, e]) => { if(!isDeathWounded(e)){ applyRecoveryTick(e); applyAttunementTick(e); tickEmpowerUpkeep(t, id, e); } });
     miniPartyStubs.forEach(mp => { if(!isDeathWounded(mp)){ applyRecoveryTick(mp); applyAttunementTick(mp); } });
 
     // DM Acting-As Message/Channel, staged via dmCommitAction into an
@@ -88,12 +116,54 @@ export async function resolveNonCombatRound(){
     // identical entries when an Encounter IS running. Has to run before
     // sequence gets cleared below, same "stage now, resolve at Round's
     // end" shape as everything else here.
-    Object.values(t.enemies || {}).forEach(e => {
+    Object.entries(t.enemies || {}).forEach(([id, e]) => {
       (e.sequence || []).forEach(entry => {
         if(entry.kind !== 'technique') return;
         if(entry.techniqueKey === 'message') (entry.glyphs || []).forEach(g => deliverMindeyeEntry(t, entry.targetId, e.name || 'Someone', g));
         if(entry.techniqueKey === 'channel') e.lightningSpent = Math.max(0, (e.lightningSpent || 0) - 1);
+        // Empower (2026-08-22) — same real effect as js/combat.js's
+        // resolveRound() Empower case, mirrored here for the DM's own
+        // Acting-As staging path (no Encounter gate, so this is its only
+        // Non-Combat resolution route).
+        if(entry.techniqueKey === 'empower'){
+          const target = resolveEntityRef(t, entry.targetId);
+          if(target){
+            if(!target.empoweredBy) target.empoweredBy = [];
+            if(!e.maintainingEmpower) e.maintainingEmpower = [];
+            if(!target.empoweredBy.includes(id) && canMaintainAnotherEmpower(e)){
+              target.empoweredBy.push(id);
+              e.maintainingEmpower.push(entry.targetId);
+              target.control = (target.control || 0) + 1;
+              target.ap = (target.ap || 0) + 1;
+            }
+          }
+        }
       });
+    });
+
+    // Influence, resolved last (2026-08-22, per dDd) — "Information can be
+    // delivered already preloaded with bias." Deliberately after both the
+    // Order sweep and the DM sequence walk above, so any Message delivered
+    // this same Round (by either staging path) has already landed before
+    // this looks for it. Adjusts the most recently remembered entry for the
+    // picked Glyph — favors a just-delivered arrival over an older instance
+    // of the same Glyph, matching "preloaded bias" onto the new one
+    // specifically. Axis values are stored 0=Favorable/1=Mid/2=Disliked
+    // (js/relationships.js's renderAxis) — "+1" (More Favorable) moves the
+    // stored number down, "-1" (More Disliked) moves it up; clamped to the
+    // real 0-2 range. Silently no-ops if the Glyph never actually arrived
+    // (e.g. a referenced Message got cancelled) rather than erroring.
+    pendingInfluences.forEach(order => {
+      const target = resolveEntityRef(t, order.targetId);
+      if(!target || !target.mindeye) return;
+      for(let i = target.mindeye.length - 1; i >= 0; i--){
+        if(target.mindeye[i].glyph === order.glyph){
+          const cur = target.mindeye[i][order.axis] ?? 1;
+          const delta = order.direction === '+1' ? -1 : 1;
+          target.mindeye[i][order.axis] = Math.max(0, Math.min(2, cur + delta));
+          break;
+        }
+      }
     });
 
     // Bug fix (2026-08-22, per dDd — "I never have enough AP no matter
@@ -136,78 +206,94 @@ export async function resolveNonCombatRound(){
     // Longing ticks first (2026-08-22) — Separated builds it, Connected
     // drains it, both per remembered Glyph — so this Round's roll reflects
     // this Round's own accumulation, not last Round's.
+    // Three independent categories now (2026-08-22, per dDd's 3-Behaviors
+    // redesign — see behaviors.js's BEHAVIOR_CATEGORIES) — Movement/Actions/
+    // Targeting each roll separately, so a Character can Move AND take an
+    // Action in the same Round, since the categories never compete with
+    // each other. Each category that actually has something to roll gets
+    // its own Ledger line; a category with nothing relevant in the Mindeye
+    // (Actions/Targeting, most Characters right now) just stays silent that
+    // Round rather than logging a fake no-op.
     function resolveBehavior(id, actor){
       (actor.mindeye || []).forEach(tickLonging);
       if(isDeathWounded(actor)) return;
 
-      // Gom/Kulkrow: no Stand Around (per dDd), but no longer a hard bypass
-      // of the real Behavior pipeline either — fixed 2026-08-22, found live:
-      // the old bypass meant Gom could never actually Teach, no matter what
-      // was in his Mindeye or activeScript, since he never reached
-      // computeBehaviors()/rollBehavior() at all. Now he competes normally
-      // (Wander/Teach/Face/Maintain Empower, whatever his own Mindeye
-      // actually weighs) with Stand Around excluded from the seed —
-      // guaranteed Wander is now only the fallback for "nothing else had
-      // real weight," not a permanent lock.
+      // Gom/Kulkrow: no Stand Around (per dDd) — Movement-category only;
+      // Actions/Targeting were never seeded with a Stand-Around-style
+      // baseline to begin with, so this flag only matters there.
       const noStandAround = NO_STAND_AROUND_ARCHETYPES.includes(actor.archetype);
-      const { distribution } = computeBehaviors(actor, { excludeStandAround: noStandAround });
-      let rolled = rollBehavior(distribution);
-      if(noStandAround && rolled === 'standAround') rolled = 'wander';
-      const meta = BEHAVIORS[rolled];
-      const pct = distribution[rolled] || 0;
-      let outcome = '';
+      const categories = computeBehaviors(actor, { excludeStandAround: noStandAround });
 
-      if(meta.kind === 'move'){
-        const dir = turnFacing(actor.facing || FACING_DEFAULT, meta.turn);
-        const moved = behaviorStep(t, id, dir);
-        outcome = moved ? (' — steps to ' + tileKey(t.map, t.positions[id].x, t.positions[id].y)) : ' (blocked)';
-      }else if(meta.kind === 'wander'){
-        // Wander (2026-08-22, per dDd — KULOG: "Character will go in a
-        // random direction"). Unconstrained across all 4 Cardinals, same
-        // as the Gom/Kulkrow special case above — unlike Face below, dDd's
-        // own wording doesn't gate this by knownGlyphs specifically.
-        const dir = CARDINALS[Math.floor(Math.random() * CARDINALS.length)];
-        const moved = behaviorStep(t, id, dir);
-        outcome = moved ? (' — wanders to ' + tileKey(t.map, t.positions[id].x, t.positions[id].y)) : ' (blocked)';
-      }else if(meta.kind === 'face'){
-        // Face (2026-08-22, per dDd — KALAG: "Character can face any
-        // direction they know"). Picks among the Cardinals the actor's own
-        // knownGlyphs actually cover (DIRECTION_GLYPH_CARDINAL, js/map.js);
-        // falls back to all 4 if knownGlyphs is unset, same backward-compat
-        // default every other Glyph gate in this codebase uses.
-        const known = actor.knownGlyphs && actor.knownGlyphs.length
-          ? actor.knownGlyphs.map(g => DIRECTION_GLYPH_CARDINAL[g]).filter(Boolean)
-          : null;
-        const dirs = known && known.length ? known : CARDINALS;
-        const dir = dirs[Math.floor(Math.random() * dirs.length)];
-        applyFacing(t, id, dir);
-        outcome = ' — turns to face ' + dir;
-      }else if(meta.kind === 'teach'){
-        // Teach (2026-08-22, per dDd — WIM), advances the actor's own
-        // active Script (actor.activeScript, js/scripts.js) one Row at a
-        // time: "Actor action WIM, Target Outcome XXX... once Player has
-        // received XXX, Gom could move onto other Rows." A Row's Glyphs
-        // all land in one Message (up to 3, per dDd's own Composition
-        // math). No active Script queued — or already fully delivered —
-        // is a no-op, same as Stand Around.
-        const script = actor.activeScript;
-        if(script && script.nextRow < script.rows.length){
-          const row = script.rows[script.nextRow];
-          row.forEach(g => deliverMindeyeEntry(t, script.targetId, actor.name || 'Someone', g));
-          script.nextRow++;
-          const done = script.nextRow >= script.rows.length;
-          outcome = ' — teaches ' + (script.targetName || 'someone') + ' (' + row.join(', ') + ')' + (done ? '; Script complete' : '');
-          if(done) actor.activeScript = null;
-        }else{
-          outcome = ' (nothing to Teach)';
+      BEHAVIOR_CATEGORIES.forEach(cat => {
+        const { distribution } = categories[cat.key];
+        let rolled = rollBehavior(distribution);
+        if(rolled === null){
+          // Movement always has at least the Stand Around baseline unless
+          // excluded (Gom/Kulkrow) — an empty roll there means "nothing
+          // else had real weight," falling back to guaranteed Wander so
+          // they're never truly idle. Actions/Targeting have no such
+          // default — an empty roll there just means nothing to do yet.
+          if(cat.key !== 'movement' || !noStandAround) return;
+          rolled = 'wander';
+        }else if(noStandAround && rolled === 'standAround'){
+          rolled = 'wander';
         }
-      }
+        const meta = BEHAVIORS[rolled];
+        const pct = distribution[rolled] || 0;
+        let outcome = '';
 
-      // The forced Wander fallback (above) isn't a real roll — showing a
-      // 0%-ish number next to it would read as "won despite being
-      // unlikely" instead of "nothing else was competing." Label it plainly.
-      const pctLabel = (noStandAround && !distribution[rolled]) ? 'default' : (pct + '%');
-      t.log.push({ type: 'system', text: (actor.name || 'Someone') + ' does ' + meta.name + ' (' + pctLabel + ')' + outcome + '.', time: timeNow() });
+        if(meta.kind === 'move'){
+          const dir = turnFacing(actor.facing || FACING_DEFAULT, meta.turn);
+          const moved = behaviorStep(t, id, dir);
+          outcome = moved ? (' — steps to ' + tileKey(t.map, t.positions[id].x, t.positions[id].y)) : ' (blocked)';
+        }else if(meta.kind === 'wander'){
+          // Wander (2026-08-22, per dDd — KULOG: "Character will go in a
+          // random direction"). Unconstrained across all 4 Cardinals, same
+          // as the Gom/Kulkrow special case above — unlike Face below, dDd's
+          // own wording doesn't gate this by knownGlyphs specifically.
+          const dir = CARDINALS[Math.floor(Math.random() * CARDINALS.length)];
+          const moved = behaviorStep(t, id, dir);
+          outcome = moved ? (' — wanders to ' + tileKey(t.map, t.positions[id].x, t.positions[id].y)) : ' (blocked)';
+        }else if(meta.kind === 'face'){
+          // Face (2026-08-22, per dDd — KALAG: "Character can face any
+          // direction they know"). Picks among the Cardinals the actor's own
+          // knownGlyphs actually cover (DIRECTION_GLYPH_CARDINAL, js/map.js);
+          // falls back to all 4 if knownGlyphs is unset, same backward-compat
+          // default every other Glyph gate in this codebase uses.
+          const known = actor.knownGlyphs && actor.knownGlyphs.length
+            ? actor.knownGlyphs.map(g => DIRECTION_GLYPH_CARDINAL[g]).filter(Boolean)
+            : null;
+          const dirs = known && known.length ? known : CARDINALS;
+          const dir = dirs[Math.floor(Math.random() * dirs.length)];
+          applyFacing(t, id, dir);
+          outcome = ' — turns to face ' + dir;
+        }else if(meta.kind === 'teach'){
+          // Teach (2026-08-22, per dDd — WIM), advances the actor's own
+          // active Script (actor.activeScript, js/scripts.js) one Row at a
+          // time: "Actor action WIM, Target Outcome XXX... once Player has
+          // received XXX, Gom could move onto other Rows." A Row's Glyphs
+          // all land in one Message (up to 3, per dDd's own Composition
+          // math). No active Script queued — or already fully delivered —
+          // is a no-op, same as Stand Around.
+          const script = actor.activeScript;
+          if(script && script.nextRow < script.rows.length){
+            const row = script.rows[script.nextRow];
+            row.forEach(g => deliverMindeyeEntry(t, script.targetId, actor.name || 'Someone', g));
+            script.nextRow++;
+            const done = script.nextRow >= script.rows.length;
+            outcome = ' — teaches ' + (script.targetName || 'someone') + ' (' + row.join(', ') + ')' + (done ? '; Script complete' : '');
+            if(done) actor.activeScript = null;
+          }else{
+            outcome = ' (nothing to Teach)';
+          }
+        }
+
+        // The forced Wander fallback (above) isn't a real roll — showing a
+        // 0%-ish number next to it would read as "won despite being
+        // unlikely" instead of "nothing else was competing." Label it plainly.
+        const pctLabel = (noStandAround && !distribution[rolled]) ? 'default' : (pct + '%');
+        t.log.push({ type: 'system', text: (actor.name || 'Someone') + ' does ' + meta.name + ' (' + pctLabel + ')' + outcome + '.', time: timeNow() });
+      });
     }
     Object.entries(t.players || {}).forEach(([id, p]) => resolveBehavior(id, p));
     Object.entries(t.enemies || {}).forEach(([id, e]) => resolveBehavior(id, e));

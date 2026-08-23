@@ -161,6 +161,24 @@
     "attunement": 0,
     "life": 1
   },
+  "inert-stone": {
+    "archetype": "Inert Stone",
+    "category": "object",
+    "species": "rock",
+    "woundsMax": 1,
+    "ap": 0,
+    "flowMax": 0,
+    "recovery": 0,
+    "power": 0,
+    "quickness": 0,
+    "resilience": 1,
+    "lightning": 0,
+    "lava": 0,
+    "focus": 0,
+    "control": 0,
+    "attunement": 1,
+    "life": 0
+  },
   "living-stone": {
     "archetype": "Living Stone",
     "category": "player",

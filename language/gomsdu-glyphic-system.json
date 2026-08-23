@@ -1383,6 +1383,114 @@
           "primitive": "triangle-invert"
         }
       ]
+    },
+    {
+      "id": "KOR",
+      "sound": "kor",
+      "meaning": "FORWARD-RIGHT / NORTH-EAST",
+      "category": "glyph",
+      "era": "First Era",
+      "composition": [
+        {
+          "position": [
+            0.5,
+            0.5
+          ],
+          "scale": 1,
+          "rotation": 45,
+          "primitive": "connect"
+        },
+        {
+          "position": [
+            0.59,
+            0.41
+          ],
+          "scale": 0.7,
+          "rotation": 45,
+          "primitive": "new-chevron-north"
+        }
+      ]
+    },
+    {
+      "id": "ROK",
+      "sound": "rok",
+      "meaning": "FORWARD-LEFT / NORTH-WEST",
+      "category": "glyph",
+      "era": "First Era",
+      "composition": [
+        {
+          "position": [
+            0.5,
+            0.5
+          ],
+          "scale": 1,
+          "rotation": -45,
+          "primitive": "connect"
+        },
+        {
+          "position": [
+            0.41,
+            0.41
+          ],
+          "scale": 0.7,
+          "rotation": -45,
+          "primitive": "new-chevron-north"
+        }
+      ]
+    },
+    {
+      "id": "POK",
+      "sound": "pok",
+      "meaning": "BACK-LEFT / SOUTH-WEST",
+      "category": "glyph",
+      "era": "First Era",
+      "composition": [
+        {
+          "position": [
+            0.5,
+            0.5
+          ],
+          "scale": 1,
+          "rotation": 45,
+          "primitive": "connect"
+        },
+        {
+          "position": [
+            0.41,
+            0.59
+          ],
+          "scale": 0.7,
+          "rotation": 45,
+          "primitive": "new-chevron-south"
+        }
+      ]
+    },
+    {
+      "id": "KOP",
+      "sound": "kop",
+      "meaning": "BACK-RIGHT / SOUTH-EAST",
+      "category": "glyph",
+      "era": "First Era",
+      "composition": [
+        {
+          "position": [
+            0.5,
+            0.5
+          ],
+          "scale": 1,
+          "rotation": -45,
+          "primitive": "connect"
+        },
+        {
+          "position": [
+            0.59,
+            0.59
+          ],
+          "scale": 0.7,
+          "rotation": -45,
+          "primitive": "new-chevron-south"
+        }
+      ]
     }
   ],
   "grammar": {

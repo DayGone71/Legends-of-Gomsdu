@@ -44,7 +44,11 @@ function openCraftPopup(targetId, anchorEl){
   const inEncounter = !!table.inEncounter;
 
   const options = Object.entries(TECHNIQUES).filter(([key, def]) => {
-    if(def.group !== 'Craft') return false;
+    // Broadened 2026-08-22, per dDd ("Focus Powers should work through the
+    // click pop up") — same group:"Craft"-only gap already fixed once in
+    // js/dm.js's own craftsKnownBy(), just never reached this second,
+    // separate list-building path either.
+    if(def.group !== 'Craft' && def.group !== 'Powers') return false;
     if(!hasCategoryAccess(me, def)) return false;
     if(!!def.selfOnly !== isSelf) return false;
     if(!inEncounter && !NONCOMBAT_TECHNIQUES.includes(key)) return false;
@@ -85,9 +89,7 @@ function openCraftPopup(targetId, anchorEl){
         dmSelectCraft(btn.dataset.craftKey);
         triggerRender();
       }else{
-        openTechniqueUse(btn.dataset.craftKey);
-        const targetSelect = document.getElementById('tu-target');
-        if(targetSelect) targetSelect.value = targetId;
+        openTechniqueUse(btn.dataset.craftKey, targetId);
       }
       closeCraftPopup();
     };

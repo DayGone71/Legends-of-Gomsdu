@@ -37,8 +37,7 @@
     "duration": {
       "upkeep": 1,
       "sequences": 0
-    },
-    "targetSide": "ally"
+    }
   },
   "resonance": {
     "name": "Resonance",
@@ -51,6 +50,34 @@
     },
     "range": 5,
     "effect": "Whenever a Lava or Lightning Spell is cast, immediately regain 1 Focus Point"
+  },
+  "current": {
+    "name": "Current",
+    "group": "Powers",
+    "column": "Focus",
+    "type": "Mystic Transformation",
+    "costs": {
+      "ap": 1,
+      "lightning": 1
+    },
+    "range": 5,
+    "effect": "The Target has their Life and Lightning Stats change from N to 0, or 0 to 1"
+  },
+  "influence": {
+    "name": "Influence",
+    "group": "Powers",
+    "column": "Focus",
+    "type": "Mystic Influence",
+    "costs": {
+      "ap": 1,
+      "focus": 1
+    },
+    "range": 5,
+    "effect": "The Target Character has their Relationship to some Information change (Crafter picks a Glyph and an Axis, adjusting the Axis by +1 or -1).",
+    "duration": {
+      "upkeep": 1,
+      "sequences": 0
+    }
   },
   "heartAttack": {
     "name": "Heart Attack",
@@ -117,7 +144,6 @@
     "group": "Craft",
     "column": "Lightning",
     "type": "Mystic Transformation",
-    "targetSide": "ally",
     "selfOnly": true,
     "costs": {
       "ap": 1,

@@ -14,6 +14,19 @@ export function timeNow(){
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+// Shared error banner (2026-08-22, per dDd's Lists-consolidation go-ahead —
+// this was the same "redundant, not the same as the important one" pattern
+// he flagged, just for a UI helper rather than a Character list: an
+// identical byte-for-byte copy independently defined in js/combat.js,
+// js/dm.js, js/map.js, and js/techniques.js). One shared version here now.
+export function showBannerError(msg){
+  const el = document.getElementById('banner-error');
+  if(!el) return;
+  el.textContent = msg;
+  el.classList.remove('hidden');
+  setTimeout(() => el.classList.add('hidden'), 5000);
+}
+
 export function escapeHtml(s){
   return String(s ?? '').replace(/[&<>"']/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -137,6 +150,25 @@ export function deliverMindeyeEntry(table, targetId, fromName, glyphId){
   }
 }
 
+// Every Glyph currently staged (Message Orders on any Player/Enemy, or the
+// DM's own Enemy-sequence staging) but not yet delivered to a given target —
+// the "Information a Character is going to know" half of Influence's own
+// targeting (2026-08-22, per dDd: "That way, Information can be delivered
+// already preloaded with bias"). De-duplicated (a Set) since the same Glyph
+// could be staged by more than one pending Message.
+export function pendingMessageGlyphs(table, targetId){
+  const glyphs = new Set();
+  const scanOrders = (orders) => (orders || []).forEach(o => {
+    if(o.kind === 'message' && o.targetId === targetId) (o.glyphs || []).forEach(g => glyphs.add(g));
+  });
+  const scanSequence = (sequence) => (sequence || []).forEach(entry => {
+    if(entry.kind === 'technique' && entry.techniqueKey === 'message' && entry.targetId === targetId) (entry.glyphs || []).forEach(g => glyphs.add(g));
+  });
+  Object.values((table && table.players) || {}).forEach(p => scanOrders(p.orders));
+  Object.values((table && table.enemies) || {}).forEach(e => { scanOrders(e.orders); scanSequence(e.sequence); });
+  return [...glyphs];
+}
+
 // Every Enemy currently riding along as someone's Possessed Mini-Party
 // member — an ally now, not a hostile, so it moves off the Enemy side onto
 // the ally/Player side wherever that matters (target pickers, DM Test's
@@ -149,64 +181,75 @@ export function possessedEnemyIds(table){
   return ids;
 }
 
-// Every id on the "ally" side of a table: every Player, every Player's
-// statted Mini-Party member (composite 'mp:<playerId>:<index>' id, see
-// resolveEntityRef above), and every Player's Possessed Mini-Party member
-// (the real Enemy's own id). Un-statted Mini-Party stubs — added with no
-// base build, so no wounds to track — are skipped; they aren't a legitimate
-// actor/target yet.
-export function alliedActorIds(table){
-  const ids = [];
+// Roster consolidation (2026-08-22, per dDd — "Lists that have vital Data
+// but are redundant and not the same as the important one"). Before this,
+// every list-building UI (Combat's Ally Range, the DM's Target Range, the
+// NPC Panel, the DM's Enemy/Acting-As picker, the Script Panel's Actor/
+// Target pickers) independently walked table.players/table.enemies/
+// miniParty with its own near-identical filtering — the exact drift that
+// left renderDMTargetRange() silently Player-only forever (see
+// ROADMAP.md/CHANGELOG.md 2026-08-22). These three are now the ONE place
+// that walk lives; everything else either calls one of these directly or
+// derives its own id-only view from one. Each row carries `entity` (the
+// live Character object itself), so a consumer can still pull whatever
+// extra display fields it needs (wounds, archetype, ...) without this
+// function having to anticipate every caller's own display shape.
+
+// Every Player, plus their statted Mini-Party members (a Possessed one
+// resolves to the real Enemy's own record; an un-statted stub — no base
+// build, no wounds to track — is skipped, not a legitimate actor/target
+// yet) — the "ally" side of a table, as {id, entity, name, dead, sub?} rows.
+export function alliedRoster(table){
+  const rows = [];
   Object.entries((table && table.players) || {}).forEach(([pid, p]) => {
-    ids.push(pid);
+    rows.push({ id: pid, entity: p, name: p.name || 'Unnamed', dead: isDeathWounded(p) });
     (p.miniParty || []).forEach((mp, idx) => {
-      if(mp.sourceEnemyId){ if(table.enemies && table.enemies[mp.sourceEnemyId]) ids.push(mp.sourceEnemyId); }
-      else if(mp.woundsMax != null){ ids.push('mp:' + pid + ':' + idx); }
+      if(mp.sourceEnemyId){
+        const src = table && table.enemies && table.enemies[mp.sourceEnemyId];
+        if(src) rows.push({ id: mp.sourceEnemyId, entity: src, name: src.name || 'Unnamed', dead: isDeathWounded(src), sub: '(' + (p.name || '?') + '’s Mini-Party)' });
+      }else if(mp.woundsMax != null){
+        rows.push({ id: 'mp:' + pid + ':' + idx, entity: mp, name: mp.name || 'Follower', dead: isDeathWounded(mp), sub: '(' + (p.name || '?') + '’s Mini-Party)' });
+      }
     });
   });
-  return ids;
+  return rows;
 }
 
-// Crafter-relative targeting (2026-08-22, per dDd) — the logic-layer fix for
-// targetSide: 'ally' meaning an absolute "the Player-controlled roster"
-// instead of something relative to whoever's actually Crafting (caught live:
-// "If Gom is an NPC than how can the Player be a valid target of that?").
-// A deliberate logical view over the existing table.players/table.enemies
-// split, NOT a storage migration — see reference/dialogue-system.md's
-// 2026-08-22 entries for the full reasoning this sits on. Every real
-// Character, Player or Enemy, is a valid Crafter here; there's no separate
-// caster-type check anywhere below.
-//
-// Which side a Character is standing on, for targeting purposes only — a
-// Mini-Party member is always their Player's own side.
-export function casterSide(table, casterId){
-  if(!casterId || casterId.startsWith('mp:')) return 'player';
-  if(table && table.enemies && table.enemies[casterId]) return 'enemy';
-  return 'player';
+// Every real Enemy at the table, as {id, entity, name, dead} rows.
+export function enemyRoster(table){
+  return Object.entries((table && table.enemies) || {}).map(([id, e]) => ({
+    id, entity: e, name: e.name || 'Enemy', dead: isDeathWounded(e)
+  }));
 }
 
-// Every real Character at the table, both sides at once — the pool
-// 'ally'-flagged Techniques draw from outside Combat, since Ally/Enemy
-// doesn't exist as a concept until an Encounter actually starts (per dDd:
-// "Enemies and Allies is strictly Combat").
+// Every real Character at the table, both sides at once — the canonical
+// "everybody" list (NPC Panel's inspect targets, Script Panel's Actor/
+// Target pickers, DM Target Range now that targetSide no longer restricts
+// it) — allied side first, then Enemies.
+export function allCharacterRoster(table){
+  return [...alliedRoster(table), ...enemyRoster(table)];
+}
+
+// Id-only views over the same rosters, for callers that never needed the
+// full row (crafterTargetPoolIds below, mainly).
+export function alliedActorIds(table){
+  return alliedRoster(table).map(r => r.id);
+}
 export function allCharacterIds(table){
-  return [...alliedActorIds(table), ...Object.keys((table && table.enemies) || {})];
+  return allCharacterRoster(table).map(r => r.id);
 }
 
-// The actual fix: a Technique's targetSide resolves relative to whoever's
-// Crafting, not a hardcoded side. Outside Combat, everyone's reachable
-// (Ally/Enemy isn't a real concept yet). Inside Combat, 'ally' means the
-// Crafter's own side, anything else means the opposing side — this also
-// quietly fixes the reverse case (an Enemy Crafter hostile-targeting) for
-// whenever a non-Player caster actually reaches this function, even though
-// today's only real caller (js/techniques.js's Player-only Technique Use
-// panel) never exercises that branch.
+// Crafter-relative targeting (2026-08-22, per dDd). Used to branch on
+// targetSide/Combat-relative Ally-Enemy sides; simplified to a flat "every
+// Character is targetable" per dDd's own call: "targetSide should not even
+// exist really, all Characters have to be able to be targeted by all Crafts
+// and Powers. selfTarget is the only exception we need to think about" — that
+// exception is handled separately, by each Technique's own `selfOnly` flag
+// (js/craftPopup.js), not by narrowing this pool. `casterId`/`targetSide`
+// kept as accepted (unused) params so existing call sites don't need
+// updating if a real self/other distinction ever comes back.
 export function crafterTargetPoolIds(table, casterId, targetSide){
-  if(!table || !table.inEncounter) return allCharacterIds(table);
-  const side = casterSide(table, casterId);
-  const sameSideAsCaster = side === 'player' ? alliedActorIds(table) : Object.keys((table && table.enemies) || {});
-  const oppositeSide = side === 'player' ? Object.keys((table && table.enemies) || {}) : alliedActorIds(table);
-  return targetSide === 'ally' ? sameSideAsCaster : oppositeSide;
+  return allCharacterIds(table);
 }
 
 // A Mini-Party member has no position of its own (see alliedActorIds above)

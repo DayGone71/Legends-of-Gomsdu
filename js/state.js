@@ -51,6 +51,16 @@ export const AppState = {
   // ({ actorId } or null) after confirming "Move?".
   moveClickTile: null,
   moveSelectMode: null,
+  // Map viewport panning (2026-08-22, per dDd — a fixed VIEWPORT_TILES x
+  // VIEWPORT_TILES window that pans over a bigger table.map via tile-clicker
+  // buttons, not a native/CSS-scrolled full render). {x,y} of the window's
+  // own top-left corner, in real map coordinates; clamped to the map's
+  // bounds on every render (js/map.js's renderMap). Local-only, like
+  // tataActive below — each viewer pans their own window independently.
+  // mapViewHistory is a small undo stack of previous offsets, popped by the
+  // "back" pan-history button.
+  mapViewOffset: { x: 0, y: 0 },
+  mapViewHistory: [],
   // New Game Process (2026-08-20) — which Build keys, if any, the current
   // Scene restricts Character-panel loading to; recomputed every renderAll()
   // from AppState.table.scene, see js/scenes.js's SCENES and js/main.js.

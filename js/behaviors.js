@@ -28,7 +28,15 @@
 export const DESIRE_SCORE_UNIT = 15; // "15 is good!!" — per dDd, a unit that scales cleanly whether an Axis ends up 3-way, 5-way, or wider later
 export const LONGING_INCREMENT = 5;
 export const LONGING_CAP = 100;
-export const STAND_AROUND_BASELINE = 20; // per dDd: "20 is a good baseline" for Stand Around's own inertia
+// Lowered 20 -> 2 (2026-08-22, per dDd, after playtesting: "Stand Around is
+// weight way too high. There should be like 10% chance it'll be the Likely
+// Behavior once Movement is introduced. With 2 directions, it should be even
+// more rare.") — with the new Desire weighting (a plain Mid-desire Glyph
+// contributing DESIRE_SCORE_UNIT=15), the old baseline of 20 actually beat a
+// single known direction outright (20 vs 15, ~57% Stand Around) — 2 gives
+// ~12% against one direction, and naturally drops further as more Movement
+// weight competes, with no extra formula needed.
+export const STAND_AROUND_BASELINE = 2;
 
 // Gom/Kulkrow — the two exceptions to Stand Around entirely (per dDd).
 // Lives here, not js/noncombat.js, so js/personality.js's own distribution
@@ -68,20 +76,65 @@ export const BEHAVIORS = {
   teach: { name: 'Teach', kind: 'teach' },
   // Maintain Empower (2026-08-22, per dDd — KA, "wants to maintain Empower
   // with the Living Stone, his dominant behavior, but not exclusive") — a
-  // no-op for now, same as Stand Around, since Empower's own +1 Control/+1
-  // AP effect isn't mechanically built yet (see ROADMAP.md's Techniques
-  // Panel section) — nothing real to "maintain" until that lands. Still
-  // real and rollable through the normal weighted pipeline, so its %
-  // shows up honestly in the distribution even though performing it does
-  // nothing observable yet.
-  maintainEmpower: { name: 'Maintain Empower' }
+  // no-op for now, same as Stand Around: Empower is Crafter-initiated
+  // (staged through a real Craft, see js/techniques.js), a Behavior roll
+  // landing here doesn't auto-cast it, just shows it as the Character's own
+  // real inclination. KA also covers a second, Mental Behavior (Thinking/
+  // Contemplation, per dDd: "KA works for 2 Behaviors, cause one is Mental
+  // and the other is Physical") — not built, waiting on the 3-separate-
+  // Behaviors-per-Character redesign (ROADMAP.md's Personality/Behaviors
+  // section) that Mental/Physical actually implies; this is the Physical
+  // half only.
+  maintainEmpower: { name: 'Maintain Empower' },
+  // Current (2026-08-22, per dDd — OG). "OG gives them Life via the Current
+  // [Lightning Craft]" — animating/deanimating an Inert Stone (its Life and
+  // Lightning Stats toggle 0<->1, see data/techniques.json's 'current').
+  // No-op for now, same reasoning as Maintain Empower above — Crafter-
+  // initiated, a Behavior roll here just surfaces the inclination.
+  current: { name: 'Current' }
 };
+
+// Three separate Behaviors per Character (2026-08-22, per dDd, after
+// playtesting the single-category system live): "Characters should have 3
+// separate Behaviors. This is for moving, selecting, acting basically...
+// it's basically the same layout, just 3 times in the same area (I was
+// thinking 3 columns would be best). Like 1 for Movement, 2 for Actions, 3
+// for Targeting." Each rolls independently every Round (js/noncombat.js's
+// resolveBehavior()) — a Character can now Move AND take an Action in the
+// same Round, since the categories don't compete with each other at all.
+// Per dDd, correcting an initial misread: "all 3 behaviors should be
+// available from the start, they don't need to level up or anything to get
+// 2 and 3" — the 1/2/3 is just column order, not an Intelligence gate; a
+// category with nothing relevant in the Mindeye simply has nothing to roll
+// that Round (silently skipped, no forced default), except Movement, which
+// keeps its own Stand Around baseline so a Character is never simply inert.
+// Targeting has no Behaviors mapped into it yet — structurally ready, empty
+// until a Glyph/mechanic for "who to act on" gets designed.
+export const BEHAVIOR_CATEGORY = {
+  standAround: 'movement',
+  moveForward: 'movement', moveRight: 'movement', moveBackward: 'movement', moveLeft: 'movement',
+  wander: 'movement', face: 'movement',
+  teach: 'actions', maintainEmpower: 'actions', current: 'actions'
+};
+export const BEHAVIOR_CATEGORIES = [
+  { key: 'movement', label: 'Movement' },
+  { key: 'actions', label: 'Actions' },
+  { key: 'targeting', label: 'Targeting' }
+];
 
 // Which Behavior a remembered Glyph nudges a Character toward. The 4
 // Direction Glyphs (see js/techniques.js's DIRECTION_GLYPHS) match their own
-// Up/Forward, Down/Back, Left, Right meanings 1:1 onto the 4 Move
-// Behaviors; KULOG/KALAG/WIM/KA (2026-08-22, per dDd) map onto Wander/Face/
-// Teach/maintain-Empower. Every other Glyph currently has no association.
+// Up/Forward, Down/Back, Left, Right meanings 1:1 onto the 4 Move Behaviors.
+// `maintainEmpower` reverted KA (2026-08-22, per dDd, self-correcting an
+// earlier same-day move to OR: "I did screw up, sorry... We changed that
+// prematurely. I checked the compositions lol. Cause OG gives them Life via
+// the Current LiC, KA sustains them with Empower, and WIM is used to get
+// them to develop relative independence.") — KA:maintainEmpower, WIM:teach,
+// and OG:current (new, see BEHAVIORS.current above) is the real, checked-
+// against-his-own-Compositions mapping. Per dDd, this table doesn't need to
+// stay strictly one Glyph -> one Behavior either way: "KA (any Glyph) can
+// mean tons of stuff, so Behavioral Overlap, where a couple of Glyphs are
+// overlapping a Behavior, or a Glyph suggests several Behaviors, are fine."
 export const GLYPH_BEHAVIOR = {
   'RO / OR': 'moveForward',
   'OP / PO': 'moveBackward',
@@ -90,13 +143,20 @@ export const GLYPH_BEHAVIOR = {
   'KULOG': 'wander',
   'KALAG': 'face',
   'WIM': 'teach',
-  'KA': 'maintainEmpower'
+  'KA': 'maintainEmpower',
+  'OG': 'current'
 };
 
-// Desirable(0) -> +unit, Mid(1) -> 0, Undesirable(2) -> -unit.
+// Favorable(0)/Middle(1)/Disliked(2) -> 2/1/0 units (2026-08-22, per dDd:
+// "Axis! Middle position is +1, favorable position is +2, and disliked
+// position is 0.") — replaces the old symmetric -1/0/+1 scheme, where a
+// never-tuned Mid/Mid memory contributed exactly zero Pursuit and Stand
+// Around's flat baseline always won by default. Per dDd: "That way defaults
+// do something. Right now, standing always wins until manual changed."
+const DESIRE_WEIGHT = [2, 1, 0];
 function desireScore(entry){
   const desire = entry.desire ?? 1;
-  return (1 - desire) * DESIRE_SCORE_UNIT;
+  return DESIRE_WEIGHT[desire] * DESIRE_SCORE_UNIT;
 }
 
 // Never negative — a Pursuit score below 0 has nothing meaningful left to
@@ -116,50 +176,56 @@ export function tickLonging(entry){
   else if(attachment === 0) entry.longing = Math.max(0, current - LONGING_INCREMENT);
 }
 
-// { distribution: {behaviorKey: pct, ...}, perGlyph: [{entryId, glyphId, behaviorKey, behaviorName, pursuit, impactPct, longing}] }
-// distribution always sums to 100 (Stand Around absorbs any rounding
-// remainder). Scales to any number of remembered Glyphs: each one with a
-// Behavior association contributes its own Pursuit score into that
-// Behavior's running total; totally unassociated Glyphs (the overwhelming
-// majority right now — only RO/OR maps to anything) just contribute 0.
+// Returns one { distribution, perGlyph } PER CATEGORY now (2026-08-22, per
+// dDd's 3-Behaviors redesign — see BEHAVIOR_CATEGORIES above): { movement:
+// {...}, actions: {...}, targeting: {...} }. Each category's Glyphs/
+// Behaviors only compete against others in the SAME category — a Glyph
+// mapped to an Actions Behavior contributes nothing to Movement's own
+// distribution, and vice versa. Movement keeps the Stand Around baseline
+// (so it sums to 100 and a Character is never simply inert); Actions/
+// Targeting have no equivalent forced default — a category with nothing
+// relevant in the Mindeye just comes back with an empty distribution,
+// handled by resolveBehavior() (js/noncombat.js) as "nothing to roll this
+// Round," not a fake 0%-labeled entry.
 // `excludeStandAround` (2026-08-22, per dDd's Gom/Kulkrow spec — "they
-// don't have Stand Around") — leaves Stand Around's baseline out of the
-// seed entirely, so it never dilutes the real competition between whatever
-// Behaviors the actor's own Mindeye actually weighs. Used instead of the
-// old hardcoded bypass in js/noncombat.js that skipped this function for
-// Gom/Kulkrow altogether — that made sense before Wander/Teach/Face/Maintain
-// Empower existed as real Behaviors they could roll, but it also meant Gom
-// could never actually Teach no matter what was in his Mindeye or
-// activeScript. A tiny Stand Around sliver can still surface from rounding
-// (see the roundedSum correction below) — resolveBehavior() in
-// js/noncombat.js treats a rolled 'standAround' here as "nothing else had
-// real weight" and falls back to a guaranteed Wander instead, preserving
-// the original "never truly idle" intent without the hard bypass.
+// don't have Stand Around") — leaves Movement's baseline out of the seed
+// entirely, so it never dilutes the real competition there. A tiny Stand
+// Around sliver can still surface from rounding (the roundedSum correction
+// below) — resolveBehavior() treats a rolled 'standAround' as "nothing else
+// had real weight" and falls back to a guaranteed Wander instead.
 export function computeBehaviors(actor, opts){
   const excludeStandAround = !!(opts && opts.excludeStandAround);
   const mindeye = (actor && actor.mindeye) || [];
-  const behaviorPursuit = excludeStandAround ? {} : { standAround: STAND_AROUND_BASELINE };
+  const result = {};
 
-  const perGlyph = mindeye.map(entry => {
-    const behaviorKey = entry.glyph && GLYPH_BEHAVIOR[entry.glyph];
-    const pursuit = behaviorKey ? pursuitScore(entry) : 0;
-    if(behaviorKey) behaviorPursuit[behaviorKey] = (behaviorPursuit[behaviorKey] || 0) + pursuit;
-    return {
-      entryId: entry.id, glyphId: entry.glyph || 'GI', behaviorKey,
-      behaviorName: behaviorKey ? BEHAVIORS[behaviorKey].name : null,
-      pursuit, longing: entry.longing || 0
-    };
+  BEHAVIOR_CATEGORIES.forEach(cat => {
+    const behaviorPursuit = (cat.key === 'movement' && !excludeStandAround) ? { standAround: STAND_AROUND_BASELINE } : {};
+    const perGlyph = [];
+    mindeye.forEach(entry => {
+      const behaviorKey = entry.glyph && GLYPH_BEHAVIOR[entry.glyph];
+      if(!behaviorKey || BEHAVIOR_CATEGORY[behaviorKey] !== cat.key) return;
+      const pursuit = pursuitScore(entry);
+      behaviorPursuit[behaviorKey] = (behaviorPursuit[behaviorKey] || 0) + pursuit;
+      perGlyph.push({
+        entryId: entry.id, glyphId: entry.glyph, behaviorKey,
+        behaviorName: BEHAVIORS[behaviorKey].name, pursuit, longing: entry.longing || 0
+      });
+    });
+
+    const hasAnyWeight = Object.keys(behaviorPursuit).length > 0;
+    const total = Object.values(behaviorPursuit).reduce((a, b) => a + b, 0) || 1;
+    const distribution = {};
+    Object.entries(behaviorPursuit).forEach(([key, p]) => { distribution[key] = Math.round(p / total * 100); });
+    if(hasAnyWeight && cat.key === 'movement' && !excludeStandAround){
+      const roundedSum = Object.values(distribution).reduce((a, b) => a + b, 0);
+      if(roundedSum !== 100) distribution.standAround = (distribution.standAround || 0) + (100 - roundedSum);
+    }
+    perGlyph.forEach(g => { g.impactPct = Math.round(g.pursuit / total * 100); });
+
+    result[cat.key] = { distribution, perGlyph };
   });
 
-  const total = Object.values(behaviorPursuit).reduce((a, b) => a + b, 0) || 1;
-  const distribution = {};
-  Object.entries(behaviorPursuit).forEach(([key, p]) => { distribution[key] = Math.round(p / total * 100); });
-  const roundedSum = Object.values(distribution).reduce((a, b) => a + b, 0);
-  if(roundedSum !== 100) distribution.standAround = (distribution.standAround || 0) + (100 - roundedSum);
-
-  perGlyph.forEach(g => { g.impactPct = Math.round(g.pursuit / total * 100); });
-
-  return { distribution, perGlyph };
+  return result;
 }
 
 // Highest-to-lowest [{key, name, pct}, ...] — index 0 is the Likely
@@ -180,9 +246,14 @@ export function sortedBehaviors(distribution){
 // that high) reads exactly like "my Characters always do Stand Around, no
 // matter what" — a real weighted roll gives it its actual %-chance to win
 // every single Round instead.
+// Returns null on an empty distribution (2026-08-22, changed from a
+// hardcoded 'standAround' fallback — Actions/Targeting have no Stand-
+// Around-equivalent default, so forcing one there would be meaningless;
+// resolveBehavior() in js/noncombat.js is what decides per-category what an
+// empty roll actually means).
 export function rollBehavior(distribution){
   const entries = Object.entries(distribution).filter(([, pct]) => pct > 0);
-  if(!entries.length) return 'standAround';
+  if(!entries.length) return null;
   const total = entries.reduce((sum, [, pct]) => sum + pct, 0);
   let r = Math.random() * total;
   for(const [key, pct] of entries){

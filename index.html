@@ -131,7 +131,8 @@
         <button id="toolbar-load-scene" class="btn-ghost btn-small">Load a Scene</button>
         <div id="scene-menu" class="scene-menu hidden">
           <button class="scene-menu-item" data-scene="dev">Dev</button>
-          <button class="scene-menu-item" data-scene="era1">Era 1</button>
+          <button class="scene-menu-item" data-scene="era1">Era 1: Tutorial</button>
+          <button class="scene-menu-item" data-scene="era1gom">Era 1: Gom</button>
         </div>
       </div>
       <button id="toolbar-character" class="btn-ghost btn-small">Create a Character</button>
@@ -615,6 +616,8 @@
             <button class="tech-item" data-technique="possess">Possess</button>
             <button class="tech-item" data-technique="empower">Empower</button>
             <button class="tech-item" data-technique="resonance">Resonance</button>
+            <button class="tech-item" data-technique="influence">Influence</button>
+            <button class="tech-item" data-technique="current">Current</button>
           </div>
         </div>
         <div class="tech-main-header">Craft</div>
@@ -656,6 +659,11 @@
         <h2>Information</h2>
         <button id="panel-close-information" class="btn-ghost btn-small">Close</button>
       </div>
+      <div class="pillar-nav">
+        <button class="pillar-nav-btn active" data-pillar="information">Information</button>
+        <button class="pillar-nav-btn" data-pillar="personality">Personality</button>
+        <button class="pillar-nav-btn" data-pillar="relationships">Relationships</button>
+      </div>
       <div id="info-received-list"></div>
     </div>
 
@@ -664,6 +672,11 @@
         <h2>Personality</h2>
         <button id="panel-close-personality" class="btn-ghost btn-small">Close</button>
       </div>
+      <div class="pillar-nav">
+        <button class="pillar-nav-btn" data-pillar="information">Information</button>
+        <button class="pillar-nav-btn active" data-pillar="personality">Personality</button>
+        <button class="pillar-nav-btn" data-pillar="relationships">Relationships</button>
+      </div>
       <div id="personality-head-list"></div>
     </div>
 
@@ -671,6 +684,11 @@
       <div class="panel-overlay-header">
         <h2>Relationships</h2>
         <button id="panel-close-relationships" class="btn-ghost btn-small">Close</button>
+      </div>
+      <div class="pillar-nav">
+        <button class="pillar-nav-btn" data-pillar="information">Information</button>
+        <button class="pillar-nav-btn" data-pillar="personality">Personality</button>
+        <button class="pillar-nav-btn active" data-pillar="relationships">Relationships</button>
       </div>
       <div id="relationships-content"></div>
     </div>
@@ -741,6 +759,20 @@
         <select id="tu-glyph-1"></select>
         <select id="tu-glyph-2"></select>
         <select id="tu-glyph-3"></select>
+      </div>
+      <div class="field hidden" id="tu-influence-field">
+        <label>Information</label>
+        <select id="tu-influence-glyph"></select>
+        <label>Axis</label>
+        <select id="tu-influence-axis">
+          <option value="desire">Desire</option>
+          <option value="attachment">Attachment</option>
+        </select>
+        <label>Direction</label>
+        <select id="tu-influence-direction">
+          <option value="+1">More Favorable (+1)</option>
+          <option value="-1">More Disliked (-1)</option>
+        </select>
       </div>
       <button id="btn-tu-stage" class="btn-brass btn-block" style="margin-top:10px;">Stage</button>
     </div>

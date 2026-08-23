@@ -89,8 +89,22 @@ function inspecting(){
 }
 
 // Every Mindeye entry currently on the inspected/own Character, newest last.
+// Gom knows the entire Language innately (2026-08-22, per dDd, after
+// playtesting: "My Gom also doesn't have any Information memorized? He
+// should be able to see everything he knows, which should be everything.")
+// — display-only special case: synthesizes a full Gallery from every real
+// Glyph in GLYPH_DATA instead of his literal mindeye. His actual mindeye
+// stays exactly what it really is (a normal, Message-driven history) for
+// Behaviors/Intelligence-capacity purposes elsewhere — this only changes
+// what the Information panel itself shows him. All marked seen — there's no
+// "reveal" moment for something he's always known, so this also skips the
+// Spotlight animation automatically (renderInformationPanel's own `unseen`
+// filter finds nothing to show).
 function myMindeye() {
   const me = myCharacter();
+  if(me && me.archetype === 'Gom' && GLYPH_DATA){
+    return GLYPH_DATA.glyphs.map(g => ({ id: g.id, glyph: g.id, from: 'Innate', seen: true }));
+  }
   return (me && me.mindeye) || [];
 }
 
@@ -242,6 +256,14 @@ export function renderInformationPanel() {
 
 // Whether the current Player's own Information toolbar button should be
 // pulsing (Gom Colors, see css/panels.css) — any unseen Mindeye arrival.
+// Fixed 2026-08-22, found live during playtesting (dDd: "My Information
+// Panel started Glowing even though I shouldn't have any way of receiving
+// Information from Living Stone... it shows up when I select the
+// Personality Panels from the NPC list"): this called the same inspect-aware
+// myMindeye() the rest of the panel uses, so inspecting an NPC with its own
+// unseen mail lit up the Player's own toolbar button — always the viewing
+// Player's real Mindeye here, deliberately bypassing inspect mode entirely.
 export function hasUnseenMindeye() {
-  return myMindeye().some(e => !e.seen);
+  const me = resolveEntityRef(AppState.table, AppState.playerId);
+  return ((me && me.mindeye) || []).some(e => !e.seen);
 }

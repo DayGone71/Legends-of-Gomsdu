@@ -20,7 +20,7 @@
 
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
-import { deliverMindeyeEntry, timeNow, escapeHtml, resolveEntityRef } from './utils.js';
+import { deliverMindeyeEntry, timeNow, escapeHtml, resolveEntityRef, allCharacterRoster } from './utils.js';
 import { glyphOptionsHtml } from './techniques.js';
 
 // Which Glyphs a Character actually knows — the gate a real Script/Behavior
@@ -57,6 +57,56 @@ export function dispatchScript(table, script){
   }
 }
 
+// Saved Scripts (2026-08-22, per dDd — "save the Script I gave you
+// originally to a drop down accessible from within the Scripts Panel").
+// Named presets, selectable from the Script Panel instead of rebuilding a
+// Composition Row-by-Row every test — same plain-object-literal convention
+// [js/character.js](../js/character.js)'s BUILDS and
+// [js/techniques.js](../js/techniques.js)'s TECHNIQUES already use, so a
+// future saved Script is just another entry here.
+//
+// `gomTeachesMovement` is dDd's own 9-Expression Composition handed over
+// this session (verbatim, `reference/CHANGELOG.md` 2026-08-22): Expressions
+// 1 and 3 are empty by design (skipped, not sent as blank Messages); each
+// remaining Expression's up-to-3 Glyphs becomes one Row/Message here, in
+// dDd's own strict delivery order. **One simplification, flagged rather
+// than hidden**: dDd's own spec bundles Expressions 4+6 together into one
+// Round ("the 2 Message feature") and 7+8+9 into a further one ("All 3
+// Message"), each Round's Messages sent together — the current Teach
+// Behavior (js/noncombat.js) only ever delivers one Row per successful
+// roll, so this preset instead sends all 6 Messages strictly in the same
+// order, just not necessarily landing in the same Round together.
+// Real Round-bundling (multiple Messages per single Teach roll) is a
+// genuinely bigger mechanical change, not something to guess at here.
+export const SAVED_SCRIPTS = {
+  gomTeachesMovement: {
+    name: 'Gom — 9-Expression Composition (Movement + Face)',
+    rows: [
+      ['WIM', 'KROW', 'RO / OR'],
+      ['WIM', 'KROW', 'OK'],
+      ['WIM', 'KROW', 'KO'],
+      ['WIM', 'KROW', 'KALAG'],
+      ['WIM', 'KROW', 'OP / PO'],
+      ['WIM', 'KROW', 'KULOG']
+    ]
+  },
+  // gomTeachesFocus (2026-08-22, per dDd) — a second Composition, same
+  // format/simplification as gomTeachesMovement above (Expressions 1/3/4/6/
+  // 7/9 empty by design and skipped; Expressions 2/5/8 become 3 Rows in
+  // order). Per dDd: "That means Teaching KA and KRO and M." — ties directly
+  // into the new Intelligence-gain mechanic he described the same message
+  // (contemplating KA+KRO+M together in one Round) — see ROADMAP.md's
+  // Personality/Behaviors section for that design, not yet built.
+  gomTeachesFocus: {
+    name: 'Gom — 9-Expression Composition (Focus: KA/KRO/M)',
+    rows: [
+      ['WIM', 'KROW', 'KA'],
+      ['WIM', 'KROW', 'KRO'],
+      ['WIM', 'KROW', 'M']
+    ]
+  }
+};
+
 // Assigns a real, tracked, multi-Round Script onto actor.activeScript — the
 // Teach Behavior (js/noncombat.js) is what actually delivers it, one Row
 // per roll. `rows` is an array of Glyph-id arrays, each up to 3 (Message's
@@ -83,13 +133,6 @@ let builderActorId = null;
 let builderTargetId = null;
 let builderRowCount = 1;
 
-function allCharacterOptions(table){
-  const opts = [];
-  if(table && table.players) Object.entries(table.players).forEach(([id, p]) => opts.push({ id, name: p.name || 'Unnamed' }));
-  if(table && table.enemies) Object.entries(table.enemies).forEach(([id, e]) => opts.push({ id, name: e.name || 'Enemy' }));
-  return opts;
-}
-
 export function renderScriptsPanel(){
   const container = document.getElementById('scripts-content');
   if(!container) return;
@@ -97,7 +140,7 @@ export function renderScriptsPanel(){
   container.innerHTML = '';
   if(!table) return;
 
-  const chars = allCharacterOptions(table);
+  const chars = allCharacterRoster(table);
   if(!chars.some(c => c.id === builderActorId)) builderActorId = chars.length ? chars[0].id : null;
   if(!chars.some(c => c.id === builderTargetId)) builderTargetId = chars.length ? chars[0].id : null;
   const actor = builderActorId ? resolveEntityRef(table, builderActorId) : null;
@@ -132,6 +175,7 @@ export function renderScriptsPanel(){
     rowsBuilder.appendChild(rowEl);
   }
   container.appendChild(builderSheet);
+  container.appendChild(presetSheet());
   container.appendChild(memorySheet(actor));
 
   const statusSheet = document.createElement('div');
@@ -158,6 +202,43 @@ export function renderScriptsPanel(){
   container.querySelector('#script-assign-btn').addEventListener('click', assignFromBuilder);
   const clearBtn = container.querySelector('#script-clear-btn');
   if(clearBtn) clearBtn.addEventListener('click', clearActiveScript);
+}
+
+// Saved Scripts picker (2026-08-22, per dDd) — assigns straight onto
+// whichever Actor/Target are already picked in the builder above, skipping
+// the manual Row-by-Row builder entirely (a preset's Row count isn't capped
+// at 3 the way manual building is — 6 Rows for `gomTeachesMovement` — since
+// it's pre-authored data, not something built live through the Add Row UI).
+function presetSheet(){
+  const sheet = document.createElement('div');
+  sheet.className = 'sheet';
+  const keys = Object.keys(SAVED_SCRIPTS);
+  sheet.innerHTML =
+    '<div class="stat-header">Saved Scripts</div>' +
+    '<div class="script-status-line">Assigns straight to the Actor/Target picked above — skips the Row builder.</div>' +
+    '<div class="field"><label>Preset</label><select id="script-preset-select">' +
+      keys.map(k => '<option value="' + k + '">' + escapeHtml(SAVED_SCRIPTS[k].name) + '</option>').join('') +
+    '</select></div>' +
+    '<button class="btn-brass btn-block" id="script-load-preset-btn">Assign Preset</button>';
+  sheet.querySelector('#script-load-preset-btn').addEventListener('click', () => {
+    const sel = sheet.querySelector('#script-preset-select');
+    assignPreset(sel ? sel.value : null);
+  });
+  return sheet;
+}
+
+async function assignPreset(presetKey){
+  const preset = SAVED_SCRIPTS[presetKey];
+  if(!preset || !builderActorId || !builderTargetId) return;
+  const targetChar = resolveEntityRef(AppState.table, builderTargetId);
+  if(!targetChar) return;
+  const targetName = targetChar.name;
+  await mutateTable(t => {
+    const actor = resolveEntityRef(t, builderActorId);
+    if(!actor) return;
+    assignScript(actor, { targetId: builderTargetId, targetName, rows: preset.rows.map(row => row.slice()) });
+  });
+  renderScriptsPanel();
 }
 
 // Give Memory (2026-08-22, per dDd — found live: "Gom needs the Glyphs

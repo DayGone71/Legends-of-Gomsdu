@@ -1,17 +1,9 @@
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
-import { escapeHtml, timeNow, genId, isDeathWounded, resolveEntityRef, resolvePositionRef, crafterTargetPoolIds } from './utils.js';
+import { escapeHtml, timeNow, genId, isDeathWounded, resolveEntityRef, resolvePositionRef, crafterTargetPoolIds, showBannerError, pendingMessageGlyphs } from './utils.js';
 import { openPanel, closePanel } from './panels.js';
 import { getDistance, hasLineOfSight } from './map.js';
 import { MAX_MINI_PARTY } from './possession.js';
-
-function showBannerError(msg){
-  const el = document.getElementById('banner-error');
-  if(!el) return;
-  el.textContent = msg;
-  el.classList.remove('hidden');
-  setTimeout(() => el.classList.add('hidden'), 5000);
-}
 
 // Data-driven so adding a new Technique later is just a new entry — no new
 // staging/undo/cost-checking code needed, the engine below is generic over
@@ -57,7 +49,20 @@ const RESOURCE_LABELS = { ap: 'AP', focus: 'Focus', flow: 'Flow', lightning: 'Li
 // Techniques stageable outside an Encounter (2026-08-21, per dDd), each
 // going through the Non-Combat Order flow (js/noncombat.js's
 // resolveNonCombatRound()) instead of the AP-tracked Combat sequence.
-export const NONCOMBAT_TECHNIQUES = ['message', 'channel'];
+// `empower`/`influence` added 2026-08-22, per dDd ("Focus Powers should
+// work through the click pop up") — Gom keeping the Living Stone Empowered
+// is fundamentally a standing, Non-Combat state, not a Combat-only action.
+// Neither Technique's actual effect is mechanically resolved yet (same
+// "stages/costs/logs, does nothing yet" state Combat's own casting already
+// has — per dDd's own observation: "Empower doesn't do anything, but can be
+// Crafted") — this only unblocks staging them outside Combat, not the
+// missing effect itself (see ROADMAP.md's Techniques Panel section).
+// `current` added 2026-08-22 too — animating/deanimating an Inert Stone (its
+// Life/Lightning toggle 0<->1, data/techniques.json) is the same kind of
+// standing sandbox action. Staged/costed/logged but not yet mechanically
+// resolved (same "does nothing yet" state Empower itself started in before
+// its own build later the same day — see CHANGELOG.md).
+export const NONCOMBAT_TECHNIQUES = ['message', 'channel', 'empower', 'influence', 'current'];
 
 // Technique Lists (2026-08-16) — per-Character access, but at the category
 // level dDd asked for (Flow Powers/Focus Powers/Lightning Crafts/Lava
@@ -94,20 +99,25 @@ export function costText(costs){
 
 let currentTechniqueKey = null;
 
-// Which pool a Technique's target picker draws from — now resolved relative
-// to the actual Crafter (always the Player here — this panel is Player-only)
-// via crafterTargetPoolIds() (js/utils.js), not a hardcoded "'ally' always
-// means the Player roster" (2026-08-22, per dDd catching this live: "If Gom
-// is an NPC than how can the Player be a valid target of that?"). Outside
-// Combat, every real Character is reachable — Ally/Enemy is strictly a
-// Combat concept — so this widens, harmlessly for now, exactly what an
-// 'ally'-Technique's target list shows outside an Encounter; staging one
-// there is still separately gated by NONCOMBAT_TECHNIQUES below.
+// Which pool a Technique's target picker draws from — every real Character
+// at the table, Player or Enemy (2026-08-22, per dDd: "targetSide should not
+// even exist really, all Characters have to be able to be targeted by all
+// Crafts and Powers" — crafterTargetPoolIds() in js/utils.js is the one
+// place that decision lives; selfOnly-flagged Techniques are the one real
+// exception, handled separately in js/craftPopup.js).
 function targetPoolIds(table, def){
   return crafterTargetPoolIds(table, AppState.playerId, def.targetSide);
 }
 
-export function openTechniqueUse(key){
+// `presetTargetId` (2026-08-22) — js/craftPopup.js's Map hand-off used to
+// set tu-target's value *after* this function returned, which silently
+// never refreshed anything that reads the Target at open-time (found live
+// while building Influence's own picker below, which needs a real Target
+// to know whose Mindeye/pending Messages to offer) — assigning .value in
+// JS doesn't fire a real 'change' event, so nothing downstream ever knew.
+// Setting it in here instead, before anything reads it, fixes that
+// structurally rather than patching around it with a synthetic event.
+export function openTechniqueUse(key, presetTargetId){
   const def = TECHNIQUES[key];
   if(!def) return;
   const me = AppState.table && AppState.table.players[AppState.playerId];
@@ -122,7 +132,6 @@ export function openTechniqueUse(key){
 
   const table = AppState.table;
   const myPos = table.positions && table.positions[AppState.playerId];
-  const isAlly = def.targetSide === 'ally';
   const targets = targetPoolIds(table, def)
     .map(id => ({ id, entity: resolveEntityRef(table, id) }))
     .filter(t => t.entity && !isDeathWounded(t.entity));
@@ -139,7 +148,8 @@ export function openTechniqueUse(key){
         }
         return '<option value="' + id + '" ' + disabled + '>' + escapeHtml(entity.name || 'Unnamed') + suffix + '</option>';
       }).join('')
-    : '<option value="">' + (isAlly ? 'No Allies to target' : 'No enemies to target') + '</option>';
+    : '<option value="">No Characters to target</option>';
+  if(presetTargetId && targets.some(t => t.id === presetTargetId)) targetSelect.value = presetTargetId;
 
   // Message's Glyph picker (2026-08-21, up to 3 at once as of 2026-08-22 per
   // dDd — the first draft of sending a Script's-worth of instructions in one
@@ -155,7 +165,44 @@ export function openTechniqueUse(key){
     glyphField.classList.add('hidden');
   }
 
+  // Influence's own picker (2026-08-22, per dDd, after playtesting — "The
+  // Influence Craft needs a way to be able to select: Information a
+  // Character already knows [or] Information a Character is going to know
+  // (via Message Staging)"). Depends on which Target is picked, so it
+  // refreshes on tu-target's own change — re-set here (not additive) since
+  // openTechniqueUse can run again for a different Technique.
+  const influenceField = document.getElementById('tu-influence-field');
+  if(key === 'influence'){
+    influenceField.classList.remove('hidden');
+    const refreshInfluenceGlyphs = () => {
+      document.getElementById('tu-influence-glyph').innerHTML = influenceGlyphOptionsHtml(AppState.table, targetSelect.value);
+    };
+    refreshInfluenceGlyphs();
+    targetSelect.onchange = refreshInfluenceGlyphs;
+  }else{
+    influenceField.classList.add('hidden');
+    targetSelect.onchange = null;
+  }
+
   openPanel('technique-use');
+}
+
+// Influence's "which Information" picker (2026-08-22, per dDd) — Glyphs the
+// Target already has in their real Mindeye, grouped separately from Glyphs
+// currently staged-but-undelivered to them via a pending Message
+// (js/utils.js's pendingMessageGlyphs) — "Information can be delivered
+// already preloaded with bias." Resolution (js/noncombat.js/js/combat.js)
+// runs Influence strictly after Message deliveries land the same Round, so
+// picking a pending Glyph here reliably finds a real Mindeye entry by then.
+function influenceGlyphOptionsHtml(table, targetId){
+  const target = resolveEntityRef(table, targetId);
+  const known = [...new Set(((target && target.mindeye) || []).map(e => e.glyph).filter(Boolean))];
+  const pending = pendingMessageGlyphs(table, targetId).filter(g => !known.includes(g));
+  if(!known.length && !pending.length) return '<option value="">No Information to select yet</option>';
+  let html = '<option value="">— pick Information —</option>';
+  if(known.length) html += '<optgroup label="Already Knows">' + known.map(g => '<option value="' + escapeHtml(g) + '">' + escapeHtml(g) + '</option>').join('') + '</optgroup>';
+  if(pending.length) html += '<optgroup label="Pending (staged Message)">' + pending.map(g => '<option value="' + escapeHtml(g) + '">' + escapeHtml(g) + '</option>').join('') + '</optgroup>';
+  return html;
 }
 
 // Shared Directions/Other optgroup markup for Message's Glyph picker — used
@@ -198,6 +245,13 @@ export async function stageTechnique(){
   const glyphIds = currentTechniqueKey === 'message'
     ? [1, 2, 3].map(n => document.getElementById('tu-glyph-' + n).value).filter(Boolean)
     : null;
+  let influenceGlyph = null, influenceAxis = null, influenceDirection = null;
+  if(currentTechniqueKey === 'influence'){
+    influenceGlyph = document.getElementById('tu-influence-glyph').value;
+    influenceAxis = document.getElementById('tu-influence-axis').value;
+    influenceDirection = document.getElementById('tu-influence-direction').value;
+    if(!influenceGlyph){ showBannerError('Pick which Information to Influence first.'); return; }
+  }
 
   // Non-Combat Round (2026-08-21, per dDd) — Message and Channel ("Crafter
   // recovers 1 Lightning Point") are staged outside an Encounter through the
@@ -223,9 +277,25 @@ export async function stageTechnique(){
       if(currentTechniqueKey === 'message'){
         actor.orders.push({ id: genId(), kind: 'message', targetId, targetName: target.name, glyphs: glyphIds });
         t.log.push({ type: 'system', text: (actor.name || 'Someone') + ' orders a Message to ' + target.name + ' (' + glyphIds.length + ' Glyph' + (glyphIds.length === 1 ? '' : 's') + ')', time: timeNow() });
-      }else{
+      }else if(currentTechniqueKey === 'channel'){
         actor.orders.push({ id: genId(), kind: 'channel' });
         t.log.push({ type: 'system', text: (actor.name || 'Someone') + ' orders a Channel', time: timeNow() });
+      }else if(currentTechniqueKey === 'influence'){
+        // Influence (2026-08-22, per dDd) — carries which Glyph/Axis/
+        // Direction to adjust. Resolved strictly after Message deliveries
+        // land the same Round (js/noncombat.js's processOrders), so a Glyph
+        // picked from "Pending (staged Message)" reliably finds a real
+        // Mindeye entry by the time this runs.
+        actor.orders.push({ id: genId(), kind: 'influence', targetId, targetName: target.name, glyph: influenceGlyph, axis: influenceAxis, direction: influenceDirection });
+        t.log.push({ type: 'system', text: (actor.name || 'Someone') + ' orders Influence on ' + target.name + ' (' + influenceGlyph + ')', time: timeNow() });
+      }else{
+        // Generic Non-Combat Order (2026-08-22, per dDd) — any other
+        // NONCOMBAT_TECHNIQUES entry (Empower) stages the same way. This
+        // used to be a hard if/else between exactly Message and Channel —
+        // adding Empower without generalizing it would have silently pushed
+        // a wrong-shaped Channel-style order instead.
+        actor.orders.push({ id: genId(), kind: currentTechniqueKey, targetId, targetName: target.name });
+        t.log.push({ type: 'system', text: (actor.name || 'Someone') + ' orders ' + def.name + ' on ' + target.name, time: timeNow() });
       }
     });
     closePanel();
@@ -264,7 +334,12 @@ export async function stageTechnique(){
       // dDd: "Messages shouldn't arrive as Information until the Resolve")
       // — delivery moved to resolveRound() (js/combat.js), matching how
       // Non-Combat's own Message Order already deferred correctly.
-      glyphs: currentTechniqueKey === 'message' ? glyphIds : undefined
+      glyphs: currentTechniqueKey === 'message' ? glyphIds : undefined,
+      // Influence's own picked Glyph/Axis/Direction (2026-08-22) — same
+      // "resolved after Message lands" deferral, in resolveRound().
+      influenceGlyph: currentTechniqueKey === 'influence' ? influenceGlyph : undefined,
+      influenceAxis: currentTechniqueKey === 'influence' ? influenceAxis : undefined,
+      influenceDirection: currentTechniqueKey === 'influence' ? influenceDirection : undefined
     };
     actor.sequence.push(entry);
     actor.apSpent = (actor.apSpent || 0) + entry.apCost;

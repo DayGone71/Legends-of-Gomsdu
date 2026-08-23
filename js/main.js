@@ -770,6 +770,16 @@ function wireEvents(){
   document.getElementById('toolbar-information').addEventListener('click', () => { AppState.inspectTargetId = null; togglePanel('information'); renderAll(); });
   document.getElementById('toolbar-personality').addEventListener('click', () => { AppState.inspectTargetId = null; togglePanel('personality'); renderAll(); });
   document.getElementById('toolbar-relationships').addEventListener('click', () => { AppState.inspectTargetId = null; togglePanel('relationships'); renderAll(); });
+  // Pillar cross-navigation (2026-08-22, per dDd, after playtesting: "All
+  // the Personality Pillars should be accessible to each other from each
+  // other's Panels") — jumps straight to Information/Personality/
+  // Relationships from inside any of the other two, deliberately NOT
+  // resetting inspectTargetId (unlike the 3 toolbar buttons above) — this
+  // is "keep looking at whoever I'm already looking at, just show me a
+  // different Pillar of them," not "go back to my own Character."
+  document.querySelectorAll('.pillar-nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => { openPanel(btn.dataset.pillar); renderAll(); });
+  });
   document.getElementById('toolbar-help').addEventListener('click', () => togglePanel('help'));
   document.getElementById('panel-close-character').addEventListener('click', closePanel);
   document.getElementById('panel-close-combat').addEventListener('click', closePanel);

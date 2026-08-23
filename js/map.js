@@ -1,6 +1,6 @@
 import { AppState } from './state.js';
 import { mutateTable, triggerRender } from './sync.js';
-import { escapeHtml, isDeathWounded, isDown, alliedActorIds, resolvePositionRef, resolveEntityRef, genId, timeNow } from './utils.js';
+import { escapeHtml, isDeathWounded, isDown, alliedActorIds, resolvePositionRef, resolveEntityRef, genId, timeNow, showBannerError } from './utils.js';
 import { showCharacterView } from './characterView.js';
 import { toggleActiveCharacter } from './activeCharacter.js';
 
@@ -16,29 +16,15 @@ const DEFAULT_HEIGHT = 14;
 // always have 7x7 as the view, instead of shrinking or expanding"). TILE_SIZE
 // is a flat px constant now (see renderMap's gridTemplateColumns), the same
 // at every map size and every screen width. VIEWPORT_TILES caps how many
-// Tiles are visible before the grid scrolls, regardless of the actual
-// map.width/map.height — a 7x7 Era 1 map fits with no scrolling at all, a
-// 14x14 Dev map or a 7x10 Era 2/3 map scrolls internally past that.
+// Tiles actually render at once, regardless of the real map.width/height —
+// a 7x7 Era 1 map fits with nothing left over, a 24x30 sandbox pans a
+// VIEWPORT_TILES x VIEWPORT_TILES window across the rest (2026-08-22, per
+// dDd — tile-clicker pan buttons, see panMap() below, not native/CSS scroll
+// over a fully-rendered grid; that's also what retired the scrollbar-gutter
+// measuring this file used to do here — nothing ever scrolls anymore).
 const TILE_SIZE = 44;
-const VIEWPORT_TILES = 7;
+export const VIEWPORT_TILES = 7;
 const TILE_GAP = 2; // matches #map-grid's own CSS `gap:2px` in css/panels.css
-
-// Real, measured OS/browser scrollbar width — varies (Windows Chrome ~15-17px,
-// macOS overlay scrollbars 0px, etc.), so guessing a constant risks either
-// wasting space or, worse, actually clipping a Tile column. Measured once via
-// the standard offsetWidth-vs-clientWidth trick on a throwaway scrolling div,
-// then cached — it can't change mid-session. Used by renderMap() to size
-// #map-grid's max-width around its own scrollbar-gutter reservation.
-let cachedScrollbarWidth = null;
-function scrollbarGutterWidth(){
-  if(cachedScrollbarWidth !== null) return cachedScrollbarWidth;
-  const probe = document.createElement('div');
-  probe.style.cssText = 'position:absolute; visibility:hidden; width:100px; height:100px; overflow:scroll;';
-  document.body.appendChild(probe);
-  cachedScrollbarWidth = probe.offsetWidth - probe.clientWidth;
-  document.body.removeChild(probe);
-  return cachedScrollbarWidth;
-}
 
 // width/height now optional (2026-08-20, per dDd's New Game Process —
 // different Scenes want different Map sizes: Era 1 is 7x7, Era 2/3 default
@@ -244,8 +230,8 @@ export function hasLineOfSight(table, from, to){
 // visible; this just brings enemies in line with that.
 function allEntities(table){
   const out = {};
-  Object.entries(table.players || {}).forEach(([id, p]) => { out[id] = { name: p.name || 'Unnamed', dead: isDeathWounded(p), facing: p.facing || FACING_DEFAULT, side: 'player' }; });
-  Object.entries(table.enemies || {}).forEach(([id, e]) => { out[id] = { name: e.name || 'Enemy', dead: isDeathWounded(e), facing: e.facing || FACING_DEFAULT, side: 'enemy' }; });
+  Object.entries(table.players || {}).forEach(([id, p]) => { out[id] = { name: p.name || 'Unnamed', dead: isDeathWounded(p), facing: p.facing || FACING_DEFAULT, side: 'player', empowered: !!(p.empoweredBy && p.empoweredBy.length) }; });
+  Object.entries(table.enemies || {}).forEach(([id, e]) => { out[id] = { name: e.name || 'Enemy', dead: isDeathWounded(e), facing: e.facing || FACING_DEFAULT, side: 'enemy', empowered: !!(e.empoweredBy && e.empoweredBy.length) }; });
   return out;
 }
 
@@ -341,13 +327,6 @@ export function addChunksAt(table, x, y, amount){
   table.map.chunks[idx] = Math.min(CHUNK_CEILING, (table.map.chunks[idx] || 0) + amount);
 }
 
-function showBannerError(msg){
-  const el = document.getElementById('banner-error');
-  if(!el) return;
-  el.textContent = msg;
-  el.classList.remove('hidden');
-  setTimeout(() => el.classList.add('hidden'), 5000);
-}
 
 // Actually relocates actorId (a Player, or an Enemy/NPC when Tata-driven) to
 // (x,y) — must be traversable, adjacent to their current position, and not
@@ -650,11 +629,14 @@ export function closeMapPopups(){
 // Positioned beside the Tile (left or right, never overlapping it) rather
 // than centered on top the way Move/Craft are — per dDd's spec, whichever
 // side keeps it closer to the center of the map so it's less likely to run
-// off the visible edge. Simplification, noted rather than hidden: "center"
-// here is the total map's own width, not the actually-scrolled-into-view
-// portion of a map bigger than the fixed viewport — close enough for every
-// Scene so far, worth revisiting if a wide scrolled map ever makes it read
-// wrong in practice.
+// off the visible edge. Fixed 2026-08-22 (was comparing against the map's
+// total width, not what's actually visible — flagged as a known gap since
+// 2026-08-21 and finally exercised for real once a bigger, panned map
+// existed): now compares against the current viewport window instead,
+// correct by construction now that renderMap only ever renders the visible
+// viewW x viewH slice (see panMap/renderMap) — every rendered Tile is on
+// screen, so "center of the viewport" and "center of what's visible" are
+// the same question again.
 function openOccupantPopup(table, x, y, anchorEl){
   const popup = document.getElementById('occupant-list-popup');
   if(!popup) return;
@@ -668,7 +650,8 @@ function openOccupantPopup(table, x, y, anchorEl){
   }).join('');
 
   const rect = anchorEl.getBoundingClientRect();
-  const showRight = x < table.map.width / 2;
+  const viewW = Math.min(VIEWPORT_TILES, table.map.width);
+  const showRight = (x - AppState.mapViewOffset.x) < viewW / 2;
   popup.style.top = rect.top + 'px';
   if(showRight){
     popup.style.left = (rect.right + 6) + 'px';
@@ -722,6 +705,19 @@ export function renderMap(){
   // since 2026-08-16, unused until now).
   const selfPos = positions[AppState.playerId];
 
+  // Viewport panning (2026-08-22, per dDd) — a fixed VIEWPORT_TILES x
+  // VIEWPORT_TILES window pans over the real map via tile-clicker buttons
+  // (panMap/panMapBack/panMapRest below) rather than native/CSS scroll over
+  // a fully-rendered grid. Clamped fresh every render — map size can change
+  // between renders (a new Scene loading) — and written back so AppState
+  // always reflects where the window actually landed, not a stale request.
+  const viewW = Math.min(VIEWPORT_TILES, map.width);
+  const viewH = Math.min(VIEWPORT_TILES, map.height);
+  const offsetX = Math.max(0, Math.min(AppState.mapViewOffset.x, map.width - viewW));
+  const offsetY = Math.max(0, Math.min(AppState.mapViewOffset.y, map.height - viewH));
+  AppState.mapViewOffset.x = offsetX;
+  AppState.mapViewOffset.y = offsetY;
+
   // Move Orders (2026-08-21) — reachability, computed once per render rather
   // than per-Tile, then looked up O(1) below for each Tile's tier class/badge.
   // Non-Combat only (Combat keeps the plain adjacent-only tryMoveActor, no
@@ -773,47 +769,58 @@ export function renderMap(){
   // of row 1/column 1 is empty) can't be filled correctly by auto-flow alone.
   const COL_OFFSET = 3; // data tiles start at grid-column 3+1=4; column 3 is the row-letter header
   const ROW_OFFSET = 3; // data tiles start at grid-row 3+1=4; row 3 is the column-number header
+  // Dedicated pan-button row/column (2026-08-22, per dDd — "It's supposed
+  // to have a dedicated row and column for the Scroll Bars"), one further
+  // out than the E/S axis-head labels so neither overlaps the other.
+  const PAN_COL = COL_OFFSET + viewW + 2;
+  const PAN_ROW = ROW_OFFSET + viewH + 2;
   // Fixed pixel Tiles, not minmax(34px,1fr) (2026-08-20, dDd's catch — "it
   // should be designed to always have 7x7 as the view, instead of shrinking
-  // or expanding"). The old 1fr sizing stretched every Tile to fill 60% of
-  // the row's width regardless of map size, so a 7x7 Era 1 map rendered with
-  // huge ~65px Tiles while the 14x14 Dev map rendered tiny ones — the Tile
-  // grid was reactive to the *container*, not a fixed viewport. TILE_SIZE is
-  // now a flat constant, identical at every map size and every screen width;
-  // VIEWPORT_TILES caps how much of the grid is visible at once (see the
-  // max-width/max-height block below) — anything beyond that scrolls, same
-  // as before, just measured in a fixed Tile count instead of a floor.
-  el.style.gridTemplateColumns = 'auto auto auto repeat(' + map.width + ', ' + TILE_SIZE + 'px)';
+  // or expanding"). TILE_SIZE is a flat constant, identical at every map
+  // size and every screen width. The grid now only ever renders the
+  // viewW x viewH window itself (2026-08-22, per dDd — a tile-clicker pan
+  // control replacing native/CSS scroll over a fully-rendered grid), so
+  // gridTemplateColumns/Rows are sized off viewW/viewH, not map.width/height.
+  el.style.gridTemplateColumns = 'auto auto auto repeat(' + viewW + ', ' + TILE_SIZE + 'px) auto auto';
   // Tile rows stay `auto` (unchanged from the 2026-08-17 fix) — `auto` lets
   // each row size itself to its tallest content, which is exactly TILE_SIZE
   // since every Tile is aspect-ratio:1 against its now-fixed-width column.
-  el.style.gridTemplateRows = 'auto auto auto repeat(' + map.height + ', auto)';
+  el.style.gridTemplateRows = 'auto auto auto repeat(' + viewH + ', auto) auto auto';
 
   // Compass + axis lines: N/W sit right by the compass (row2/col2), lines
   // run the full length of the tile grid, S/E land at the far edges — see
   // reference/CHANGELOG.md 2026-08-17 for the fix history. Rotation
   // (pressing the compass to cycle N/E/S/W and re-map the grid) is an
   // explicit reach item, not built yet — see reference/ROADMAP.md, Movement
-  // System.
+  // System. Back/Rest (2026-08-22, per dDd — "in line with the Compass")
+  // share the compass's own cell rather than claiming a grid slot of their
+  // own: Back undoes the last pan step, Rest recenters on your own Character.
   let html =
-    '<div class="map-corner" title="8-directional compass" style="grid-column:2; grid-row:2;"><span class="map-compass-icon">🧭</span></div>' +
+    '<div class="map-corner" title="8-directional compass" style="grid-column:2; grid-row:2;">' +
+      '<span class="map-compass-icon">🧭</span>' +
+      '<button class="map-pan-back" id="map-pan-back" title="Back (undo last pan)">↺</button>' +
+      '<button class="map-pan-rest" id="map-pan-rest" title="Rest (recenter on you)">⌂</button>' +
+    '</div>' +
     '<span class="map-axis-head n" style="grid-column:2; grid-row:1;">N</span>' +
     '<span class="map-axis-head w" style="grid-column:1; grid-row:2;">W</span>' +
-    '<span class="map-axis-head e" style="grid-column:' + (COL_OFFSET + map.width) + '; grid-row:2;">E</span>' +
-    '<span class="map-axis-head s" style="grid-column:2; grid-row:' + (ROW_OFFSET + map.height) + ';">S</span>' +
-    '<div class="map-axis-line horizontal" style="grid-row:2; grid-column:3 / ' + (COL_OFFSET + map.width) + ';"></div>' +
-    '<div class="map-axis-line vertical" style="grid-column:2; grid-row:3 / ' + (ROW_OFFSET + map.height) + ';"></div>' +
+    '<span class="map-axis-head e" style="grid-column:' + (COL_OFFSET + viewW) + '; grid-row:2;">E</span>' +
+    '<span class="map-axis-head s" style="grid-column:2; grid-row:' + (ROW_OFFSET + viewH) + ';">S</span>' +
+    '<div class="map-axis-line horizontal" style="grid-row:2; grid-column:3 / ' + (COL_OFFSET + viewW) + ';"></div>' +
+    '<div class="map-axis-line vertical" style="grid-column:2; grid-row:3 / ' + (ROW_OFFSET + viewH) + ';"></div>' +
     // The tile grid's own corner — a bare "0", the placeholder this spot
     // used before the compass existed at all, now that the compass has its
     // own separate cell above.
     '<div class="map-corner map-corner-zero" style="grid-column:' + COL_OFFSET + '; grid-row:' + ROW_OFFSET + ';">0</div>';
-  for(let x = 0; x < map.width; x++){
-    html += '<div class="map-col-header" style="grid-column:' + (COL_OFFSET + 1 + x) + '; grid-row:' + ROW_OFFSET + ';">' + columnLabel(map, x) + '</div>';
+  for(let vx = 0; vx < viewW; vx++){
+    const x = offsetX + vx;
+    html += '<div class="map-col-header" style="grid-column:' + (COL_OFFSET + 1 + vx) + '; grid-row:' + ROW_OFFSET + ';">' + columnLabel(map, x) + '</div>';
   }
 
-  for(let y = 0; y < map.height; y++){
-    html += '<div class="map-row-header" style="grid-column:' + COL_OFFSET + '; grid-row:' + (ROW_OFFSET + 1 + y) + ';">' + rowLabel(map, y) + '</div>';
-    for(let x = 0; x < map.width; x++){
+  for(let vy = 0; vy < viewH; vy++){
+    const y = offsetY + vy;
+    html += '<div class="map-row-header" style="grid-column:' + COL_OFFSET + '; grid-row:' + (ROW_OFFSET + 1 + vy) + ';">' + rowLabel(map, y) + '</div>';
+    for(let vx = 0; vx < viewW; vx++){
+      const x = offsetX + vx;
       const idx = tileIndex(map, x, y);
       const blocked = !map.tiles[idx];
       const here = occupants[idx] || [];
@@ -842,7 +849,7 @@ export function renderMap(){
       const styleParts = [];
       if(dTier){ styleParts.push('--down-color:' + DOWN_GRADIENT[dTier - 1]); styleParts.push('--down-reach:' + DOWN_REACH[dTier - 1] + '%'); }
       if(cTier){ styleParts.push('--chunk-color:' + PINK_GRADIENT[cTier - 1]); styleParts.push('--chunk-reach:' + CHUNK_REACH[cTier - 1] + '%'); }
-      styleParts.push('grid-column:' + (COL_OFFSET + 1 + x), 'grid-row:' + (ROW_OFFSET + 1 + y));
+      styleParts.push('grid-column:' + (COL_OFFSET + 1 + vx), 'grid-row:' + (ROW_OFFSET + 1 + vy));
       const style = ' style="' + styleParts.join(';') + '"';
 
       // Facing (2026-08-22) — a single occupant renders as a rotated Triangle
@@ -851,7 +858,11 @@ export function renderMap(){
       // multiple positioned Triangles on one Tile is the Mini-Tiles/Zoom
       // work (see reference/ROADMAP.md, Movement System's Map Evolution),
       // not yet built.
-      const facingColor = here.length === 1 ? (here[0].side === 'enemy' ? FACING_COLOR_NPC : FACING_COLOR_PLAYER) : null;
+      // Empowered (2026-08-22, per dDd, after playtesting — "changing color
+      // of Empowered Character Triangles to ally colors") — reads as Ally-
+      // Cyan regardless of actual side, same "you're one of mine now" cue
+      // Empower's own +1 Control/+1 AP is meant to convey.
+      const facingColor = here.length === 1 ? (here[0].empowered ? FACING_COLOR_PLAYER : here[0].side === 'enemy' ? FACING_COLOR_NPC : FACING_COLOR_PLAYER) : null;
       const label = here.length === 1
         ? '<span class="facing-marker" style="--facing-deg:' + FACING_DEGREES[here[0].facing || FACING_DEFAULT] + 'deg; --facing-color:' + facingColor + '"></span>'
         : (here.length ? escapeHtml(here.map(n => n.name[0]).join(',')) : '');
@@ -867,40 +878,45 @@ export function renderMap(){
     }
   }
   // Move Orders trail (2026-08-21) — a Tile-sized SVG overlay spanning the
-  // whole grid, sitting above every Tile (pointer-events:none, so it never
-  // steals a click). Its actual line content is filled in by updateMoveTrail
-  // below, off AppState.moveHoverTile — geometry only needs TILE_SIZE/
-  // TILE_GAP, the same constants the grid's own CSS Grid tracks use, so a
-  // Tile's pixel center here always matches its real rendered position.
-  const trailW = map.width * TILE_SIZE + (map.width - 1) * TILE_GAP;
-  const trailH = map.height * TILE_SIZE + (map.height - 1) * TILE_GAP;
-  html += '<svg id="move-trail-svg" style="grid-column:' + (COL_OFFSET + 1) + ' / span ' + map.width +
-    '; grid-row:' + (ROW_OFFSET + 1) + ' / span ' + map.height + ';" viewBox="0 0 ' + trailW + ' ' + trailH + '"></svg>';
+  // rendered viewport, sitting above every Tile (pointer-events:none, so it
+  // never steals a click). Its actual line content is filled in by
+  // updateMoveTrail below, off AppState.moveHoverTile — geometry only needs
+  // TILE_SIZE/TILE_GAP, the same constants the grid's own CSS Grid tracks
+  // use, so a Tile's pixel center here always matches its real rendered
+  // position (tileCenterPx below is viewport-offset-relative to match).
+  const trailW = viewW * TILE_SIZE + (viewW - 1) * TILE_GAP;
+  const trailH = viewH * TILE_SIZE + (viewH - 1) * TILE_GAP;
+  html += '<svg id="move-trail-svg" style="grid-column:' + (COL_OFFSET + 1) + ' / span ' + viewW +
+    '; grid-row:' + (ROW_OFFSET + 1) + ' / span ' + viewH + ';" viewBox="0 0 ' + trailW + ' ' + trailH + '"></svg>';
+
+  // Pan controls (2026-08-22, per dDd) — "a tile clicker. So, you click and
+  // it advances a tile. 2 or 3 buttons to change the distance it goes."
+  // Two distances per direction: one Tile, or a full page (viewW/viewH —
+  // a whole screen's worth at once). Horizontal buttons sit in the new
+  // dedicated PAN_ROW below the grid, vertical ones in the new dedicated
+  // PAN_COL beside it — both real Grid cells of their own, not squeezed
+  // into the Tile area.
+  html +=
+    '<div class="map-pan-row" style="grid-column:' + (COL_OFFSET + 1) + ' / span ' + viewW + '; grid-row:' + PAN_ROW + ';">' +
+      '<button class="map-pan-btn" data-pan-dx="-' + viewW + '" data-pan-dy="0" title="Page West">◀◀</button>' +
+      '<button class="map-pan-btn" data-pan-dx="-1" data-pan-dy="0" title="West">◀</button>' +
+      '<button class="map-pan-btn" data-pan-dx="1" data-pan-dy="0" title="East">▶</button>' +
+      '<button class="map-pan-btn" data-pan-dx="' + viewW + '" data-pan-dy="0" title="Page East">▶▶</button>' +
+    '</div>' +
+    '<div class="map-pan-col" style="grid-row:' + (ROW_OFFSET + 1) + ' / span ' + viewH + '; grid-column:' + PAN_COL + ';">' +
+      '<button class="map-pan-btn" data-pan-dx="0" data-pan-dy="-' + viewH + '" title="Page North">▲▲</button>' +
+      '<button class="map-pan-btn" data-pan-dx="0" data-pan-dy="-1" title="North">▲</button>' +
+      '<button class="map-pan-btn" data-pan-dx="0" data-pan-dy="1" title="South">▼</button>' +
+      '<button class="map-pan-btn" data-pan-dx="0" data-pan-dy="' + viewH + '" title="Page South">▼▼</button>' +
+    '</div>';
+
   el.innerHTML = html;
 
-  // Cap the visible viewport to VIEWPORT_TILES x VIEWPORT_TILES (2026-08-20)
-  // — measured off the real rendered header-block size (compass + axis
-  // labels + row/column headers, columns/rows 1-3) rather than a hardcoded
-  // guess, so this stays correct if that block's own look ever changes.
-  // Read AFTER el.innerHTML is set, so `auto` sizing reflects real content.
-  // A map smaller than the cap (nothing currently is, in every direction)
-  // just renders at its own natural size — max-width/height only ever
-  // shrinks-to-fit from above, never stretches a small grid up to it.
-  const colTracks = getComputedStyle(el).gridTemplateColumns.split(' ').map(parseFloat);
-  const rowTracks = getComputedStyle(el).gridTemplateRows.split(' ').map(parseFloat);
-  const headerW = colTracks.slice(0, COL_OFFSET).reduce((a, b) => a + b, 0) + COL_OFFSET * TILE_GAP;
-  const headerH = rowTracks.slice(0, ROW_OFFSET).reduce((a, b) => a + b, 0) + ROW_OFFSET * TILE_GAP;
-  // scrollbar-gutter:stable both-edges (css/panels.css) reserves real width
-  // for the vertical scrollbar's gutter on BOTH the left and right edge —
-  // real space taken out of the content box, on top of the Tiles
-  // themselves, even for a map exactly VIEWPORT_TILES wide that never
-  // actually needs to scroll. Measured live (scrollbarGutterWidth below)
-  // and added on both sides so a 7-wide Scene like Era 1 still shows all 7
-  // full Tiles instead of the gutter quietly eating into the last column.
-  // The spec only covers the block/vertical axis — there's no equivalent
-  // for a horizontal scrollbar's gutter, so maxHeight doesn't need this.
-  el.style.maxWidth = (headerW + VIEWPORT_TILES * TILE_SIZE + VIEWPORT_TILES * TILE_GAP + 2 * scrollbarGutterWidth()) + 'px';
-  el.style.maxHeight = (headerH + VIEWPORT_TILES * TILE_SIZE + VIEWPORT_TILES * TILE_GAP) + 'px';
+  document.getElementById('map-pan-back').onclick = (ev) => { ev.stopPropagation(); panMapBack(); };
+  document.getElementById('map-pan-rest').onclick = (ev) => { ev.stopPropagation(); panMapRest(); };
+  el.querySelectorAll('.map-pan-btn').forEach(btn => {
+    btn.onclick = (ev) => { ev.stopPropagation(); panMap(Number(btn.dataset.panDx), Number(btn.dataset.panDy)); };
+  });
 
   // Wire clicks once per render (simple; grid is small enough this is cheap).
   el.querySelectorAll('.map-tile').forEach(tile => {
@@ -955,8 +971,46 @@ export function renderMap(){
   updateMoveTrail();
 }
 
+// Viewport-relative (2026-08-22) — x/y are real map coordinates, but the
+// Move Trail SVG's own viewBox only ever spans the rendered viewport now
+// (see renderMap's trailW/trailH), so pixel positions inside it need to
+// subtract the current pan offset the same way the Tile grid's own
+// grid-column/row placement already does.
 function tileCenterPx(x, y){
-  return { cx: x * (TILE_SIZE + TILE_GAP) + TILE_SIZE / 2, cy: y * (TILE_SIZE + TILE_GAP) + TILE_SIZE / 2 };
+  const ox = AppState.mapViewOffset.x, oy = AppState.mapViewOffset.y;
+  return { cx: (x - ox) * (TILE_SIZE + TILE_GAP) + TILE_SIZE / 2, cy: (y - oy) * (TILE_SIZE + TILE_GAP) + TILE_SIZE / 2 };
+}
+
+// Pan controls (2026-08-22, per dDd — the tile-clicker Scroll Bar
+// replacement). mapViewHistory is a small undo stack for the Back button;
+// Rest recenters on the viewing Player's own Character. All local-only
+// (AppState.mapViewOffset), each viewer pans their own window independently
+// — actual clamping to the map's real bounds happens once, in renderMap,
+// on every render, so these just record the raw requested offset.
+function panMap(dx, dy){
+  if(!dx && !dy) return;
+  AppState.mapViewHistory.push({ ...AppState.mapViewOffset });
+  if(AppState.mapViewHistory.length > 20) AppState.mapViewHistory.shift();
+  AppState.mapViewOffset = { x: AppState.mapViewOffset.x + dx, y: AppState.mapViewOffset.y + dy };
+  renderMap();
+}
+
+function panMapBack(){
+  const prev = AppState.mapViewHistory.pop();
+  if(!prev) return;
+  AppState.mapViewOffset = prev;
+  renderMap();
+}
+
+function panMapRest(){
+  const table = AppState.table;
+  const pos = table && table.positions && table.positions[AppState.playerId];
+  if(!pos || !table.map) return;
+  const viewW = Math.min(VIEWPORT_TILES, table.map.width);
+  const viewH = Math.min(VIEWPORT_TILES, table.map.height);
+  AppState.mapViewHistory.push({ ...AppState.mapViewOffset });
+  AppState.mapViewOffset = { x: pos.x - Math.floor(viewW / 2), y: pos.y - Math.floor(viewH / 2) };
+  renderMap();
 }
 
 // Redraws just the Move Orders trail line (see the SVG built in renderMap)

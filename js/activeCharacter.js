@@ -67,9 +67,13 @@ export function resolveActiveCharacter(){
 
 // The Map Panel's new Active Character card (2026-08-22, per dDd — "In the
 // Map Panel, under the 3 buttons, we should have an Active Character
-// display. It shows Avatar, Name, and Key Stats"). Key Stats is Claude's own
-// call this pass: Wounds, AP, Focus, Control — the four numbers Combat's own
-// counters already lean on most, not an exhaustive sheet.
+// display. It shows Avatar, Name, and Key Stats"). Key Stats: Wounds, AP,
+// Focus, Control, plus Lightning/Lava/Attunement (added 2026-08-22 after
+// playtesting — dDd: "Lava and Lightning should appear on Active Character
+// Panel" / "Attunement should appear on Active Character Panel") — Lava and
+// Lightning only render when the Character actually has any (Living Stones
+// have neither; Gom has both), matching the same "don't show a stat that
+// isn't real for this Character" convention Combat's own Focus button uses.
 export function renderActiveCharacterDisplay(){
   const el = document.getElementById('active-character-display');
   if(!el) return;
@@ -87,6 +91,9 @@ export function renderActiveCharacterDisplay(){
       '<span class="active-char-stat">' + Math.max(0, (c.ap || 0) - (c.apSpent || 0)) + '/' + (c.ap || 0) + ' AP</span>' +
       '<span class="active-char-stat">' + Math.max(0, (c.focus || 0) - (c.focusSpent || 0)) + '/' + (c.focus || 0) + ' Focus</span>' +
       '<span class="active-char-stat">' + (c.control || 0) + ' Control</span>' +
+      (c.lightning > 0 ? '<span class="active-char-stat">' + Math.max(0, c.lightning - (c.lightningSpent || 0)) + '/' + c.lightning + ' Lightning</span>' : '') +
+      (c.lava > 0 ? '<span class="active-char-stat">' + Math.max(0, c.lava - (c.lavaSpent || 0)) + '/' + c.lava + ' Lava</span>' : '') +
+      '<span class="active-char-stat">' + (c.attunement || 0) + ' Attunement</span>' +
     '</div>';
   }
 
