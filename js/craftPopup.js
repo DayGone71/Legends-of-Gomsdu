@@ -2,9 +2,10 @@
 // clicking Craft on an occupied Tile shows only the Crafts actually relevant
 // there. Crafter Target Crafts (self-only, e.g. Channel) only show up when
 // the Tile is the Player's own; Crafts targeting another Character (Message,
-// Heart Attack, ...) only show up on someone else's Tile. Combat/Non-Combat
-// filtering applies too — outside an Encounter, only NONCOMBAT_TECHNIQUES
-// are offered.
+// Heart Attack, ...) only show up on someone else's Tile. The old Combat/
+// Non-Combat filtering (only NONCOMBAT_TECHNIQUES offered outside an
+// Encounter) is gone as of 2026-08-23, per dDd — every Craft/Power is
+// offered regardless of Encounter state now.
 //
 // Deliberately its own module, never imported by js/map.js — techniques.js
 // already imports js/map.js (getDistance/hasLineOfSight), so map.js
@@ -14,7 +15,7 @@
 // already are.
 
 import { AppState } from './state.js';
-import { TECHNIQUES, hasCategoryAccess, openTechniqueUse, NONCOMBAT_TECHNIQUES } from './techniques.js';
+import { TECHNIQUES, hasCategoryAccess, openTechniqueUse } from './techniques.js';
 import { resolveEntityRef } from './utils.js';
 import { dmSelectCraft, selectDMTarget, dmToggleMenu } from './dm.js';
 import { openPanel } from './panels.js';
@@ -41,7 +42,6 @@ function openCraftPopup(targetId, anchorEl){
   const me = resolveEntityRef(table, casterId);
   if(!me) return;
   const isSelf = targetId === casterId;
-  const inEncounter = !!table.inEncounter;
 
   const options = Object.entries(TECHNIQUES).filter(([key, def]) => {
     // Broadened 2026-08-22, per dDd ("Focus Powers should work through the
@@ -51,7 +51,6 @@ function openCraftPopup(targetId, anchorEl){
     if(def.group !== 'Craft' && def.group !== 'Powers') return false;
     if(!hasCategoryAccess(me, def)) return false;
     if(!!def.selfOnly !== isSelf) return false;
-    if(!inEncounter && !NONCOMBAT_TECHNIQUES.includes(key)) return false;
     return true;
   });
 

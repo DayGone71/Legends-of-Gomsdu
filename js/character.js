@@ -50,10 +50,12 @@ export const SPECIES = {
     caps: { ap: [0, 100], flow: [0, 50], recovery: [0, 50], power: [0, 50], quickness: [0, 50], resilience: [0, 50], lightning: [0, 10], lava: [0, 10], focus: [0, 10], control: [0, 10], attunement: [0, 10] } // per creator, "can stay for now"
   },
   microSingularity: {
-    name: 'Micro-Singularity', // Gom's own Species — see gomsdu-codex.md Cosmology, "a tiny White Orb"
-    deathWounds: 10, bodyParts: 6, // no real numbers given yet — mirrors Humanoid, comfortably covers Gom's own given stats
-    tier5: { left: null, right: null }, // doesn't apply to Gom himself
-    caps: { ap: [0, 100], flow: [0, 50], recovery: [0, 50], power: [0, 50], quickness: [0, 50], resilience: [0, 50], lightning: [0, 10], lava: [0, 10], focus: [0, 10], control: [0, 10], attunement: [0, 10] }
+    name: 'Micro-Singularity', // Gom's (and Kulkrow's) own Species — see gomsdu-codex.md Cosmology, "a tiny White Orb"
+    deathWounds: 10, bodyParts: 1, // corrected 2026-08-23, per creator — same treatment as Rock: "Gom should also only have 1 Body Part, cause of his Species," not the Humanoid-standard 6
+    tier5: { left: null, right: null }, // doesn't apply to Gom/Kulkrow themselves
+    // attunement corrected 2026-08-23, per creator — Gom's real sheet runs Attunement 100; the old
+    // [0,10] cap (copied from Humanoid) silently clamped it down to 10 on any sheet save.
+    caps: { ap: [0, 100], flow: [0, 50], recovery: [0, 50], power: [0, 50], quickness: [0, 50], resilience: [0, 50], lightning: [0, 10], lava: [0, 10], focus: [0, 10], control: [0, 10], attunement: [0, 100] }
   }
 };
 
@@ -341,38 +343,27 @@ export function syncFieldOnBlur(){
 // confirmation from the ambient autosave's plain "Saved".
 export async function saveCharacter(hintText, announce){
   const me = AppState.table.players[AppState.playerId] || {};
-  const prevApSpent = me.apSpent || 0;
-  const prevFocusSpent = me.focusSpent || 0;
-  const prevSequence = me.sequence || [];
-  const prevHitPercent = me.hitPercent;
-  const prevPossessors = me.possessors || [];
-  const prevMiniParty = me.miniParty || [];
-  const prevJoinOrder = me.joinOrder;
-  const prevDeparted = me.departed;
   const sheetStats = readStatsFromSheet();
   // The sheet's Flow field is a single "rating" number (flowMax); the current,
   // possibly mid-combat Flow value is preserved rather than reset by unrelated
   // edits, and just clamped down if the new max is now lower than it.
   const prevFlow = me.flow != null ? me.flow : sheetStats.flowMax;
+  // Rewritten 2026-08-23 — found live while fixing the Glyph Memory merge:
+  // this used to replace t.players[id] wholesale from *only* sheetStats plus
+  // a hand-picked list of exceptions (apSpent/focusSpent/sequence/hitPercent/
+  // possessors/miniParty/joinOrder/departed), each added reactively after
+  // being "found live" losing a field on save. mindeye, personality,
+  // shadowLinks, maintainingEmpower, facing, orders, lightningSpent, and
+  // lavaSpent were never added to that list — every one of them was silently
+  // wiped by any sheet save, autosave included. Spreading `me` first and
+  // layering the sheet's own fields on top means every runtime field the
+  // sheet doesn't own survives by construction — a *future* new one doesn't
+  // need its own hand-added exception here.
   const updated = {
+    ...me,
     ...sheetStats,
     name: document.getElementById('ch-name').value.trim() || 'Unnamed',
-    flow: Math.min(prevFlow, sheetStats.flowMax),
-    apSpent: prevApSpent,
-    focusSpent: prevFocusSpent,
-    sequence: prevSequence,
-    // Not sheet fields — combat-runtime/relationship state that a sheet edit shouldn't reset.
-    hitPercent: prevHitPercent,
-    possessors: prevPossessors,
-    miniParty: prevMiniParty,
-    // joinOrder/departed (2026-08-17) — also not sheet fields. This whole
-    // function replaces t.players[id] wholesale rather than patching, so
-    // anything not explicitly carried forward here silently reverts to
-    // undefined on every save. Found live: saving a sheet was resetting
-    // joinOrder, which read as "moved me up one place" in the Roster since
-    // a missing joinOrder sorts first.
-    joinOrder: prevJoinOrder,
-    departed: prevDeparted
+    flow: Math.min(prevFlow, sheetStats.flowMax)
   };
   const prevName = me.name;
   const ok = await mutateTable(t => {

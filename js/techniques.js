@@ -46,24 +46,6 @@ const MOVEMENT_EXTRA_IDS = ['SUU', 'KULOG', 'KALAG'];
 
 const RESOURCE_LABELS = { ap: 'AP', focus: 'Focus', flow: 'Flow', lightning: 'Lightning', lava: 'Lava' };
 
-// Techniques stageable outside an Encounter (2026-08-21, per dDd), each
-// going through the Non-Combat Order flow (js/noncombat.js's
-// resolveNonCombatRound()) instead of the AP-tracked Combat sequence.
-// `empower`/`influence` added 2026-08-22, per dDd ("Focus Powers should
-// work through the click pop up") — Gom keeping the Living Stone Empowered
-// is fundamentally a standing, Non-Combat state, not a Combat-only action.
-// Neither Technique's actual effect is mechanically resolved yet (same
-// "stages/costs/logs, does nothing yet" state Combat's own casting already
-// has — per dDd's own observation: "Empower doesn't do anything, but can be
-// Crafted") — this only unblocks staging them outside Combat, not the
-// missing effect itself (see ROADMAP.md's Techniques Panel section).
-// `current` added 2026-08-22 too — animating/deanimating an Inert Stone (its
-// Life/Lightning toggle 0<->1, data/techniques.json) is the same kind of
-// standing sandbox action. Staged/costed/logged but not yet mechanically
-// resolved (same "does nothing yet" state Empower itself started in before
-// its own build later the same day — see CHANGELOG.md).
-export const NONCOMBAT_TECHNIQUES = ['message', 'channel', 'empower', 'influence', 'current'];
-
 // Technique Lists (2026-08-16) — per-Character access, but at the category
 // level dDd asked for (Flow Powers/Focus Powers/Lightning Crafts/Lava
 // Crafts), not per-individual-Technique. Reuses each TECHNIQUES entry's
@@ -73,6 +55,14 @@ export const NONCOMBAT_TECHNIQUES = ['message', 'channel', 'empower', 'influence
 // for Testing purposes," not a retroactive lockout.
 const CATEGORY_BY_COLUMN = { Flow: 'flowPowers', Focus: 'focusPowers', Lightning: 'lightningCrafts', Lava: 'lavaCrafts' };
 export function hasCategoryAccess(actor, def){
+  // Mastery (2026-08-23, per dDd — "it's just Yom") — exclusive to Yom's own
+  // archetype specifically, not the general techniqueAccess flag system the
+  // other columns use, and not gated by category:'deity' either — Gom and
+  // Kulkrow are also category:'deity' (see data/characters.json) but have no
+  // claim on Master Techniques. Seed itself is never manually cast through
+  // this gate in practice (js/scenes.js's seedScene() invokes it directly);
+  // this exists so the gate is still correct if anything else ever checks it.
+  if(def && def.column === 'Mastery') return !!(actor && actor.archetype === 'Yom');
   const catKey = def && CATEGORY_BY_COLUMN[def.column];
   if(!catKey) return true;
   const access = actor && actor.techniqueAccess;
@@ -142,8 +132,14 @@ export function openTechniqueUse(key, presetTargetId){
         const pos = resolvePositionRef(table, id);
         let suffix = '', disabled = '';
         if(myPos && pos && table.map){
+          // Shadow Possession Link (2026-08-23, per dDd) — "0 Range works on
+          // anything with a Current." A target already linked to this Player
+          // ignores Range entirely on every Technique, not just Current
+          // itself; only the very first ignition (no Link yet) needs real
+          // proximity.
+          const linked = entity.shadowLinkedBy && entity.shadowLinkedBy.includes(AppState.playerId);
           const dist = getDistance(myPos, pos);
-          if(dist > def.range){ suffix = ' (out of Range: ' + dist + ')'; disabled = 'disabled'; }
+          if(!linked && dist > def.range){ suffix = ' (out of Range: ' + dist + ')'; disabled = 'disabled'; }
           else if(!hasLineOfSight(table, myPos, pos)){ suffix = ' (no line of sight)'; disabled = 'disabled'; }
         }
         return '<option value="' + id + '" ' + disabled + '>' + escapeHtml(entity.name || 'Unnamed') + suffix + '</option>';
@@ -212,20 +208,25 @@ function influenceGlyphOptionsHtml(table, targetId){
 // `includeEmpty` (2026-08-22, per dDd — Message now sends up to 3 Glyphs at
 // once) adds a leading "— none —" option, for the 2nd/3rd optional picker
 // slots; the 1st slot stays required, same as before.
-export function glyphOptionsHtml(includeEmpty){
+// `selectedValue` (2026-08-23, per dDd — the Script builder shouldn't wipe
+// itself on every re-render) lets a caller pre-select an option instead of
+// always defaulting to the first one. Optional — every existing caller
+// passing just `includeEmpty` behaves exactly as before.
+export function glyphOptionsHtml(includeEmpty, selectedValue){
   if(!GLYPH_DATA) return '';
+  const sel = (id) => id === selectedValue ? ' selected' : '';
   const movementIds = DIRECTION_GLYPHS.map(d => d.id).concat(MOVEMENT_EXTRA_IDS);
   const movementExtras = MOVEMENT_EXTRA_IDS
     .map(id => GLYPH_DATA.glyphs.find(g => g.id === id))
     .filter(Boolean);
   const otherGlyphs = GLYPH_DATA.glyphs.filter(g => !movementIds.includes(g.id));
-  const empty = includeEmpty ? '<option value="">— none —</option>' : '';
+  const empty = includeEmpty ? '<option value=""' + sel('') + '>— none —</option>' : '';
   return empty + '<optgroup label="Movement">' +
-      DIRECTION_GLYPHS.map(d => '<option value="' + escapeHtml(d.id) + '">' + escapeHtml(d.label) + '</option>').join('') +
-      movementExtras.map(g => '<option value="' + escapeHtml(g.id) + '">' + escapeHtml(g.id) + '</option>').join('') +
+      DIRECTION_GLYPHS.map(d => '<option value="' + escapeHtml(d.id) + '"' + sel(d.id) + '>' + escapeHtml(d.label) + '</option>').join('') +
+      movementExtras.map(g => '<option value="' + escapeHtml(g.id) + '"' + sel(g.id) + '>' + escapeHtml(g.id) + '</option>').join('') +
     '</optgroup>' +
     '<optgroup label="Other">' +
-      otherGlyphs.map(g => '<option value="' + escapeHtml(g.id) + '">' + escapeHtml(g.id) + '</option>').join('') +
+      otherGlyphs.map(g => '<option value="' + escapeHtml(g.id) + '"' + sel(g.id) + '>' + escapeHtml(g.id) + '</option>').join('') +
     '</optgroup>';
 }
 
@@ -253,15 +254,19 @@ export async function stageTechnique(){
     if(!influenceGlyph){ showBannerError('Pick which Information to Influence first.'); return; }
   }
 
-  // Non-Combat Round (2026-08-21, per dDd) — Message and Channel ("Crafter
-  // recovers 1 Lightning Point") are staged outside an Encounter through the
-  // same stage-then-resolve Order flow Move uses (js/noncombat.js's
-  // resolveNonCombatRound()), not the AP-tracked Combat sequence below.
+  // Non-Combat Round (2026-08-21, per dDd) — every Technique is stageable
+  // outside an Encounter through the same stage-then-resolve Order flow Move
+  // uses (js/noncombat.js's resolveNonCombatRound()), not the AP-tracked
+  // Combat sequence below. The old NONCOMBAT_TECHNIQUES allow-list (2026-08-23,
+  // per dDd: "close the distinction between Combat and Non-Combat Techniques/
+  // Powers... it doesn't do anything on the front-end") is gone — a
+  // Technique with no real Non-Combat resolution logic just logs the same
+  // "not yet mechanically resolved" placeholder Combat already falls back to
+  // (js/noncombat.js's processOrders), instead of being blocked outright.
   // Non-Combat doesn't scale to AP, per dDd, so AP costs are skipped
   // entirely here; every other resource cost is still charged immediately
   // at staging, same as Combat.
   if(!AppState.table.inEncounter){
-    if(!NONCOMBAT_TECHNIQUES.includes(currentTechniqueKey)){ showBannerError('Techniques can only be staged during an Encounter.'); return; }
     for(const [resource, amount] of Object.entries(def.costs)){
       if(resource === 'ap') continue;
       if(remaining(me, resource) < amount){ showBannerError('Not enough ' + RESOURCE_LABELS[resource] + ' left.'); return; }
@@ -289,11 +294,11 @@ export async function stageTechnique(){
         actor.orders.push({ id: genId(), kind: 'influence', targetId, targetName: target.name, glyph: influenceGlyph, axis: influenceAxis, direction: influenceDirection });
         t.log.push({ type: 'system', text: (actor.name || 'Someone') + ' orders Influence on ' + target.name + ' (' + influenceGlyph + ')', time: timeNow() });
       }else{
-        // Generic Non-Combat Order (2026-08-22, per dDd) — any other
-        // NONCOMBAT_TECHNIQUES entry (Empower) stages the same way. This
-        // used to be a hard if/else between exactly Message and Channel —
-        // adding Empower without generalizing it would have silently pushed
-        // a wrong-shaped Channel-style order instead.
+        // Generic Non-Combat Order (2026-08-22, per dDd) — every other
+        // Technique stages the same way. This used to be a hard if/else
+        // between exactly Message and Channel — adding Empower without
+        // generalizing it would have silently pushed a wrong-shaped
+        // Channel-style order instead.
         actor.orders.push({ id: genId(), kind: currentTechniqueKey, targetId, targetName: target.name });
         t.log.push({ type: 'system', text: (actor.name || 'Someone') + ' orders ' + def.name + ' on ' + target.name, time: timeNow() });
       }
@@ -310,8 +315,11 @@ export async function stageTechnique(){
   const myPos = AppState.table.positions && AppState.table.positions[AppState.playerId];
   const targetPos = resolvePositionRef(AppState.table, targetId);
   if(myPos && targetPos){
+    // Shadow Possession Link bypasses Range — see the matching note in
+    // openTechniqueUse above.
+    const linked = target.shadowLinkedBy && target.shadowLinkedBy.includes(AppState.playerId);
     const dist = getDistance(myPos, targetPos);
-    if(dist > def.range){ showBannerError('Target is out of Range (' + dist + ' > ' + def.range + ').'); return; }
+    if(!linked && dist > def.range){ showBannerError('Target is out of Range (' + dist + ' > ' + def.range + ').'); return; }
     if(!hasLineOfSight(AppState.table, myPos, targetPos)){ showBannerError('No line of sight to target.'); return; }
   }
 

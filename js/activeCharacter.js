@@ -13,15 +13,33 @@
 
 import { AppState } from './state.js';
 import { escapeHtml, isDeathWounded } from './utils.js';
+import { BUILDS } from './character.js';
 
-// The Architect / The Adversary (2026-08-22, per dDd) — TATA's own default
-// Active Character. Not a real table.enemies entry — "no Stats, just blank
-// space for now," eventually growing its own handler/helper tools (generate
-// content, write Scripts, alter world-level things, nudge chance). Its
-// display name switches to "The Adversary" specifically inside a Combat
-// Encounter, "The Architect" otherwise.
-function architectName(){
-  return (AppState.table && AppState.table.inEncounter) ? 'The Adversary' : 'The Architect';
+// Yom replaces the old placeholder (2026-08-23, per dDd — "TATA is kind of
+// wack... we could have Yom be the default Active Character, instead of
+// using the Architect Adversary placeholder"). TATA itself stood for "The
+// Architect and The Adversary" (see reference/dialogue-system.md's Naming
+// note), flagged as needing a rename since 2026-08-15 — this finally
+// resolves that flag, not just cosmetically: the old placeholder had "no
+// Stats, just blank space for now," where Yom is a real Build (data/
+// characters.json) with real Stats and a real (limited) Crafts/Powers kit.
+// Still not a real table.enemies entry, same as the old placeholder — Yom
+// has no Map position and is never targetable/interactable there; he acts
+// only through Seed (his one Master Technique, see js/scenes.js's
+// seedScene()), never through the normal per-Tile Craft popup. Built fresh
+// off BUILDS.yom every call rather than cached, same reasoning `wounds`/
+// `apSpent`-style fields would need if he ever gained persisted state later
+// — right now he never takes damage or spends a resource that needs to
+// survive between renders, so there's nothing to persist yet.
+function yomDisplayCharacter(){
+  const b = BUILDS.yom;
+  if(!b) return null;
+  return {
+    wounds: 0, woundsMax: b.woundsMax, ap: b.ap, apSpent: 0,
+    focus: b.focus, focusSpent: 0, control: b.control,
+    lightning: b.lightning, lightningSpent: 0, lava: b.lava, lavaSpent: 0,
+    attunement: b.attunement
+  };
 }
 
 // Toggle, per dDd's exact spec: clicking a Character's "Make Active" button
@@ -42,8 +60,8 @@ export function toggleActiveCharacter(id){
 }
 
 // Resolves what's actually Active right now into one normalized shape the
-// display card renders directly off. `character` is the real stat object
-// (null for The Architect, which has none yet).
+// display card renders directly off. `character` is the real stat object —
+// Yom's own (see yomDisplayCharacter above) when nobody's been made Active.
 export function resolveActiveCharacter(){
   const table = AppState.table;
   if(!table) return null;
@@ -60,7 +78,7 @@ export function resolveActiveCharacter(){
     // Dead/removed since being made Active — fall back to the default
     // rather than a display pointing at nothing.
     if(id){ AppState.activeCharacterId = null; AppState.actingEnemyId = null; }
-    return { name: architectName(), side: 'architect', character: null };
+    return { name: 'Yom', side: 'yom', character: yomDisplayCharacter() };
   }
   return { name: enemy.name || 'Enemy', side: 'enemy', character: enemy };
 }

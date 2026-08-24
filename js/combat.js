@@ -4,7 +4,8 @@ import { escapeHtml, timeNow, targetShorthand, computeEntryTick, computeCounterM
 import { removeEnemy } from './dm.js';
 import { TECHNIQUES } from './techniques.js';
 import { MAX_MINI_PARTY } from './possession.js';
-import { addChunksAt } from './map.js';
+import { addChunksAt, applySpillAt, tickLavaTiles } from './map.js';
+import { BUILDS } from './character.js';
 import { freezeSequencerReveal } from './sequencer.js';
 
 export function renderTargetRange(){
@@ -462,11 +463,22 @@ export function applyRecoveryTick(actor){
 // not one attunement for a long time."). NOT a per-Round drain — the first
 // pass literally decremented actor.attunement every Round, which was wrong;
 // Attunement never actually depletes over time on its own. The real cost is
-// a live debuff sized by how many Empower relationships are CURRENTLY
-// active at once (breadth, not duration), applied only where Attunement's
-// own effect is read — the base stat itself is never mutated.
+// a live debuff sized by how many upkeep relationships are CURRENTLY active
+// at once (breadth, not duration), applied only where Attunement's own
+// effect is read — the base stat itself is never mutated.
+//
+// Generalized 2026-08-23, per dDd — Shadow Possession Links (js/combat.js's
+// 'current' technique handling below) bill against this exact same pool,
+// not a separate one: "There should just be one pool, empower pours into
+// it, shadow possession pours into it, any other things in the future pour
+// into it." totalUpkeepCount() is the one place that sum lives — a future
+// third upkeep source only has to add its own array here.
+function totalUpkeepCount(actor){
+  return (actor.maintainingEmpower || []).length + (actor.shadowLinks || []).length;
+}
+
 export function effectiveAttunement(actor){
-  return Math.max(0, (actor.attunement || 0) - (actor.maintainingEmpower || []).length);
+  return Math.max(0, (actor.attunement || 0) - totalUpkeepCount(actor));
 }
 
 export function applyAttunementTick(actor){
@@ -478,21 +490,54 @@ export function applyAttunementTick(actor){
 }
 
 // Cleanup pass only now (2026-08-22, corrected alongside the above) — drops
-// a maintained Empower relationship whose Target no longer resolves (dead/
-// removed), so a stale entry doesn't keep counting against
-// effectiveAttunement forever. No longer a drain/cancellation tick.
+// a maintained Empower relationship or Shadow Possession Link whose Target
+// no longer resolves (dead/removed), so a stale entry doesn't keep counting
+// against effectiveAttunement forever. No longer a drain/cancellation tick.
 export function tickEmpowerUpkeep(t, actorId, actor){
-  if(!actor.maintainingEmpower || !actor.maintainingEmpower.length) return;
-  actor.maintainingEmpower = actor.maintainingEmpower.filter(targetId => !!resolveEntityRef(t, targetId));
+  if(actor.maintainingEmpower && actor.maintainingEmpower.length){
+    actor.maintainingEmpower = actor.maintainingEmpower.filter(targetId => !!resolveEntityRef(t, targetId));
+  }
+  if(actor.shadowLinks && actor.shadowLinks.length){
+    actor.shadowLinks = actor.shadowLinks.filter(targetId => !!resolveEntityRef(t, targetId));
+  }
 }
 
-// Whether actor can take on one more simultaneous Empower relationship —
-// "It's about having lots of attunements at once": capped at the actor's
-// own base Attunement stat, checked once, at the moment a NEW relationship
-// would start (not a Round-by-Round check — existing relationships are
-// never force-cancelled by this).
+// Whether actor can take on one more simultaneous upkeep relationship —
+// Empower and Shadow Possession Links share this one check now (see
+// totalUpkeepCount above). "It's about having lots of attunements at once":
+// capped at the actor's own base Attunement stat, checked once, at the
+// moment a NEW relationship would start (not a Round-by-Round check —
+// existing relationships are never force-cancelled by this). Kept under its
+// original name since every existing call site (Empower, here and in
+// js/noncombat.js) already imports it — genuinely generic now, not just in
+// name.
 export function canMaintainAnotherEmpower(actor){
-  return (actor.maintainingEmpower || []).length < (actor.attunement || 0);
+  return totalUpkeepCount(actor) < (actor.attunement || 0);
+}
+
+// Spawns a real Enemy Character from a BUILDS template at a specific Tile —
+// same field set as js/dm.js's addEnemy(), just placed at (x,y) instead of
+// nextEnemyPosition(). Used by Separation/Infuse (2026-08-23) to turn a
+// Molten Lava Tile into Inert Stone / a Molten One, matching the existing
+// "Objects are just Characters with almost no Stats" precedent.
+export function spawnBuildAt(t, buildKey, x, y){
+  const b = BUILDS[buildKey];
+  if(!b) return null;
+  if(!t.enemies) t.enemies = {};
+  if(!t.positions) t.positions = {};
+  const id = 'e_' + Math.random().toString(36).slice(2, 8);
+  const count = Object.values(t.enemies).filter(e => e.archetype === b.archetype).length + 1;
+  t.enemies[id] = {
+    archetype: b.archetype, name: b.archetype + ' #' + count, num: count,
+    wounds: b.wounds, woundsMax: b.woundsMax, ap: b.ap, flow: b.flow, flowMax: b.flowMax, recovery: b.recovery, power: b.power,
+    quickness: b.quickness, resilience: b.resilience, lightning: b.lightning, lava: b.lava, focus: b.focus,
+    control: b.control ?? 0, attunement: b.attunement ?? 0, life: b.life ?? 1,
+    species: b.species, deathWounds: b.deathWounds, body: b.body ? [...b.body] : undefined,
+    techniqueAccess: b.techniqueAccess, passiveSpill: b.passiveSpill,
+    apSpent: 0, focusSpent: 0, sequence: [], possessedBy: null
+  };
+  t.positions[id] = { x, y };
+  return t.enemies[id];
 }
 
 // Commits some or all of this round's remaining AP to resting instead of acting.
@@ -685,20 +730,87 @@ export async function resolveRound(){
           }
           return;
         }
+        // Current (2026-08-23, per dDd) — Gom's LiC, starts and stops the
+        // Shadow Possession Link. Same toggle either direction: an unlinked
+        // Target (Inert Stone, Life 0) ignites — Life 0->1, Lightning 0->1,
+        // and the Link itself is what "brought them to life," so it forms in
+        // the same action (Gom can't un-know a Stone he just ignited). A
+        // Target already linked to this actor extinguishes instead — Life/
+        // Lightning both drop back to 0, Link removed. Costs one shared
+        // upkeep slot with Empower (see canMaintainAnotherEmpower/
+        // totalUpkeepCount above) — "one pool, empower pours into it, shadow
+        // possession pours into it."
+        if(entry.techniqueKey === 'current'){
+          if(!target) return;
+          if(!actor.shadowLinks) actor.shadowLinks = [];
+          if(!target.shadowLinkedBy) target.shadowLinkedBy = [];
+          const alreadyLinked = target.shadowLinkedBy.includes(item.actorId);
+          if(alreadyLinked){
+            target.shadowLinkedBy = target.shadowLinkedBy.filter(id => id !== item.actorId);
+            actor.shadowLinks = actor.shadowLinks.filter(id => id !== entry.targetId);
+            target.life = 0;
+            target.lightning = 0;
+            logCombat(targetName, 'Current withdrawn — Life and Lightning drop to 0. Shadow Possession Link ended.');
+          }else{
+            if(!canMaintainAnotherEmpower(actor)){
+              logCombat(targetName, 'Not enough Attunement to hold another Link — already maintaining ' + totalUpkeepCount(actor) + '.');
+            }else{
+              target.shadowLinkedBy.push(item.actorId);
+              actor.shadowLinks.push(entry.targetId);
+              target.life = 1;
+              target.lightning = 1;
+              logCombat(targetName, 'Given a Current — Life and Lightning rise to 1. Shadow Possession Link established.');
+            }
+          }
+          return;
+        }
         if(entry.techniqueKey === 'influence'){
           pendingInfluences.push({ targetId: entry.targetId, glyph: entry.influenceGlyph, axis: entry.influenceAxis, direction: entry.influenceDirection });
           logCombat(targetName, 'Influence staged — resolves after this Round’s Messages land.');
           return;
         }
+        // Separation, First Era behavior (2026-08-23, per dDd — see
+        // reference/ROADMAP.md's Possession & Kulkrow Direct Control): only
+        // works on a Molten Lava Tile, converts it to Inert Stone. The old
+        // any-Tile-to-Obstacle behavior is Third Era, not built — no Era
+        // state exists on the table yet to gate on, and First Era is the
+        // only content that exists right now, so this always runs the First
+        // Era version.
         if(entry.techniqueKey === 'separation'){
           const pos = t.positions && t.positions[item.actorId];
-          let result = def ? def.effect : 'Effect not yet implemented';
-          if(pos && t.map && pos.x + 1 < t.map.width){
-            t.map.tiles[pos.y * t.map.width + (pos.x + 1)] = 0;
+          const idx = pos && t.map && pos.x + 1 < t.map.width ? pos.y * t.map.width + (pos.x + 1) : null;
+          if(idx === null){
+            logCombat(targetName, 'No room to the right — no Tile changed.');
+          }else if(!t.map.lava || t.map.lava[idx] !== 2){
+            logCombat(targetName, 'Nothing to Separate — that Tile isn’t Molten Lava.');
           }else{
-            result += ' (no room to the right — no Tile changed)';
+            t.map.lava[idx] = 0;
+            const nx = pos.x + 1, ny = pos.y;
+            t.map.tiles[idx] = 1;
+            const spawned = spawnBuildAt(t, 'inert-stone', nx, ny);
+            logCombat(targetName, spawned ? 'Molten Lava cools into ' + spawned.name + '.' : 'Separation fails — no Inert Stone template found.');
           }
-          logCombat(targetName, result);
+          return;
+        }
+        // Infuse (2026-08-23, per dDd) — Kulkrow's version of active
+        // possession: converts a Molten Lava Tile into a Molten One, same
+        // Molten-stage requirement as Separation above, opposite outcome
+        // (a controlled entity instead of an inert one). Deliberately not
+        // spawning a placeholder Character — Molten Ones don't have a real
+        // stat block yet (tied to the still-open Cube/Pyramid/Ball Species
+        // thread), so this stages/costs/logs correctly but doesn't create
+        // anything yet, same state Current/Empower/Influence were all in
+        // before their own real builds landed.
+        if(entry.techniqueKey === 'infuse'){
+          const pos = t.positions && t.positions[item.actorId];
+          const idx = pos && t.map && pos.x + 1 < t.map.width ? pos.y * t.map.width + (pos.x + 1) : null;
+          if(idx === null){
+            logCombat(targetName, 'No room to the right — no Tile changed.');
+          }else if(!t.map.lava || t.map.lava[idx] !== 2){
+            logCombat(targetName, 'Nothing to Infuse — that Tile isn’t Molten Lava.');
+          }else{
+            logCombat(targetName, 'Molten Lava is ready to Infuse — Molten Ones aren’t mechanically resolved yet (no Stat block exists for them).');
+          }
           return;
         }
         // Possess (2026-08-16): converts the target Enemy into a real Mini-
@@ -822,6 +934,15 @@ export async function resolveRound(){
     Object.entries(t.players || {}).forEach(([id, p]) => { if(!isDeathWounded(p)){ applyRecoveryTick(p); applyAttunementTick(p); tickEmpowerUpkeep(t, id, p); } });
     Object.entries(t.enemies || {}).forEach(([id, e]) => { if(!isDeathWounded(e)){ applyRecoveryTick(e); applyAttunementTick(e); tickEmpowerUpkeep(t, id, e); } });
     miniPartyStubs.forEach(mp => { if(!isDeathWounded(mp)){ applyRecoveryTick(mp); applyAttunementTick(mp); } });
+
+    // Kulkrow's Spill (2026-08-23) — passive, always-on, runs for any living
+    // actor flagged passiveSpill regardless of AP/Attunement, same "can't be
+    // stopped" spec as Empower/Recovery ticking above. Tile-State itself
+    // advances one stage right after, same place the other end-of-round
+    // ticks live.
+    Object.entries(t.players || {}).forEach(([id, p]) => { if(p.passiveSpill && !isDeathWounded(p) && t.positions && t.positions[id]) applySpillAt(t, t.positions[id].x, t.positions[id].y); });
+    Object.entries(t.enemies || {}).forEach(([id, e]) => { if(e.passiveSpill && !isDeathWounded(e) && t.positions && t.positions[id]) applySpillAt(t, t.positions[id].x, t.positions[id].y); });
+    tickLavaTiles(t);
 
     // AP is still a flat per-round allowance — sequence/apSpent always clear.
     // Focus/Lightning/Lava are NOT reset here anymore (2026-08-16) — like

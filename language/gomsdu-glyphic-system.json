@@ -1491,6 +1491,24 @@
           "primitive": "new-chevron-south"
         }
       ]
+    },
+    {
+      "id": "BA",
+      "sound": "ba",
+      "meaning": "Avoid / Cut / Separate / Sever",
+      "category": "glyph",
+      "era": "First Era",
+      "composition": [
+        {
+          "position": [
+            0.5,
+            0.5
+          ],
+          "scale": 1,
+          "rotation": 0,
+          "primitive": "separate"
+        }
+      ]
     }
   ],
   "grammar": {

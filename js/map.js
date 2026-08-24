@@ -42,8 +42,42 @@ export function defaultMap(width, height){
     // effect yet — purely feeds the pink Tile-coloring gradient in renderMap.
     // (Credited on Death as the current proxy — true Obliteration, every Body
     // Part gone, is a separate not-yet-built check; see utils.js.)
-    chunks: new Array(w * h).fill(0)
+    chunks: new Array(w * h).fill(0),
+    // Lava Tile-State (2026-08-23, Kulkrow's First Era Crafts — see
+    // reference/ROADMAP.md's Possession & Kulkrow Direct Control): 0 none,
+    // 1 Lava, 2 Molten Lava, 3 Cooled Lava. Advances one stage per Round via
+    // tickLavaTiles below — deliberately simple ("just to validate
+    // Mechanic," per dDd), not tuned. Separation/Infuse both require the
+    // Molten stage (2); Cooled (3) is a resting state, doesn't revert further yet.
+    lava: new Array(w * h).fill(0)
   };
+}
+
+// Kulkrow's Lava Tile-State tick — advances every non-zero Tile one stage
+// (Lava -> Molten -> Cooled) once per Round; Cooled Tiles hold. Called from
+// the same end-of-round tick as Recovery/Attunement (combat.js's
+// resolveRound, noncombat.js's resolveNonCombatRound).
+export function tickLavaTiles(table){
+  if(!table.map || !table.map.lava) return;
+  const lava = table.map.lava;
+  for(let i = 0; i < lava.length; i++){
+    if(lava[i] > 0 && lava[i] < 3) lava[i] += 1;
+  }
+}
+
+// Spill (2026-08-23, Kulkrow's own passive Craft, per dDd — "always active;
+// it can't be stopped and costs nothing. Every Round, 2 Tiles around
+// Kulkrow turn into Lava Tiles"). Mirrors the existing Separation Craft's
+// left/right adjacency (see combat.js's resolveRound), just both sides
+// instead of one directional pick.
+export function applySpillAt(table, x, y){
+  if(!table.map) return;
+  const size = table.map.tiles.length;
+  if(!table.map.lava || table.map.lava.length !== size) table.map.lava = new Array(size).fill(0);
+  [x - 1, x + 1].forEach(nx => {
+    if(nx < 0 || nx >= table.map.width) return;
+    table.map.lava[y * table.map.width + nx] = 1;
+  });
 }
 
 function tileIndex(map, x, y){
@@ -85,7 +119,8 @@ const FACING_COLOR_NPC = '#F5C518'; // Enemy-Yellow
 // meanings independent of Facing" the Movement-Glyphs-to-Map-Actions thread
 // already established). Used by the Face Behavior (js/behaviors.js/
 // js/noncombat.js — "Character can face any direction they know") to turn a
-// Character's knownGlyphs into the real set of directions they can face.
+// Character's known Glyphs (js/utils.js's knownGlyphIds) into the real set
+// of directions they can face.
 export const DIRECTION_GLYPH_CARDINAL = { 'RO / OR': 'N', 'KO': 'E', 'OP / PO': 'S', 'OK': 'W' };
 
 // The actual mutation — sets actorId's own Facing, and per dDd's spec,
@@ -792,21 +827,32 @@ export function renderMap(){
   // reference/CHANGELOG.md 2026-08-17 for the fix history. Rotation
   // (pressing the compass to cycle N/E/S/W and re-map the grid) is an
   // explicit reach item, not built yet — see reference/ROADMAP.md, Movement
-  // System. Back/Rest (2026-08-22, per dDd — "in line with the Compass")
-  // share the compass's own cell rather than claiming a grid slot of their
-  // own: Back undoes the last pan step, Rest recenters on your own Character.
+  // System. Undo/Reset (2026-08-23, per dDd — previously tiny 16px circular
+  // icons crammed inside the compass's own cell, "impossible to tell what it
+  // looks like right now") now get real button styling matching the other
+  // .map-pan-btn controls, and their own dedicated cells flanking the tile
+  // grid's own "0" corner: Reset (was "Rest" — renamed to resolve a naming
+  // collision with the unrelated Combat "Rest" action) sits directly above
+  // it, Undo directly to its left. Undo undoes the last pan step, Reset
+  // recenters on your own Character.
   let html =
     '<div class="map-corner" title="8-directional compass" style="grid-column:2; grid-row:2;">' +
       '<span class="map-compass-icon">🧭</span>' +
-      '<button class="map-pan-back" id="map-pan-back" title="Back (undo last pan)">↺</button>' +
-      '<button class="map-pan-rest" id="map-pan-rest" title="Rest (recenter on you)">⌂</button>' +
     '</div>' +
+    '<button class="map-pan-btn" id="map-pan-rest" title="Reset (recenter on you)" style="grid-column:' + COL_OFFSET + '; grid-row:2;">⌂ Reset</button>' +
+    '<button class="map-pan-btn" id="map-pan-back" title="Undo (back one pan)" style="grid-column:2; grid-row:' + ROW_OFFSET + ';">↺ Undo</button>' +
     '<span class="map-axis-head n" style="grid-column:2; grid-row:1;">N</span>' +
     '<span class="map-axis-head w" style="grid-column:1; grid-row:2;">W</span>' +
     '<span class="map-axis-head e" style="grid-column:' + (COL_OFFSET + viewW) + '; grid-row:2;">E</span>' +
     '<span class="map-axis-head s" style="grid-column:2; grid-row:' + (ROW_OFFSET + viewH) + ';">S</span>' +
-    '<div class="map-axis-line horizontal" style="grid-row:2; grid-column:3 / ' + (COL_OFFSET + viewW) + ';"></div>' +
-    '<div class="map-axis-line vertical" style="grid-column:2; grid-row:3 / ' + (ROW_OFFSET + viewH) + ';"></div>' +
+    // Lines toward E/S start one cell later than before (2026-08-23, per
+    // dDd: "the yellow lines for S and E should not overlap reset and
+    // undo") — Reset now sits at exactly the horizontal line's old start
+    // (grid-column:COL_OFFSET, row 2), Undo at the vertical line's old
+    // start (column 2, grid-row:ROW_OFFSET); the buttons themselves anchor
+    // that first segment now instead of the line running behind them.
+    '<div class="map-axis-line horizontal" style="grid-row:2; grid-column:' + (COL_OFFSET + 1) + ' / ' + (COL_OFFSET + viewW) + ';"></div>' +
+    '<div class="map-axis-line vertical" style="grid-column:2; grid-row:' + (ROW_OFFSET + 1) + ' / ' + (ROW_OFFSET + viewH) + ';"></div>' +
     // The tile grid's own corner — a bare "0", the placeholder this spot
     // used before the compass existed at all, now that the compass has its
     // own separate cell above.
@@ -1002,14 +1048,29 @@ function panMapBack(){
   renderMap();
 }
 
-function panMapRest(){
+// Centers AppState.mapViewOffset on the viewing Player's own Character — no
+// history side-effect, no render call, just the offset math — shared by the
+// Reset button (panMapRest below, which layers in undo-history + its own
+// renderMap) and js/main.js's enterTable() (2026-08-23, per dDd's own
+// diagnosis of the Map-load race). mapViewOffset is local-only state
+// (js/state.js) that defaults to {0,0} on every fresh load; nothing had ever
+// called this on a plain rejoin/hard-refresh before, so a Player reconnecting
+// mid-game saw the map's literal top-left corner — not wherever they actually
+// were — until they clicked Reset themselves. Returns false (no-op) if
+// there's no known position/map yet to center on.
+export function centerMapView(){
   const table = AppState.table;
   const pos = table && table.positions && table.positions[AppState.playerId];
-  if(!pos || !table.map) return;
+  if(!pos || !table.map) return false;
   const viewW = Math.min(VIEWPORT_TILES, table.map.width);
   const viewH = Math.min(VIEWPORT_TILES, table.map.height);
-  AppState.mapViewHistory.push({ ...AppState.mapViewOffset });
   AppState.mapViewOffset = { x: pos.x - Math.floor(viewW / 2), y: pos.y - Math.floor(viewH / 2) };
+  return true;
+}
+
+function panMapRest(){
+  AppState.mapViewHistory.push({ ...AppState.mapViewOffset });
+  if(!centerMapView()){ AppState.mapViewHistory.pop(); return; }
   renderMap();
 }
 

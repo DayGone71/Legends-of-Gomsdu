@@ -60,8 +60,8 @@
       "ap": 1,
       "lightning": 1
     },
-    "range": 5,
-    "effect": "The Target has their Life and Lightning Stats change from N to 0, or 0 to 1"
+    "range": 1,
+    "effect": "The Target has their Life and Lightning Stats change from N to 0, or 0 to 1. First ignition needs Range 1 (face to face); once a Shadow Possession Link exists, Range no longer applies."
   },
   "influence": {
     "name": "Influence",
@@ -113,7 +113,19 @@
       "lava": 1
     },
     "range": 5,
-    "effect": "Lifts a chunk of Matter from the Planet — becomes a Map Obstacle on the Tile immediately to the right of the user."
+    "effect": "First Era: converts a Molten Lava Tile immediately to the right of the user into Inert Stone. (Third Era: any Tile becomes a Map Obstacle instead — not built yet.)"
+  },
+  "infuse": {
+    "name": "Infuse",
+    "group": "Craft",
+    "column": "Lava",
+    "type": "Mystic Transformation",
+    "costs": {
+      "ap": 20,
+      "lava": 1
+    },
+    "range": 5,
+    "effect": "Converts a Molten Lava Tile immediately to the right of the user into a Molten One (active possession)."
   },
   "bloodkindle": {
     "name": "Bloodkindle",
@@ -151,5 +163,19 @@
     },
     "range": 5,
     "effect": "Recover 1 Lightning Point"
+  },
+  "seed": {
+    "name": "Seed",
+    "group": "Master Technique",
+    "column": "Mastery",
+    "type": "Creation",
+    "costs": {
+      "ap": 1,
+      "lava": 10,
+      "lightning": 10,
+      "focus": 10
+    },
+    "range": 0,
+    "effect": "Spawns all Characters accordingly"
   }
 }

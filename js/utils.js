@@ -137,17 +137,34 @@ export function mindeyeCapacity(actor){
 // Technique engine (techniques.js) and the DM's own Craft staging (dm.js),
 // so Message works identically staged by either side. Just a single GI per
 // arrival for now — Message has no content-authoring UI yet.
-export function deliverMindeyeEntry(table, targetId, fromName, glyphId){
+// `seen` (2026-08-23) — defaults false (a real arrival, triggers the
+// Information panel's Spotlight reveal), but Innate knowledge delivered at
+// spawn time (startingMindeye, js/scenes.js/js/dm.js) passes true: per dDd,
+// "he shouldn't be getting every single Glyph he knows as new Information.
+// It should all be there already, good to go" — no reveal moment for
+// something a Character has simply always known, straight to the Gallery.
+export function deliverMindeyeEntry(table, targetId, fromName, glyphId, seen = false){
   const target = resolveEntityRef(table, targetId);
   if(!target) return;
   if(!target.mindeye) target.mindeye = [];
-  target.mindeye.push({ id: genId(), from: fromName, glyph: glyphId || null, seen: false, receivedAt: timeNow() });
+  target.mindeye.push({ id: genId(), from: fromName, glyph: glyphId || null, seen, receivedAt: timeNow() });
   // Capacity is Intelligence-gated — the oldest Expression is forgotten (not
   // just left unseen) once the Character's remembered count exceeds it.
   const capacity = mindeyeCapacity(target);
   while(target.mindeye.length > capacity){
     target.mindeye.shift();
   }
+}
+
+// Which Glyph IDs an actor actually knows (2026-08-23, per dDd — the
+// knownGlyphs/mindeye merge: "There is no reason to keep them separate
+// anymore... the important part is each Character knowing Glyphs."
+// "Knowing" a Glyph now just means having a Mindeye entry for it — the
+// separate knownGlyphs curriculum array is gone entirely. Anywhere that used
+// to read actor.knownGlyphs directly (Face's direction-gating, Scripts'
+// not-yet-enforced dispatch gate) reads this instead.
+export function knownGlyphIds(actor){
+  return [...new Set(((actor && actor.mindeye) || []).map(e => e.glyph).filter(Boolean))];
 }
 
 // Every Glyph currently staged (Message Orders on any Player/Enemy, or the

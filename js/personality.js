@@ -2,8 +2,14 @@
 // build (2026-08-20). Heart/Stomach/Head are the three domains per the
 // Personality prototype (prototypes/personality-pillar.html), but First Era
 // Beings only need Head (per dDd, dialogue-system.md's "next session" entry
-// — Heart/Stomach are Second/Third Era concerns) — so only Head renders for
-// now, not a placeholder for the other two.
+// — Heart/Stomach are Second/Third Era concerns). Head is the only one with
+// real content; Heart/Stomach render too now (2026-08-23, per dDd: "they
+// should still be visible, just greyed out") — visible-but-inert, same
+// `opacity:.4` convention js/techniques.js's `.tech-denied` already uses,
+// not a functional gate on any Character. The prototype itself never had
+// real Axis content for either domain ("empty for now; which Axes belong
+// where is still open") — there's nothing being hidden or restored here,
+// just a placeholder made visible instead of omitted.
 //
 // Intelligence is the first real Axis (2026-08-21, per dDd's Notebook): "it's
 // going to relate to how many Expressions a Character can remember." The
@@ -14,7 +20,8 @@
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
 import { getIntelligence, mindeyeCapacity, INTELLIGENCE_DEFAULT, escapeHtml, resolveEntityRef } from './utils.js';
-import { computeBehaviors, sortedBehaviors, NO_STAND_AROUND_ARCHETYPES, BEHAVIOR_CATEGORIES } from './behaviors.js';
+import { computeBehaviors, sortedBehaviors, BEHAVIOR_CATEGORIES } from './behaviors.js';
+import { compositionCardHtml } from './information.js';
 
 // Inspect mode (2026-08-22, per dDd) — the viewing Player's own Character by
 // default, or whichever Character AppState.inspectTargetId points at (set
@@ -26,6 +33,98 @@ function myCharacter(){
 }
 function inspecting(){
   return !!AppState.inspectTargetId;
+}
+
+// Plan (2026-08-23, per dDd) — sits between Head and Behaviors: Suppress
+// Subconscious (a hard per-Character freeze on Behaviors rolling at all —
+// see js/noncombat.js's resolveBehavior()) and a read-only readout of
+// whatever Scripts are currently active on this Character. The mechanism
+// already exists (js/scripts.js's assignScript()/activeScripts, advanced by
+// the Teach Behavior) — this is purely the missing visibility, per dDd:
+// "You already seem to have that behavior going, just need a way to verify
+// it." Real assignment still happens from the separate Scripts Panel;
+// Suppress Subconscious is left editable even while inspecting an NPC
+// (unlike Intelligence below) since freezing an NPC's own Behaviors before
+// TATA manually directs it is exactly the DM-side case this exists for.
+// Up to 3 concurrent Scripts (2026-08-23, per dDd — "the Character can only
+// have one Script for Plan. Can we make it 3?"), same cap the Row builder
+// itself already used per-Script.
+async function toggleSuppressSubconscious(){
+  const me = myCharacter();
+  if(!me) return;
+  const id = AppState.inspectTargetId || AppState.playerId;
+  await mutateTable(t => {
+    const actor = resolveEntityRef(t, id);
+    if(actor) actor.suppressSubconscious = !actor.suppressSubconscious;
+  });
+}
+
+// Teach mode toggle (2026-08-23, per dDd — the arrow-button 3-way concept:
+// "To the right does approach you just made [sequential] / Down for the
+// throughput approach [parallel] / Both directions, so dynamically going
+// through (which is harder to do)"). Only cycles the two built modes —
+// dynamic needs a not-yet-designed priority Stat, so it's left out of the
+// click cycle entirely rather than wired to a mode that silently does
+// nothing.
+async function toggleTeachMode(){
+  const me = myCharacter();
+  if(!me) return;
+  const id = AppState.inspectTargetId || AppState.playerId;
+  const next = (me.teachMode === 'parallel') ? 'sequential' : 'parallel';
+  await mutateTable(t => {
+    const actor = resolveEntityRef(t, id);
+    if(actor) actor.teachMode = next;
+  });
+}
+
+function planHtml(me){
+  const suppressed = !!me.suppressSubconscious;
+  const teachMode = me.teachMode === 'parallel' ? 'parallel' : 'sequential';
+  const scripts = me.activeScripts || [];
+  // Same card component Scripts Panel's own Active Scripts readout uses
+  // (2026-08-23, per dDd: "Personality... should use the same formatting
+  // you decide on for the Scripts in Scripts") — js/information.js's
+  // compositionCardHtml(rows, {nextRowIndex}), not a separate plain-text
+  // layout.
+  const scriptsHtml = scripts.length
+    ? scripts.map(script =>
+        '<div class="script-slot">' +
+          '<div class="script-status-line">Target: ' + escapeHtml(script.targetName || '?') + '</div>' +
+          '<div class="script-status-line">Progress: Expression ' + (script.nextRow + 1) + ' / ' + script.rows.length + '</div>' +
+          compositionCardHtml(script.rows, { nextRowIndex: script.nextRow }) +
+        '</div>'
+      ).join('')
+    : '<div class="log-empty">No active Scripts.</div>';
+
+  return '<div class="stat-header">Plan</div>' +
+    '<div class="personality-axis">' +
+      '<div class="personality-axis-name">Suppress Subconscious</div>' +
+      '<div class="personality-axis-desc">Freezes Behaviors from rolling/executing at all — prevents conflicts with a Move/Order you\'re staging by hand yourself.</div>' +
+      '<button class="btn-ghost btn-small' + (suppressed ? ' active' : '') + '" id="personality-suppress-toggle">' + (suppressed ? 'Suppressed' : 'Active') + '</button>' +
+    '</div>' +
+    '<div class="personality-axis" style="margin-top:10px;">' +
+      '<div class="personality-axis-name">Teach Mode</div>' +
+      '<div class="personality-axis-desc">' + (teachMode === 'parallel'
+        ? 'Parallel — every active Script advances a Row the same Round (real multiplayer throughput).'
+        : 'Sequential — one Row total per Round, from the first Script queued.') + '</div>' +
+      '<button class="btn-ghost btn-small' + (teachMode === 'parallel' ? ' active' : '') + '" id="personality-teach-mode-toggle" title="Click to switch modes">' +
+        (teachMode === 'parallel' ? '↓ Parallel' : '→ Sequential') +
+      '</button>' +
+    '</div>' +
+    '<div class="personality-axis" style="margin-top:10px;">' +
+      '<div class="personality-axis-name">Active Scripts (' + scripts.length + ' / 3)</div>' +
+      scriptsHtml +
+    '</div>';
+}
+
+// Heart/Stomach (2026-08-23) — greyed-out placeholders, Second/Third Era
+// domains with no real Axis content designed yet. `note` names which Era
+// unlocks it; kept as one small shared helper rather than two near-copies.
+function domainPlaceholderHtml(label, note){
+  return '<div class="personality-domain-locked">' +
+    '<div class="stat-header">' + label + '</div>' +
+    '<div class="personality-axis-desc">' + note + '</div>' +
+  '</div>';
 }
 
 async function adjustIntelligence(delta){
@@ -56,20 +155,11 @@ async function adjustIntelligence(delta){
 // Actions/Targeting (Crafter-initiated, not yet auto-executed) — Movement
 // really does play out on the Map (js/noncombat.js's resolveNonCombatRound()).
 function behaviorsHtml(me){
-  const excludeStandAround = NO_STAND_AROUND_ARCHETYPES.includes(me.archetype);
-  const categories = computeBehaviors(me, { excludeStandAround });
+  const categories = computeBehaviors(me);
 
   const columns = BEHAVIOR_CATEGORIES.map(cat => {
     const { distribution, perGlyph } = categories[cat.key];
     const ranked = sortedBehaviors(distribution);
-    // A rounding remainder still always lands on Stand Around internally
-    // (computeBehaviors, js/behaviors.js) even with it excluded from the
-    // seed — matching js/noncombat.js's own real resolution, relabel a
-    // Stand-Around top rank as the actual Wander fallback it'd become there,
-    // rather than showing a Behavior Gom/Kulkrow can never really roll.
-    // Only ever surfaces in the Movement column — Actions/Targeting never
-    // seed a Stand Around baseline in the first place.
-    if(excludeStandAround && ranked[0] && ranked[0].key === 'standAround') ranked[0].name = 'Wander (default)';
     const likely = ranked[0];
     const runnerUp = ranked[1];
 
@@ -136,14 +226,24 @@ export function renderPersonalityPanel(){
       </div>
       <div class="personality-capacity">Remembering ${remembered} / ${capacity} Expression${capacity === 1 ? '' : 's'}</div>
     </div>
+    ${domainPlaceholderHtml('Heart', 'Second Era — no Axes designed yet.')}
+    ${domainPlaceholderHtml('Stomach', 'Third Era — no Axes designed yet.')}
   `;
+  const planSheet = document.createElement('div');
+  planSheet.className = 'sheet';
+  planSheet.innerHTML = planHtml(me);
+
   const behaviorSheet = document.createElement('div');
   behaviorSheet.className = 'sheet';
   behaviorSheet.innerHTML = behaviorsHtml(me);
 
   container.innerHTML = '';
   container.appendChild(sheet);
+  container.appendChild(planSheet);
   container.appendChild(behaviorSheet);
+
+  container.querySelector('#personality-suppress-toggle').addEventListener('click', toggleSuppressSubconscious);
+  container.querySelector('#personality-teach-mode-toggle').addEventListener('click', toggleTeachMode);
 
   if(!readOnly){
     container.querySelector('#personality-intelligence-minus').addEventListener('click', () => adjustIntelligence(-1));

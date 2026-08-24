@@ -39,7 +39,7 @@
 #roster{flex:1; min-height:0; overflow-y:auto;}
 #ledger{flex:1; min-height:0; overflow-y:auto; padding-right:4px; display:flex; flex-direction:column-reverse;}
 .log-entry{
-  font-family:'IBM Plex Mono',monospace; font-size:13px; line-height:1.6;
+  font-family:monospace; font-size:13px; line-height:1.6;
   padding:9px 0; border-bottom:1px dashed var(--ink-line); display:flex; gap:10px;
 }
 .log-entry .time{color:var(--text-dim); flex-shrink:0;}
@@ -138,8 +138,8 @@
 .hp-bar-wrap{width:70px; height:6px; background:var(--ink); border-radius:99px; overflow:hidden; flex-shrink:0;}
 .hp-bar{height:100%; background:var(--sage);}
 .hp-bar.low{background:var(--ember);}
-.hp-text{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-dim); width:44px; text-align:right; flex-shrink:0;}
-.ap-text{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--brass-bright); width:44px; text-align:right; flex-shrink:0;}
+.hp-text{font-family:monospace; font-size:11px; color:var(--text-dim); width:44px; text-align:right; flex-shrink:0;}
+.ap-text{font-family:monospace; font-size:11px; color:var(--brass-bright); width:44px; text-align:right; flex-shrink:0;}
 
 /* ---------- Character sheet ---------- */
 .sheet{background:var(--parchment); color:var(--text-dark); border-radius:8px; padding:4px;}
@@ -153,7 +153,7 @@
 .field label{display:block; font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:#7A6A47; margin-bottom:5px; font-weight:600;}
 .field input, .field textarea, .field select{
   width:100%; border:1px solid var(--parchment-line); background:#F8F3E7; color:var(--text-dark);
-  border-radius:5px; padding:9px 10px; font-family:'Inter',sans-serif; font-size:13.5px; resize:vertical;
+  border-radius:5px; padding:9px 10px; font-family:sans-serif; font-size:13.5px; resize:vertical;
 }
 .hp-fields{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
 .hp-fields input{width:64px; text-align:center;}
@@ -192,7 +192,7 @@
 .tech-columns{display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:8px;}
 .tech-column-label{font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:#7A6A47; margin-bottom:6px; font-weight:600;}
 .tech-item{
-  display:block; width:100%; text-align:left; font-family:'Inter',sans-serif;
+  display:block; width:100%; text-align:left; font-family:sans-serif;
   font-size:13.5px; color:var(--text-dark); padding:7px 0; border:none; border-bottom:1px dashed var(--parchment-line);
   background:none; cursor:pointer;
 }
@@ -220,7 +220,7 @@
 .counter-row{display:flex; gap:16px; margin-bottom:6px;}
 .counter{flex:1; background:var(--ink); border:1px solid var(--ink-line); border-radius:8px; padding:10px 14px;}
 .counter-label{display:block; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-dim);}
-.counter-value{font-family:'IBM Plex Mono',monospace; font-size:18px; color:var(--brass-bright);}
+.counter-value{font-family:monospace; font-size:18px; color:var(--brass-bright);}
 #target-range, #dm-target-range, #ally-range{display:flex; flex-wrap:wrap; gap:8px;}
 .target-chip{
   position:relative; background:var(--ink); border:1px solid var(--ink-line); border-radius:6px; padding:7px 12px;
@@ -276,7 +276,7 @@
 .npc-list-item:hover{border-color:var(--brass);}
 .npc-list-item.defeated{opacity:.5; text-decoration:line-through; cursor:default;}
 .npc-list-name{font-weight:600;}
-.npc-list-meta{color:var(--text-dim); font-family:'IBM Plex Mono',monospace; font-size:12px;}
+.npc-list-meta{color:var(--text-dim); font-family:monospace; font-size:12px;}
 
 /* NPC row action buttons (2026-08-22, per dDd) — Info/Personality/
    Relationships inspect buttons, always present ("clicked by either Player
@@ -288,6 +288,14 @@
   border-radius:5px; padding:3px 8px; font-size:11px; cursor:pointer;
 }
 .npc-inspect-btn:hover{border-color:#22D3EE; color:var(--text-light);}
+
+/* Shadow Possession Link badge (2026-08-23) — Ally-Cyan, matching the
+   inspect-btn hover/inspect-banner's existing use of the same color for
+   "this relates to your own Character." */
+.npc-link-badge{
+  flex-shrink:0; background:rgba(34,211,238,.12); color:#22D3EE; border:1px solid #22D3EE;
+  border-radius:5px; padding:3px 8px; font-size:11px; font-weight:600;
+}
 
 /* Inspect-mode banner (2026-08-22) — Information/Personality/Relationships
    all show this when displaying someone other than the viewing Player's own
@@ -313,23 +321,74 @@
 .pillar-nav-btn:hover{border-color:var(--brass-bright); color:var(--text-light);}
 .pillar-nav-btn.active{background:var(--brass); border-color:var(--brass); color:#221A0E; cursor:default;}
 
-/* Script Panel (2026-08-22, per dDd) — "Add a Script Panel button... so I can
-   set the Scripts up." Each Row's 3 Glyph selects sit side by side (.field's
-   own default is width:100% stacked, wrong for this — a Row reads as one
-   simultaneous unit, same "Horizontal = at once" grammar Message's own
-   3-Glyph picker uses) rather than stacked full-width. */
-.script-row-field{display:flex; flex-direction:column; gap:6px;}
-.script-row-field label{display:block; font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:#7A6A47; margin-bottom:0; font-weight:600;}
-.script-row-field .script-glyph-select{width:auto; flex:1;}
-.script-row-field{flex-direction:row; flex-wrap:wrap; align-items:center; margin-bottom:12px;}
-.script-row-field label{flex-basis:100%;}
-.script-row-controls{display:flex; gap:8px; margin-bottom:4px;}
+/* Write Script's Expression grid (2026-08-23, per dDd — "why not just make
+   the grid?") — a real port of language/gomsdu-glyph-arranger.html's own
+   #expressionGrid: up to 3 Expressions as columns side by side, each
+   column's own up-to-3 Glyph selects stacked vertically inside it. See
+   js/information.js's compositionCardHtml() comment for the full read of
+   the Arranger's actual structure this matches. */
+.write-expression-grid{display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px; margin-bottom:12px;}
+.write-expression-column{display:flex; flex-direction:column; gap:4px;}
+.write-expression-label{font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:#7A6A47; font-weight:600;}
+.write-expression-column .write-glyph-select{width:100%;}
+
+/* Target-greying (2026-08-23) — a visual-only cue (not `disabled`, see
+   js/scripts.js's renderScriptsPanel) that a Character already has the
+   currently-staged Script. Option styling support is limited cross-browser;
+   color is the one property that reliably applies. */
+.script-target-taken{color:var(--text-dim);}
 .btn-block{width:100%; display:block;}
 .script-status-line{font-size:13px; color:#7A6A47; margin-bottom:4px;}
 .script-rows-readout{margin:10px 0; display:flex; flex-direction:column; gap:4px;}
 .script-row-readout{font-size:12.5px; color:#7A6A47; padding:4px 8px; border-radius:5px; background:#F8F3E7; border:1px solid var(--parchment-line);}
 .script-row-readout.done{color:#9A9A8A; text-decoration:line-through;}
 .script-row-readout.next{color:var(--text-dark); border-color:var(--brass); font-weight:600;}
+
+/* Write Script / Assign Script's rendered picker lists (2026-08-23, per dDd
+   — "Saved Scripts should display a rendering of the Script alongside some
+   Compositions") — replaces the old plain-text <select> for both the
+   written-Script pool and Saved Scripts presets, both now one merged list
+   ("These should be saved to Assign Script"). */
+.script-picker-list{display:flex; flex-direction:column; gap:6px; margin-top:6px;}
+.script-picker-item{
+  display:flex; align-items:center; gap:10px; width:100%; text-align:left; padding:8px 10px; border-radius:6px;
+  border:1px solid var(--parchment-line); background:#F8F3E7; cursor:pointer;
+}
+.script-picker-item:hover{background:#F0E8D4;}
+.script-picker-item.selected{border-color:var(--brass); background:#F3E6C8;}
+.script-picker-name{font-size:12.5px; font-weight:600; color:var(--text-dark);}
+
+/* One shared card for a Glyph / Expression / Composition (2026-08-23, per
+   dDd), a real port of language/gomsdu-glyph-arranger.html's own structure
+   (js/information.js's compositionCardHtml() comment has the full read of
+   that file). The Arranger's ACTUAL shape: a Composition is a CSS Grid, 3
+   columns, each column one Expression — THAT's what "3 rows and 3 columns"
+   means, not a single Expression's own Glyphs. An Expression is its own
+   vertical stack of Glyphs (an .composition-expression column). So multiple
+   Expressions sit SIDE BY SIDE as grid columns (.composition-card-grid,
+   grid-template-columns set inline per call to match rows.length), each
+   column's own Glyphs stacked top to bottom inside it — not everything
+   crammed into one vertical stack, which was the first pass's real bug. */
+.composition-card{display:grid; gap:8px; padding:8px; border-radius:6px; align-items:start; justify-items:center;}
+.composition-card-empty{color:var(--text-dim); font-size:13px; padding:14px; display:block;}
+.composition-card-glyph{display:flex; align-items:center; justify-content:center;}
+.composition-expression{display:flex; flex-direction:column; align-items:center; gap:4px;}
+.composition-glyph{color:#7A6A47; display:block;}
+.composition-glyph svg{display:block; width:34px; height:34px;}
+.composition-card-glyph .composition-glyph svg{width:56px; height:56px;}
+/* Optional progress overlay (2026-08-23) — same card component doubles as
+   the Active Scripts status readout (js/scripts.js/js/personality.js's
+   compositionCardHtml(rows, {nextRowIndex})) instead of a separate
+   plain-text list, per dDd's "single Rectangular Button they all use." */
+.composition-expr-done{opacity:.35;}
+.composition-expr-next{outline:2px solid var(--brass); outline-offset:2px; border-radius:3px; padding:2px;}
+
+/* One Script slot's own readout (2026-08-23, up to 3 concurrent per Actor —
+   see js/scripts.js/js/personality.js) — a light divider between stacked
+   slots so multiple Scripts on one Actor read as distinct entries, not one
+   run-together block. */
+.script-slot{padding-top:8px; margin-top:8px; border-top:1px solid var(--parchment-line);}
+.script-slot:first-child{padding-top:0; margin-top:0; border-top:none;}
 
 .action-row{display:flex; gap:8px; margin-top:16px;}
 .action-menu{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; padding:12px; background:var(--ink); border-radius:8px; border:1px solid var(--ink-line);}
@@ -340,7 +399,7 @@
 .staged-row{
   display:flex; align-items:center; justify-content:space-between; gap:8px;
   background:var(--ink); border:1px solid var(--ink-line); border-radius:6px; padding:6px 10px;
-  font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-light);
+  font-family:monospace; font-size:12px; color:var(--text-light);
 }
 .staged-remove-x{
   flex-shrink:0; width:16px; height:16px; line-height:14px; text-align:center; border-radius:50%;
@@ -387,7 +446,7 @@
 .map-tile{
   position:relative; aspect-ratio:1; background:#EFEAE0; border-radius:3px; cursor:pointer;
   display:flex; align-items:center; justify-content:center;
-  font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink); z-index:0;
+  font-family:monospace; font-size:10px; color:var(--ink); z-index:0;
 }
 .map-tile.blocked{background:#0A0B0D; cursor:default;}
 .map-tile.occupied{background:var(--brass); color:#221A0E; font-weight:700;}
@@ -523,7 +582,7 @@
 .move-trail-line{fill:none; stroke:#C4AEE8; stroke-width:2.5; stroke-dasharray:5 4; opacity:.75;}
 .map-corner, .map-col-header, .map-row-header{
   display:flex; align-items:center; justify-content:center;
-  font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-dim);
+  font-family:monospace; font-size:11px; color:var(--text-dim);
 }
 /* Compass + axis-header block (2026-08-17, per dDd's own ASCII layout
    sketch) — a dedicated 2x2 area (grid rows/columns 1-2) set apart from the
@@ -549,24 +608,20 @@
 /* Map pan controls (2026-08-22, per dDd) — "a tile clicker... 2 or 3 buttons
    to change the distance it goes." Own dedicated Grid tracks (PAN_ROW/
    PAN_COL, js/map.js's renderMap), one step past the E/S axis labels, never
-   sharing a cell with the Tile grid itself. Back/Rest ride inside the
-   compass's own cell instead ("in line with the Compass") — small icon
-   buttons layered next to the compass emoji, not a track of their own. */
+   sharing a cell with the Tile grid itself.
+   Undo/Reset (2026-08-23) — used to ride as 16px circular icons layered
+   inside the compass's own cell ("impossible to tell what it looks like");
+   now real .map-pan-btn buttons in their own grid cells (Reset above the
+   "0" corner, Undo to its left, both js/map.js's renderMap) — the old
+   absolute-positioned circular styling is gone, they're normal grid
+   children now. */
 .map-pan-row{display:flex; gap:4px; justify-content:center; align-self:start;}
 .map-pan-col{display:flex; flex-direction:column; gap:4px; align-items:center; justify-self:start;}
 .map-pan-btn{
   background:var(--ink); border:1px solid var(--ink-line); border-radius:5px; color:var(--text-dim);
-  font-size:11px; line-height:1; padding:4px 6px; cursor:pointer;
+  font-size:11px; line-height:1; padding:4px 6px; cursor:pointer; white-space:nowrap;
 }
 .map-pan-btn:hover{border-color:var(--brass-bright); color:var(--text-light);}
-.map-pan-back, .map-pan-rest{
-  position:absolute; z-index:3; background:var(--ink); border:1px solid var(--ink-line); border-radius:50%;
-  color:var(--text-dim); font-size:10px; line-height:1; width:16px; height:16px; padding:0; cursor:pointer;
-  display:flex; align-items:center; justify-content:center;
-}
-.map-pan-back:hover, .map-pan-rest:hover{border-color:var(--brass-bright); color:var(--text-light);}
-.map-pan-back{top:-4px; left:-4px;}
-.map-pan-rest{top:-4px; right:-4px;}
 
 /* Active Character display (2026-08-22, per dDd) — Avatar/Name/Key-Stats,
    under the Map Panel's 3 buttons. Avatar color reuses this session's
@@ -589,7 +644,7 @@
 .active-char-info{flex:1; min-width:0;}
 .active-char-name{font-weight:700; color:var(--text-light); font-size:13px;}
 .active-char-stats{display:flex; flex-wrap:wrap; gap:2px 10px; margin-top:2px;}
-.active-char-stat{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-dim);}
+.active-char-stat{font-family:monospace; font-size:11px; color:var(--text-dim);}
 .active-char-stats-empty{font-size:11px; color:var(--text-dim); font-style:italic; margin-top:2px;}
 
 /* Active Character toggle button (2026-08-22) — reuses .npc-list-item's own
@@ -601,6 +656,12 @@
 }
 .npc-active-btn:hover{border-color:var(--brass); color:var(--text-light);}
 .npc-active-btn.active{border-color:var(--brass); color:var(--brass-bright); background:rgba(185,151,91,.15);}
+
+/* Generic .btn-ghost active/toggled state (2026-08-23) — same Brass-highlight
+   convention as .npc-active-btn.active above, generalized for any ghost
+   button used as a toggle (first use: Suppress Subconscious, Personality
+   Panel's new Plan section). */
+.btn-ghost.active{border-color:var(--brass); color:var(--brass-bright); background:rgba(185,151,91,.15);}
 
 /* Movement popups (2026-08-20), per dDd — "Move?" / "Suggest Move?" appear
    directly on the clicked Tile (.map-tile is already position:relative).
@@ -709,13 +770,20 @@
 .info-line svg{width:100%; height:auto; display:block;}
 
 /* Personality Pillar — Head domain, first Axis (2026-08-21). First Era Beings
-   only need Head (Heart/Stomach are Second/Third Era), so that's all that
-   renders for now — see js/personality.js. */
+   only need Head (Heart/Stomach are Second/Third Era) — Head is the only
+   domain with real content, but Heart/Stomach render too (2026-08-23, per
+   dDd: "they should still be visible, just greyed out"), see
+   .personality-domain-locked below and js/personality.js. */
 .personality-axis{text-align:center; padding:6px 4px 4px;}
 .personality-axis-name{font-size:13px; font-weight:700; color:var(--text-dark);}
 .personality-axis-desc{font-size:11px; color:#7A6A47; margin:4px auto 12px; max-width:280px; line-height:1.4;}
+/* Greyed-out Heart/Stomach placeholder (2026-08-23) — same opacity:.4
+   "visible but inert" convention js/techniques.js's own .tech-denied
+   already uses elsewhere in this codebase. */
+.personality-domain-locked{opacity:.4; text-align:center;}
+.personality-domain-locked .stat-header{border-top:none; margin-top:0;}
 .personality-stepper{display:flex; align-items:center; justify-content:center; gap:14px;}
-.personality-value{font-family:'IBM Plex Mono',monospace; font-size:18px; color:var(--text-dark); min-width:20px;}
+.personality-value{font-family:monospace; font-size:18px; color:var(--text-dark); min-width:20px;}
 .personality-capacity{font-size:11px; color:#7A6A47; margin-top:10px;}
 
 /* Behaviors (2026-08-22) — Likely/Runner Up summary + per-Glyph breakdown.
@@ -732,7 +800,7 @@
 .behavior-summary-col{flex:1; text-align:center; background:#F8F3E7; border:1px solid var(--parchment-line); border-radius:8px; padding:10px 6px;}
 .behavior-summary-label{font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:#7A6A47; font-weight:700; margin-bottom:6px;}
 .behavior-summary-value{font-size:13.5px; color:var(--text-dark); font-weight:600;}
-.behavior-summary-pct{font-family:'IBM Plex Mono',monospace; font-size:12px; color:#7A6A47; margin-top:2px;}
+.behavior-summary-pct{font-family:monospace; font-size:12px; color:#7A6A47; margin-top:2px;}
 .behavior-glyph-list{display:flex; flex-direction:column; gap:5px;}
 .behavior-glyph-row{
   display:grid; grid-template-columns:1fr 1.4fr auto; gap:8px; align-items:center;
@@ -740,8 +808,8 @@
 }
 .behavior-glyph-id{color:var(--text-dark); font-weight:600;}
 .behavior-glyph-assoc{color:#7A6A47;}
-.behavior-glyph-longing{font-family:'IBM Plex Mono',monospace; font-size:10px; opacity:.75;}
-.behavior-glyph-pct{font-family:'IBM Plex Mono',monospace; color:var(--text-dark); text-align:right;}
+.behavior-glyph-longing{font-family:monospace; font-size:10px; opacity:.75;}
+.behavior-glyph-pct{font-family:monospace; color:var(--text-dark); text-align:right;}
 
 /* Mindeye gallery (2026-08-20) — the full "screen with all Glyphs" a
    received Message lands in, per dDd. Grid of small tiles; the permanent

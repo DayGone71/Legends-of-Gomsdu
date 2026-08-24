@@ -38,11 +38,15 @@ export const LONGING_CAP = 100;
 // weight competes, with no extra formula needed.
 export const STAND_AROUND_BASELINE = 2;
 
-// Gom/Kulkrow — the two exceptions to Stand Around entirely (per dDd).
-// Lives here, not js/noncombat.js, so js/personality.js's own distribution
-// display can be accurate for these two as well, not just the actual
-// Round-resolution logic.
-export const NO_STAND_AROUND_ARCHETYPES = ['Gom', 'Kulkrow'];
+// Gom/Kulkrow used to be hardcoded exceptions to Stand Around, forced onto
+// a guaranteed Wander instead whenever nothing else had weight. Removed
+// 2026-08-23 — per dDd, found live watching Kulkrow wander with zero
+// Direction Glyphs of his own: "'Wander' is fine, if it's in the Game.
+// Hardcoding a Solution through the Backend is not a reasonable approach...
+// Kulkrow doesn't know the Wander Glyph; he should be incapable of
+// wandering. Simple as." They're subject to the same Glyph-gated rules as
+// every other Character now — Stand Around is always seeded for everyone,
+// Wander only ever competes for real once KULOG is actually known.
 
 // `kind` (2026-08-22) — which execution path js/noncombat.js's
 // resolveBehavior() dispatches to; `turn` (only on the Move family) is
@@ -55,20 +59,20 @@ export const BEHAVIORS = {
   moveRight: { name: 'Move Right', kind: 'move', turn: 1 },
   moveBackward: { name: 'Move Backward', kind: 'move', turn: 2 },
   moveLeft: { name: 'Move Left', kind: 'move', turn: 3 },
-  // Wander (2026-08-22, per dDd — KULOG) — a real, general Behavior version
-  // of the random-Cardinal movement Gom/Kulkrow already had hardcoded
-  // (js/noncombat.js's NO_STAND_AROUND_ARCHETYPES) — that special case is
-  // deliberately left untouched (already verified, no reason to risk it on
-  // a same-effect refactor); this is what any *other* Character who learns
-  // KULOG rolls through the normal weighted pipeline instead.
+  // Wander (2026-08-22, per dDd — KULOG: "Character will go in a random
+  // direction"). Any Character who knows KULOG rolls this through the
+  // normal weighted pipeline, same as every other Behavior — no special
+  // case, see STAND_AROUND_BASELINE's comment above for why Gom/Kulkrow
+  // no longer bypass that.
   wander: { name: 'Wander', kind: 'wander' },
   // Face (2026-08-22, per dDd — KALAG) — "Character can face any direction
   // they know." Turns to a random Cardinal among the Character's own known
   // Direction Glyphs (js/map.js's DIRECTION_GLYPH_CARDINAL), not a relative
   // Move-style turn — this sets Facing directly, absolute compass reading.
   face: { name: 'Face', kind: 'face' },
-  // Teach (2026-08-22, per dDd — WIM) — advances the Character's own active
-  // Script (actor.activeScript, js/scripts.js) one Row at a time: sends
+  // Teach (2026-08-22, per dDd — WIM) — advances one of the Character's own
+  // active Scripts (actor.activeScripts, up to 3 — js/scripts.js) one Row
+  // at a time: sends
   // that Row's Outcome Glyph(s) as one Message to the Script's Target, per
   // dDd's own breakdown ("Actor action WIM, Target Outcome XXX... once
   // Player has received XXX, Gom could move onto other Rows"). A no-op,
@@ -187,19 +191,12 @@ export function tickLonging(entry){
 // relevant in the Mindeye just comes back with an empty distribution,
 // handled by resolveBehavior() (js/noncombat.js) as "nothing to roll this
 // Round," not a fake 0%-labeled entry.
-// `excludeStandAround` (2026-08-22, per dDd's Gom/Kulkrow spec — "they
-// don't have Stand Around") — leaves Movement's baseline out of the seed
-// entirely, so it never dilutes the real competition there. A tiny Stand
-// Around sliver can still surface from rounding (the roundedSum correction
-// below) — resolveBehavior() treats a rolled 'standAround' as "nothing else
-// had real weight" and falls back to a guaranteed Wander instead.
-export function computeBehaviors(actor, opts){
-  const excludeStandAround = !!(opts && opts.excludeStandAround);
+export function computeBehaviors(actor){
   const mindeye = (actor && actor.mindeye) || [];
   const result = {};
 
   BEHAVIOR_CATEGORIES.forEach(cat => {
-    const behaviorPursuit = (cat.key === 'movement' && !excludeStandAround) ? { standAround: STAND_AROUND_BASELINE } : {};
+    const behaviorPursuit = cat.key === 'movement' ? { standAround: STAND_AROUND_BASELINE } : {};
     const perGlyph = [];
     mindeye.forEach(entry => {
       const behaviorKey = entry.glyph && GLYPH_BEHAVIOR[entry.glyph];
@@ -216,7 +213,7 @@ export function computeBehaviors(actor, opts){
     const total = Object.values(behaviorPursuit).reduce((a, b) => a + b, 0) || 1;
     const distribution = {};
     Object.entries(behaviorPursuit).forEach(([key, p]) => { distribution[key] = Math.round(p / total * 100); });
-    if(hasAnyWeight && cat.key === 'movement' && !excludeStandAround){
+    if(hasAnyWeight && cat.key === 'movement'){
       const roundedSum = Object.values(distribution).reduce((a, b) => a + b, 0);
       if(roundedSum !== 100) distribution.standAround = (distribution.standAround || 0) + (100 - roundedSum);
     }

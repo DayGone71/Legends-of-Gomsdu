@@ -6,9 +6,9 @@ import { renderLedger, renderRoster, sendMessage, initAddPartyMemberUI } from '.
 import { renderTargetRange, renderAllyRange, toggleMenu, selectAttackKind, selectEssenceSchool, selectBlockKind, toggleCounter, commitAction, undoAction, resolveRound, renderCombatCounters, renderStagedActions, stageRest } from './combat.js';
 import { renderSequencer, initSequencerHover, initSequencerScrub } from './sequencer.js';
 import { addEnemy, startEncounter, endEncounter, renderDMEnemyPicker, renderDMCounters, renderDMTargetRange, dmToggleMenu, dmSelectAttackKind, dmSelectBlockKind, dmToggleCounter, dmCommitAction, dmUndoAction, renderDMStagedActions, clearDead, populateSavedEncounterDropdown, saveEncounterAsTemplate, loadEncounterTemplate, renderNpcList } from './dm.js';
-import { defaultMap, renderMap, toggleMapEditMode, toggleTata, cancelMoveSelect, initMapPopupDismiss } from './map.js';
-import { SCENES, loadScene, toggleSceneMenu } from './scenes.js';
-import { openPanel, closePanel, togglePanel, updateEncounterUI, initPanelBackdrop } from './panels.js';
+import { defaultMap, renderMap, toggleMapEditMode, toggleTata, cancelMoveSelect, initMapPopupDismiss, centerMapView } from './map.js';
+import { SCENES, loadScene, toggleSceneMenu, seedScene } from './scenes.js';
+import { openPanel, closePanel, togglePanel, updateEncounterUI, initPanelBackdrop, showLoading } from './panels.js';
 import { renderDMTestPanel, runDMTestRound, runDMTestNRounds, runDMTestUntilDefeat } from './dmtest.js';
 import { initTechniquesUI, renderTechniquesPanel } from './techniques.js';
 import { renderInformationPanel, hasUnseenMindeye } from './information.js';
@@ -21,7 +21,6 @@ import { resolveNonCombatRound } from './noncombat.js';
 import { initCraftPopup } from './craftPopup.js';
 
 // ---------- Screen helpers ----------
-function showLoading(v){ document.getElementById('loading').classList.toggle('hidden', !v); }
 function showLandingError(msg){
   const el = document.getElementById('landing-error');
   el.textContent = msg;
@@ -63,7 +62,7 @@ function renderView2Mode(persistentGrid){
   }
 
   const ledgerHeader = document.getElementById('ledger-header');
-  if(ledgerHeader) ledgerHeader.textContent = tata ? 'Tata Ledger' : 'Party Ledger';
+  if(ledgerHeader) ledgerHeader.textContent = tata ? 'Yom Ledger' : 'Party Ledger'; // label only, 2026-08-23 — see index.html's tata-toggle rename
 
   renderNpcList('characters-list');
 }
@@ -159,7 +158,7 @@ async function handleCreate(){
   showLoading(false);
   if(!ok){ showLandingError("Couldn't create the table. Try again."); return; }
   await rememberMe(code, AppState.playerId, name);
-  enterTable(code);
+  await enterTable(code);
 }
 
 async function handleJoin(){
@@ -183,23 +182,59 @@ async function handleJoin(){
     // Networking & Sync) can scramble it. A stamped, sortable field survives
     // that regardless of how the underlying object gets rebuilt on a write.
     t.players[AppState.playerId].joinOrder = Date.now();
-    if(!t.positions) t.positions = {};
-    // Each new Player starts one Tile down from the previous one, same column.
-    const y = Math.min(Object.keys(t.players).length - 1, (t.map.height || 1) - 1);
-    t.positions[AppState.playerId] = { x: 0, y };
+    // Position (2026-08-23) — only assigned here as a bare fallback when the
+    // Table has no real Scene with Spawn List data yet (Dev mode, or no
+    // Scene picked at all). A joining Player entering an already-active real
+    // Scene gets their own Spawn List slot from seedScene() instead, called
+    // right after from enterTable() below — this used to unconditionally
+    // drop every joiner at the map's own {0,y} corner regardless of the
+    // Scene, the exact Multiplayer Scene-spawn gap ROADMAP.md flagged.
+    const scene = SCENES[t.scene];
+    if(!scene || !(scene.npcSpawns || scene.playerSpawns)){
+      if(!t.positions) t.positions = {};
+      // Each new Player starts one Tile down from the previous one, same column.
+      const y = Math.min(Object.keys(t.players).length - 1, (t.map.height || 1) - 1);
+      t.positions[AppState.playerId] = { x: 0, y };
+    }
     t.log.push({ type: 'system', text: name + ' joined the table', time: timeNow() });
   });
   rememberMe(code, AppState.playerId, name);
-  enterTable(code);
+  await enterTable(code);
 }
 
-function enterTable(code){
+async function enterTable(code){
   document.getElementById('screen-landing').classList.add('hidden');
-  document.getElementById('screen-table').classList.remove('hidden');
   document.getElementById('table-code-display').textContent = code;
   populateBuildDropdowns();
   populateSavedCharacterDropdowns();
   populateSavedEncounterDropdown();
+
+  // Home > Legends > Main Game (2026-08-23, per dDd — "we jump to Game
+  // Screen after making Table but it should be Home > Legends > Main Game").
+  // The Table's own creator lands on the Legends screen (Scene picker)
+  // instead of a mostly-empty Main Game screen whenever no Scene is loaded
+  // yet; anyone else — a joining Player, or a rejoin once a Scene already
+  // exists — goes straight to Main Game, since only the creator can Load a
+  // Scene at all (t.createdBy, the same gate the in-Table "Load a Scene"
+  // dropdown already uses) — showing a non-creator an unusable picker would
+  // just be confusing. Picking a Legend (index.html's .legends-scene-btn,
+  // wired below) swaps back to Main Game itself once loadScene() runs.
+  const sceneLoaded = !!(AppState.table && AppState.table.scene);
+  const isCreator = AppState.table && AppState.table.createdBy === AppState.playerId;
+  document.getElementById('screen-legends').classList.toggle('hidden', sceneLoaded || !isCreator);
+  document.getElementById('screen-table').classList.toggle('hidden', !sceneLoaded && isCreator);
+
+  // Seed (2026-08-23, per dDd) — "the same thing could happen [on] Refreshing;
+  // this just occurs behind the screen for the joining Player, 'creating' the
+  // World State of the Game." Idempotent (js/scenes.js's seedScene() no-ops
+  // if this Player's already positioned and the Scene's NPCs already exist),
+  // so this is safe to run on every join AND every plain rejoin/hard-refresh,
+  // not just a fresh Scene pick — same showLoading() gate loadScene() itself
+  // uses, so a joiner never sees their own spawn happen live.
+  showLoading(true);
+  await seedScene();
+  centerMapView();
+  showLoading(false);
   renderAll();
   // Only auto-open for a genuinely new Character (no archetype set yet) —
   // was unconditional, which reopened Create-a-Character on every reload of
@@ -751,6 +786,17 @@ function wireEvents(){
   document.querySelectorAll('.scene-menu-item').forEach(btn => {
     btn.addEventListener('click', () => loadScene(btn.dataset.scene));
   });
+  // Legends screen (2026-08-23) — same action as the in-Table dropdown just
+  // above, just the first-time entry point, so it swaps straight to Main
+  // Game itself rather than going through enterTable()'s own Legends-vs-Table
+  // check again (that check only matters once, right after connecting).
+  document.querySelectorAll('.legends-scene-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('screen-legends').classList.add('hidden');
+      document.getElementById('screen-table').classList.remove('hidden');
+      loadScene(btn.dataset.scene);
+    });
+  });
   document.getElementById('toolbar-combat').addEventListener('click', () => togglePanel('combat'));
   document.getElementById('toolbar-dm').addEventListener('click', () => togglePanel('dm'));
   document.getElementById('toolbar-scripts').addEventListener('click', () => togglePanel('scripts'));
@@ -887,8 +933,17 @@ function wireEvents(){
     AppState.playerId = remembered.playerId;
     const ok = await connectToSession(remembered.code);
     if(ok && AppState.table.players[remembered.playerId]){
-      showLoading(false);
-      enterTable(remembered.code);
+      // enterTable() manages its own showLoading() gate end-to-end now
+      // (2026-08-23, once it started calling seedScene() too) — it only
+      // closes the gate itself once the camera is actually centered on the
+      // real result, so nothing further is needed here. Was a real ordering
+      // bug before that: this used to call showLoading(false) *before*
+      // enterTable() (and its camera-centering) had run at all, letting a
+      // rejoin's first, uncentered {0,0}-offset render slip out — the real
+      // "every new session or refresh" bug per dDd, not the loadScene()
+      // race in js/scenes.js (fixed the same day), which only ever fired on
+      // an active in-session Scene switch, not a plain page rejoin.
+      await enterTable(remembered.code);
       return;
     }
   }

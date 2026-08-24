@@ -1,6 +1,6 @@
 import { AppState } from './state.js';
 import { mutateTable, triggerRender } from './sync.js';
-import { escapeHtml, timeNow, playerShorthand, apCostForControl, describeAction, flashHint, isDeathWounded, resolveEntityRef, resolvePositionRef, enemyRoster, allCharacterRoster, showBannerError } from './utils.js';
+import { escapeHtml, timeNow, playerShorthand, apCostForControl, describeAction, flashHint, isDeathWounded, resolveEntityRef, resolvePositionRef, enemyRoster, allCharacterRoster, showBannerError, deliverMindeyeEntry } from './utils.js';
 import { BUILDS } from './character.js';
 import { getSavedCharacters } from './savedCharacters.js';
 import { getSavedEncounters, saveEncounterTemplate } from './savedEncounters.js';
@@ -57,15 +57,24 @@ export async function addEnemy(){
       control: b.control ?? 0, attunement: b.attunement ?? 0, life: b.life ?? 1,
       species: b.species, deathWounds: b.deathWounds, body: b.body ? [...b.body] : undefined,
       techniqueAccess: b.techniqueAccess,
-      // Found 2026-08-22 while wiring Gom's own Intelligence/knownGlyphs —
-      // this literal never copied either field from BUILDS at all, so a
-      // spawned Enemy silently lost them even though the Build template
-      // (js/character.js's BUILDS) had them right there.
-      knownGlyphs: b.knownGlyphs ? [...b.knownGlyphs] : undefined,
+      // Found 2026-08-22 while wiring Gom's own Intelligence — this literal
+      // never copied Personality from BUILDS at all, so a spawned Enemy
+      // silently lost it even though the Build template (js/character.js's
+      // BUILDS) had it right there.
       personality: b.personality ? JSON.parse(JSON.stringify(b.personality)) : undefined,
+      // passiveSpill (2026-08-23, found live — "I don't see any Lava
+      // Crafts, or Tiles getting effected") — same recurring bug class as
+      // species/personality above and mindeye before that: a new BUILDS
+      // field (Kulkrow's own) added without threading it through this
+      // literal too. This is the 3rd time; see ROADMAP.md for the real fix.
+      passiveSpill: b.passiveSpill,
       apSpent: 0, focusSpent: 0, sequence: [], possessedBy: null, facing: FACING_DEFAULT
     };
     t.positions[id] = pos;
+    // Innate Glyph knowledge, delivered as real Mindeye entries (2026-08-23,
+    // per dDd's knownGlyphs/mindeye merge) — "knowing" a Glyph now just
+    // means having a Mindeye entry for it, not a separate curriculum field.
+    (b.startingMindeye || []).forEach(g => deliverMindeyeEntry(t, id, 'Star Father', g, true));
     t.log.push({ type: 'system', text: 'An enemy joined the fight: ' + t.enemies[id].name, time: timeNow() });
   });
 }
@@ -208,10 +217,16 @@ export function renderNpcList(containerId){
     const inspectBtns = ['information', 'personality', 'relationships'].map(panel =>
       '<button class="npc-inspect-btn" data-inspect-panel="' + panel + '" data-inspect-id="' + id + '">' + panel[0].toUpperCase() + panel.slice(1) + '</button>'
     ).join('');
+    // Shadow Possession Link badge (2026-08-23, per dDd — "Gom just needs a
+    // list of NPCs he is possessing," repurposing this same NPC List rather
+    // than building a separate panel). Shows whenever the viewing Player
+    // holds a Link with this NPC, regardless of TATA state.
+    const myLink = e.shadowLinkedBy && e.shadowLinkedBy.includes(AppState.playerId);
+    const linkBadge = myLink ? '<span class="npc-link-badge" title="Shadow Possession Link active">&#128279; Linked</span>' : '';
     return '<div class="npc-list-item' + (r.dead ? ' defeated' : '') + '" data-id="' + id + '">' +
       '<span class="npc-list-name">' + escapeHtml(r.name) + '</span>' +
       '<span class="npc-list-meta">' + escapeHtml(e.archetype || '') + ' &mdash; ' + Math.max(0, e.wounds) + '/' + e.woundsMax + '</span>' +
-      '<span class="npc-row-actions">' + inspectBtns + activeBtn + '</span>' +
+      '<span class="npc-row-actions">' + linkBadge + inspectBtns + activeBtn + '</span>' +
     '</div>';
   }).join('');
 
@@ -518,8 +533,11 @@ export async function dmCommitAction(){
     const myPos = resolvePositionRef(AppState.table, AppState.actingEnemyId);
     const targetPos = resolvePositionRef(AppState.table, AppState.dmSelectedTargetId);
     if(myPos && targetPos){
+      // Shadow Possession Link bypasses Range (2026-08-23) — same rule as
+      // the Player's own Technique Use panel, js/techniques.js.
+      const linked = target.shadowLinkedBy && target.shadowLinkedBy.includes(AppState.actingEnemyId);
       const dist = getDistance(myPos, targetPos);
-      if(dist > def.range){ showBannerError('Target is out of Range (' + dist + ' > ' + def.range + ').'); return; }
+      if(!linked && dist > def.range){ showBannerError('Target is out of Range (' + dist + ' > ' + def.range + ').'); return; }
       if(!hasLineOfSight(AppState.table, myPos, targetPos)){ showBannerError('No line of sight to target.'); return; }
     }
     for(const [resource, amount] of Object.entries(def.costs)){

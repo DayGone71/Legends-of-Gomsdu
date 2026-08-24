@@ -5,7 +5,7 @@
 //    Glyph in the list delivered right now, in order. Useful for direct,
 //    manual dispatch (the disclosed-mutation pattern this whole codebase's
 //    testing already leans on).
-// 2. `assignScript()` / `actor.activeScript` — real tracked state, per
+// 2. `assignScript()` / `actor.activeScripts` — real tracked state, per
 //    dDd's own Actor/Target/Action/Outcome breakdown: an ordered list of
 //    Rows (each Row up to 3 Glyphs, matching Message's own cap — a Row
 //    delivers in one Message since dDd confirmed "Horizontal can all be
@@ -13,30 +13,30 @@
 //    what the Teach Behavior (WIM — js/behaviors.js, resolved in
 //    js/noncombat.js) actually advances, one Row per roll, only moving to
 //    the next Row once the current one's Outcome has landed ("Vertical has
-//    to wait"). Assigning a Script is still a manual, orchestrated act —
-//    per dDd: "We are orchestrating that ourselves... Let's keep that
-//    approach" — Behavior only ever *advances* a Script that's already been
-//    assigned, it never creates one for itself.
+//    to wait"). Up to 3 Scripts can be active at once per Actor (2026-08-23,
+//    per dDd — "the Character can only have one Script for Plan. Can we
+//    make it 3?"), each its own slot/Target — a single Teach roll still
+//    only advances one Row total, from the first not-yet-complete slot.
+//    Assigning a Script is still a manual, orchestrated act — per dDd:
+//    "We are orchestrating that ourselves... Let's keep that approach" —
+//    Behavior only ever *advances* a Script that's already been assigned,
+//    it never creates one for itself.
 
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
-import { deliverMindeyeEntry, timeNow, escapeHtml, resolveEntityRef, allCharacterRoster } from './utils.js';
+import { deliverMindeyeEntry, timeNow, escapeHtml, genId, resolveEntityRef, allCharacterRoster, knownGlyphIds, showBannerError } from './utils.js';
 import { glyphOptionsHtml } from './techniques.js';
+import { compositionCardHtml } from './information.js';
 
-// Which Glyphs a Character actually knows — the gate a real Script/Behavior
-// dispatch will eventually need to respect (a Character shouldn't be able
-// to send a Glyph it doesn't itself know). Not enforced anywhere yet;
-// undefined `knownGlyphs` means unrestricted, same backward-compatible
-// default every other new gate in this codebase uses for pre-existing
-// Characters. Gom is the first real Character with this set — just the 4
-// Movement Glyphs (see data/characters.json).
-export function knownGlyphs(actor){
-  return (actor && actor.knownGlyphs) || null;
-}
-
+// Whether a Character actually knows a given Glyph — the gate a real
+// Script/Behavior dispatch will eventually need to respect (a Character
+// shouldn't be able to send a Glyph it doesn't itself know). Not enforced
+// anywhere yet. "Knowing" (2026-08-23, per dDd — the knownGlyphs/mindeye
+// merge) means having a real Mindeye entry for it; see knownGlyphIds() in
+// js/utils.js. The separate knownGlyphs curriculum array this used to read
+// is gone.
 export function knowsGlyph(actor, glyphId){
-  const known = knownGlyphs(actor);
-  return !known || known.includes(glyphId);
+  return knownGlyphIds(actor).includes(glyphId);
 }
 
 // Delivers every Glyph in a Script, in order, as that many separate Mindeye
@@ -59,11 +59,12 @@ export function dispatchScript(table, script){
 
 // Saved Scripts (2026-08-22, per dDd — "save the Script I gave you
 // originally to a drop down accessible from within the Scripts Panel").
-// Named presets, selectable from the Script Panel instead of rebuilding a
-// Composition Row-by-Row every test — same plain-object-literal convention
+// Named presets, pre-authored the same plain-object-literal convention
 // [js/character.js](../js/character.js)'s BUILDS and
-// [js/techniques.js](../js/techniques.js)'s TECHNIQUES already use, so a
-// future saved Script is just another entry here.
+// [js/techniques.js](../js/techniques.js)'s TECHNIQUES already use — folded
+// into Assign Script's own picker list (2026-08-23, per dDd: "these should
+// be saved to Assign Script... this should have the Presets already"), not
+// a separate section with its own assign flow anymore.
 //
 // `gomTeachesMovement` is dDd's own 9-Expression Composition handed over
 // this session (verbatim, `reference/CHANGELOG.md` 2026-08-22): Expressions
@@ -107,31 +108,212 @@ export const SAVED_SCRIPTS = {
   }
 };
 
-// Assigns a real, tracked, multi-Round Script onto actor.activeScript — the
-// Teach Behavior (js/noncombat.js) is what actually delivers it, one Row
-// per roll. `rows` is an array of Glyph-id arrays, each up to 3 (Message's
-// own cap); `targetId`/`targetName` is who receives every Row. Overwrites
-// any Script already in progress on this actor — assigning a new one is a
-// deliberate act, not a queue. Call from inside a mutateTable() callback,
-// same as dispatchScript above.
+// Assigns a real, tracked, multi-Round Script onto one of the actor's up to
+// 3 concurrent activeScripts slots (2026-08-23, per dDd — "the Character
+// can only have one Script for Plan. Can we make it 3? 3 in a row" — same
+// cap the manual Row builder already uses per-Script) — the Teach Behavior
+// (js/noncombat.js) is what actually delivers it, one Row per roll, from
+// whichever slot isn't complete yet. `rows` is an array of Glyph-id arrays,
+// each up to 3 (Message's own cap); `targetId`/`targetName` is who receives
+// every Row. Adds a new slot rather than overwriting — up to 3 different
+// Scripts (different Targets, even) can run at once now. Returns false
+// (caller's job to surface it) if all 3 slots are already full. Call from
+// inside a mutateTable() callback, same as dispatchScript above.
 export function assignScript(actor, { targetId, targetName, rows }){
-  if(!actor || !targetId || !rows || !rows.length) return;
-  actor.activeScript = { targetId, targetName, rows, nextRow: 0 };
+  if(!actor || !targetId || !rows || !rows.length) return false;
+  if(!actor.activeScripts) actor.activeScripts = [];
+  if(actor.activeScripts.length >= 3) return false;
+  actor.activeScripts.push({ targetId, targetName, rows, nextRow: 0 });
+  return true;
 }
 
 // --- Script Panel (2026-08-22, per dDd) ---------------------------------
 // "Add a Script Panel button the right side, so I can set the Scripts up."
-// Lets dDd build and assign a Script himself (Actor/Target/Row picker,
-// reusing js/techniques.js's own glyphOptionsHtml() rather than duplicating
-// it), with a readout of whatever's currently on the selected Actor's
-// activeScript — so he can verify Teach's progress from the environment
-// alone, no disclosed-mutation hand-holding needed. Local-only form state
-// (builderActorId/builderTargetId/builderRowCount), same pattern every other
-// panel's transient picker state already uses (js/information.js's
+// Restructured 2026-08-23, per dDd's own naming/flow cleanup: "'Actor'
+// means Character (the Naming can be streamlined)... Actor was a temporary
+// fix; Actor is simply the Character themselves." Building a Script's Rows
+// also shouldn't be tangled up with picking who to assign it to — "Those
+// [Character/Rows] are part of Assign Script, but in truth it should only
+// be Target and a list of Scripts to Assign. The above stuff should be
+// Write Script, which adds it to Scripts to Assign." Two sheets now instead
+// of one:
+// - Write Script — the Expression builder (reusing js/techniques.js's own
+//   glyphOptionsHtml() rather than duplicating it), all 3 Expressions
+//   always visible per dDd ("may as well be visible at all times, like the
+//   Arranger"). Each Expression's up-to-3 Glyphs stack vertically now
+//   (2026-08-23, reversed from the original horizontal layout — "WIMBIS is
+//   written in 3 rows and 3 columns... Horizontal reading direction is
+//   irrelevant... the clash with the Language Writing is against the
+//   design"), with a live preview (js/information.js's
+//   compositionCardHtml()) so what's being built reads the same way it
+//   will everywhere else. No Character/Target of its own — a Script's
+//   content doesn't belong to anyone until it's actually assigned. Saves
+//   onto t.writtenScripts, a shared, table-persisted pool so every
+//   connected Player sees the same list.
+// - Assign Script — Character (who acts) + Target (who receives) + one
+//   merged picker list (2026-08-23, per dDd: "these should be saved to
+//   Assign Script... this should have the Presets already") combining
+//   SAVED_SCRIPTS (pre-authored) and t.writtenScripts (Player-authored)
+//   into a single list — no separate Saved Scripts section/assign flow
+//   anymore. Every picker card renders via the same shared
+//   compositionCardHtml() component (2026-08-23, per dDd: "a single
+//   Rectangular Button they all use"), reused again for the Active
+//   Scripts status readout below (with its own progress overlay) instead
+//   of a third, divergent plain-text layout.
+// Local-only form state throughout, same pattern every other panel's
+// transient picker state already uses (js/information.js's
 // revealingEntryId, js/relationships.js's selectedEntryId).
 let builderActorId = null;
 let builderTargetId = null;
-let builderRowCount = 1;
+// Write Script's own local state — 3 fixed Expression slots, no Add/Remove.
+let writeBuilderRows = [[null, null, null], [null, null, null], [null, null, null]];
+let writeBuilderName = '';
+// Which entry in the merged picker list (preset or written) is currently
+// selected in Assign Script — `'preset:<key>'` or a written Script's own id.
+let assignSelectedId = null;
+
+// Deep-compares two Row lists (arrays of Glyph-id arrays) — used to tell
+// whether a candidate Target already has *this* Script (not just any
+// Script) actively assigned.
+function rowsEqual(a, b){
+  if(!a || !b || a.length !== b.length) return false;
+  return a.every((row, i) => row.length === (b[i] || []).length && row.every((g, j) => g === b[i][j]));
+}
+
+// Whether charId is *already the recipient* of an in-progress instance of
+// any of the given candidate Row lists (2026-08-23, per dDd: "the Target
+// gets greyed out and is not able to receive the same Script" — read
+// literally as *this* Script, not "has any Script at all," so a Character
+// can still receive a different one). `activeScripts` (up to 3, 2026-08-23)
+// lives on whoever is TEACHING it, not on the recipient — a Living Stone
+// being taught has no field of its own recording that; the only way to
+// know is to check every real Actor's own slots for one whose targetId is
+// charId.
+function targetAlreadyHasScript(table, charId, candidateRowsList){
+  const actors = [...Object.values(table.players || {}), ...Object.values(table.enemies || {})];
+  return actors.some(a => (a.activeScripts || []).some(s => s.targetId === charId &&
+    candidateRowsList.some(rows => rows && rows.length && rowsEqual(s.rows, rows))));
+}
+
+// Every pickable Script — Saved (pre-authored) first, then whatever's been
+// Written this session, one merged list (2026-08-23, per dDd — see this
+// file's Script Panel header comment). `rows` arrays are shared references
+// into SAVED_SCRIPTS/t.writtenScripts, never mutated here.
+function allAssignableScripts(table){
+  const presets = Object.entries(SAVED_SCRIPTS).map(([key, s]) => ({ id: 'preset:' + key, name: s.name, rows: s.rows }));
+  const written = table.writtenScripts || [];
+  return [...presets, ...written];
+}
+
+function writeScriptSheet(){
+  const sheet = document.createElement('div');
+  sheet.className = 'sheet';
+  // Expression columns, side by side (2026-08-23) — a real port of
+  // language/gomsdu-glyph-arranger.html's own #expressionGrid: up to 3
+  // Expressions as grid COLUMNS, each column's own up-to-3 Glyphs stacked
+  // vertically inside it. Was 3 separate stacked "Expression N" blocks —
+  // the wrong dimension collapsed, per dDd: "why not just make the grid?"
+  const columnsHtml = writeBuilderRows.map((row, r) =>
+    '<div class="write-expression-column">' +
+      '<div class="write-expression-label">Expression ' + (r + 1) + '</div>' +
+      '<select class="write-glyph-select" data-row="' + r + '" data-slot="0">' + glyphOptionsHtml(false, row[0]) + '</select>' +
+      '<select class="write-glyph-select" data-row="' + r + '" data-slot="1">' + glyphOptionsHtml(true, row[1]) + '</select>' +
+      '<select class="write-glyph-select" data-row="' + r + '" data-slot="2">' + glyphOptionsHtml(true, row[2]) + '</select>' +
+    '</div>'
+  ).join('');
+  sheet.innerHTML =
+    '<div class="stat-header">Write Script</div>' +
+    '<div class="field"><label>Name (optional)</label>' +
+      '<input type="text" id="write-script-name" placeholder="Leave blank to auto-name" value="' + escapeHtml(writeBuilderName) + '" /></div>' +
+    '<div class="field"><label>Preview</label>' + compositionCardHtml(writeBuilderRows) + '</div>' +
+    '<div class="write-expression-grid">' + columnsHtml + '</div>' +
+    '<button class="btn-brass btn-block" id="write-script-save-btn" style="margin-top:10px;">Save Script</button>';
+
+  sheet.querySelector('#write-script-name').addEventListener('input', ev => { writeBuilderName = ev.target.value; });
+  sheet.querySelectorAll('.write-glyph-select').forEach(sel => {
+    sel.addEventListener('change', ev => {
+      const r = Number(ev.target.dataset.row), s = Number(ev.target.dataset.slot);
+      writeBuilderRows[r][s] = ev.target.value || null;
+      renderScriptsPanel();
+    });
+  });
+  sheet.querySelector('#write-script-save-btn').addEventListener('click', saveWrittenScript);
+  return sheet;
+}
+
+async function saveWrittenScript(){
+  const rows = writeBuilderRows.map(row => row.filter(Boolean)).filter(row => row.length);
+  if(!rows.length){ showBannerError('Add at least one Glyph to an Expression first.'); return; }
+  const name = writeBuilderName.trim() || rows.map(r => r.join('+')).join(' / ');
+  await mutateTable(t => {
+    if(!t.writtenScripts) t.writtenScripts = [];
+    t.writtenScripts.push({ id: genId(), name, rows });
+  });
+  writeBuilderRows = [[null, null, null], [null, null, null], [null, null, null]];
+  writeBuilderName = '';
+  renderScriptsPanel();
+}
+
+function assignScriptSheet(allScripts, selected, optionsHtml, targetOptionsHtml){
+  const sheet = document.createElement('div');
+  sheet.className = 'sheet';
+  sheet.innerHTML =
+    '<div class="stat-header">Assign Script</div>' +
+    '<div class="field"><label>Character (who acts)</label>' +
+    '<select id="script-actor-select">' + optionsHtml(builderActorId) + '</select></div>' +
+    '<div class="field"><label>Target (who receives)</label>' +
+    '<select id="script-target-select">' + targetOptionsHtml(builderTargetId) + '</select></div>' +
+    '<div class="field"><label>Script to Assign</label>' +
+    (allScripts.length
+      ? '<div class="script-picker-list">' + allScripts.map(s =>
+          '<button type="button" class="script-picker-item' + (selected && s.id === selected.id ? ' selected' : '') + '" data-script-id="' + s.id + '">' +
+            '<div class="script-picker-name">' + escapeHtml(s.name) + '</div>' +
+            compositionCardHtml(s.rows) +
+          '</button>'
+        ).join('') + '</div>'
+      : '<div class="log-empty">Nothing to assign yet — use Write Script above.</div>') +
+    '</div>' +
+    '<button class="btn-brass btn-block" id="script-assign-btn" style="margin-top:10px;"' + (!selected ? ' disabled' : '') + '>Assign Script</button>';
+
+  sheet.querySelector('#script-actor-select').addEventListener('change', ev => { builderActorId = ev.target.value; renderScriptsPanel(); });
+  sheet.querySelector('#script-target-select').addEventListener('change', ev => { builderTargetId = ev.target.value; });
+  sheet.querySelectorAll('.script-picker-item').forEach(btn => {
+    btn.addEventListener('click', () => { assignSelectedId = btn.dataset.scriptId; renderScriptsPanel(); });
+  });
+  const assignBtn = sheet.querySelector('#script-assign-btn');
+  if(assignBtn) assignBtn.addEventListener('click', assignSelectedScript);
+  return sheet;
+}
+
+async function assignSelectedScript(){
+  if(!builderActorId || !builderTargetId || !assignSelectedId) return;
+  const table = AppState.table;
+  const entry = allAssignableScripts(table).find(s => s.id === assignSelectedId);
+  if(!entry) return;
+  const targetChar = resolveEntityRef(table, builderTargetId);
+  if(!targetChar) return;
+  const targetName = targetChar.name;
+  let ok = false;
+  await mutateTable(t => {
+    const actor = resolveEntityRef(t, builderActorId);
+    if(!actor) return;
+    ok = assignScript(actor, { targetId: builderTargetId, targetName, rows: entry.rows.map(row => row.slice()) });
+  });
+  if(!ok){ showBannerError('This Character already has 3 active Scripts — clear one first.'); return; }
+  advanceTargetPastAssigned([entry.rows]);
+  renderScriptsPanel();
+}
+
+// Advances builderTargetId to the next Character who doesn't already have
+// *this* Script (2026-08-23, per dDd: "we can more easily give several
+// Characters the same Script") — the just-assigned Target now matches
+// itself, so it's naturally skipped without needing special-casing. Leaves
+// the selection alone if everyone already has it.
+function advanceTargetPastAssigned(candidateRowsList){
+  const table = AppState.table;
+  const next = allCharacterRoster(table).find(c => c.id !== builderActorId && !targetAlreadyHasScript(table, c.id, candidateRowsList));
+  if(next) builderTargetId = next.id;
+}
 
 export function renderScriptsPanel(){
   const container = document.getElementById('scripts-content');
@@ -149,103 +331,53 @@ export function renderScriptsPanel(){
     '<option value="' + c.id + '"' + (c.id === selectedId ? ' selected' : '') + '>' + escapeHtml(c.name) + '</option>'
   ).join('');
 
-  const builderSheet = document.createElement('div');
-  builderSheet.className = 'sheet';
-  builderSheet.innerHTML =
-    '<div class="stat-header">Assign a Script</div>' +
-    '<div class="field"><label>Actor (who Teaches)</label>' +
-    '<select id="script-actor-select">' + optionsHtml(builderActorId) + '</select></div>' +
-    '<div class="field"><label>Target (who receives)</label>' +
-    '<select id="script-target-select">' + optionsHtml(builderTargetId) + '</select></div>' +
-    '<div id="script-rows-builder"></div>' +
-    '<div class="script-row-controls">' +
-    '<button class="btn-ghost btn-small" id="script-add-row"' + (builderRowCount >= 3 ? ' disabled' : '') + '>+ Add Row</button>' +
-    '<button class="btn-ghost btn-small" id="script-remove-row"' + (builderRowCount <= 1 ? ' disabled' : '') + '>&minus; Remove Row</button>' +
-    '</div>' +
-    '<button class="btn-brass btn-block" id="script-assign-btn" style="margin-top:10px;">Assign Script</button>';
+  const allScripts = allAssignableScripts(table);
+  if(!allScripts.some(s => s.id === assignSelectedId)) assignSelectedId = allScripts.length ? allScripts[0].id : null;
+  const selected = allScripts.find(s => s.id === assignSelectedId) || null;
 
-  const rowsBuilder = builderSheet.querySelector('#script-rows-builder');
-  for(let r = 0; r < builderRowCount; r++){
-    const rowEl = document.createElement('div');
-    rowEl.className = 'field script-row-field';
-    rowEl.innerHTML = '<label>Row ' + (r + 1) + ' (up to 3 Glyphs, sent together)</label>' +
-      '<select class="script-glyph-select" data-row="' + r + '" data-slot="0">' + glyphOptionsHtml(false) + '</select>' +
-      '<select class="script-glyph-select" data-row="' + r + '" data-slot="1">' + glyphOptionsHtml(true) + '</select>' +
-      '<select class="script-glyph-select" data-row="' + r + '" data-slot="2">' + glyphOptionsHtml(true) + '</select>';
-    rowsBuilder.appendChild(rowEl);
-  }
-  container.appendChild(builderSheet);
-  container.appendChild(presetSheet());
+  // Target-greying (2026-08-23) — a Character already holding *this exact*
+  // Script (whichever's currently selected above) shows labeled and
+  // dimmed, so it's obvious at a glance who still needs it. Deliberately
+  // NOT `disabled` (found live, per dDd: "they should be visible but
+  // selectable") — a visual cue only, one click to re-assign on purpose.
+  const candidateRowsList = [selected ? selected.rows : null];
+  const targetOptionsHtml = (selectedId) => chars.map(c => {
+    const already = targetAlreadyHasScript(table, c.id, candidateRowsList);
+    return '<option value="' + c.id + '"' + (c.id === selectedId ? ' selected' : '') + (already ? ' class="script-target-taken"' : '') + '>' +
+      escapeHtml(c.name) + (already ? ' (already has this Script)' : '') + '</option>';
+  }).join('');
+
+  container.appendChild(writeScriptSheet());
+  container.appendChild(assignScriptSheet(allScripts, selected, optionsHtml, targetOptionsHtml));
   container.appendChild(memorySheet(actor));
 
   const statusSheet = document.createElement('div');
   statusSheet.className = 'sheet';
-  if(actor && actor.activeScript){
-    const s = actor.activeScript;
-    statusSheet.innerHTML =
-      '<div class="stat-header">' + escapeHtml(actor.name || 'Actor') + '’s Active Script</div>' +
-      '<div class="script-status-line">Target: ' + escapeHtml(s.targetName || '?') + '</div>' +
-      '<div class="script-status-line">Progress: Row ' + (s.nextRow + 1) + ' / ' + s.rows.length + '</div>' +
-      '<div class="script-rows-readout">' + s.rows.map((row, i) =>
-        '<div class="script-row-readout' + (i < s.nextRow ? ' done' : '') + (i === s.nextRow ? ' next' : '') + '">Row ' + (i + 1) + ': ' + row.map(escapeHtml).join(', ') + '</div>'
-      ).join('') + '</div>' +
-      '<button class="btn-ghost btn-small" id="script-clear-btn">Clear Script</button>';
-  }else{
-    statusSheet.innerHTML = '<div class="stat-header">' + (actor ? escapeHtml(actor.name || 'Actor') : 'No Actor') + '</div><div class="log-empty">No active Script.</div>';
-  }
+  const activeScripts = (actor && actor.activeScripts) || [];
+  statusSheet.innerHTML = '<div class="stat-header">' + (actor ? escapeHtml(actor.name || 'Character') : 'No Character') +
+    '’s Active Scripts (' + activeScripts.length + ' / 3)</div>' +
+    (activeScripts.length
+      ? activeScripts.map((s, idx) =>
+          '<div class="script-slot">' +
+            '<div class="script-status-line">Target: ' + escapeHtml(s.targetName || '?') + '</div>' +
+            '<div class="script-status-line">Progress: Expression ' + (s.nextRow + 1) + ' / ' + s.rows.length + '</div>' +
+            compositionCardHtml(s.rows, { nextRowIndex: s.nextRow }) +
+            '<button class="btn-ghost btn-small script-clear-btn" data-slot-index="' + idx + '" style="margin-top:8px;">Clear Script</button>' +
+          '</div>'
+        ).join('')
+      : '<div class="log-empty">No active Scripts.</div>');
   container.appendChild(statusSheet);
 
-  container.querySelector('#script-actor-select').addEventListener('change', ev => { builderActorId = ev.target.value; renderScriptsPanel(); });
-  container.querySelector('#script-target-select').addEventListener('change', ev => { builderTargetId = ev.target.value; });
-  container.querySelector('#script-add-row').addEventListener('click', () => { if(builderRowCount < 3){ builderRowCount++; renderScriptsPanel(); } });
-  container.querySelector('#script-remove-row').addEventListener('click', () => { if(builderRowCount > 1){ builderRowCount--; renderScriptsPanel(); } });
-  container.querySelector('#script-assign-btn').addEventListener('click', assignFromBuilder);
-  const clearBtn = container.querySelector('#script-clear-btn');
-  if(clearBtn) clearBtn.addEventListener('click', clearActiveScript);
-}
-
-// Saved Scripts picker (2026-08-22, per dDd) — assigns straight onto
-// whichever Actor/Target are already picked in the builder above, skipping
-// the manual Row-by-Row builder entirely (a preset's Row count isn't capped
-// at 3 the way manual building is — 6 Rows for `gomTeachesMovement` — since
-// it's pre-authored data, not something built live through the Add Row UI).
-function presetSheet(){
-  const sheet = document.createElement('div');
-  sheet.className = 'sheet';
-  const keys = Object.keys(SAVED_SCRIPTS);
-  sheet.innerHTML =
-    '<div class="stat-header">Saved Scripts</div>' +
-    '<div class="script-status-line">Assigns straight to the Actor/Target picked above — skips the Row builder.</div>' +
-    '<div class="field"><label>Preset</label><select id="script-preset-select">' +
-      keys.map(k => '<option value="' + k + '">' + escapeHtml(SAVED_SCRIPTS[k].name) + '</option>').join('') +
-    '</select></div>' +
-    '<button class="btn-brass btn-block" id="script-load-preset-btn">Assign Preset</button>';
-  sheet.querySelector('#script-load-preset-btn').addEventListener('click', () => {
-    const sel = sheet.querySelector('#script-preset-select');
-    assignPreset(sel ? sel.value : null);
+  container.querySelectorAll('.script-clear-btn').forEach(btn => {
+    btn.addEventListener('click', () => clearActiveScript(Number(btn.dataset.slotIndex)));
   });
-  return sheet;
-}
-
-async function assignPreset(presetKey){
-  const preset = SAVED_SCRIPTS[presetKey];
-  if(!preset || !builderActorId || !builderTargetId) return;
-  const targetChar = resolveEntityRef(AppState.table, builderTargetId);
-  if(!targetChar) return;
-  const targetName = targetChar.name;
-  await mutateTable(t => {
-    const actor = resolveEntityRef(t, builderActorId);
-    if(!actor) return;
-    assignScript(actor, { targetId: builderTargetId, targetName, rows: preset.rows.map(row => row.slice()) });
-  });
-  renderScriptsPanel();
 }
 
 // Give Memory (2026-08-22, per dDd — found live: "Gom needs the Glyphs
 // already in Memory by the looks of things.") — a real, separate gap from
 // assignScript() above. Behaviors (js/behaviors.js's computeBehaviors()) are
 // driven entirely by an Actor's OWN remembered Glyphs (actor.mindeye), not
-// by activeScript — Teach only has real weight to roll once WIM itself is
+// by activeScripts — Teach only has real weight to roll once WIM itself is
 // in the Actor's own Memory with genuine Desire/Longing behind it. Assigning
 // a Script only decides what gets taught once Teach actually fires; this is
 // the missing "get the Actor into a state where it fires at all" half,
@@ -310,35 +442,13 @@ async function addMemory(actorId, sheet){
   renderScriptsPanel();
 }
 
-async function assignFromBuilder(){
-  if(!builderActorId || !builderTargetId) return;
-  const targetChar = resolveEntityRef(AppState.table, builderTargetId);
-  if(!targetChar) return;
-  const rows = [];
-  for(let r = 0; r < builderRowCount; r++){
-    const glyphs = [0, 1, 2]
-      .map(slot => {
-        const sel = document.querySelector('.script-glyph-select[data-row="' + r + '"][data-slot="' + slot + '"]');
-        return sel ? sel.value : '';
-      })
-      .filter(Boolean);
-    if(glyphs.length) rows.push(glyphs);
-  }
-  if(!rows.length) return;
-  const targetName = targetChar.name;
+// `slotIndex` (2026-08-23) — which of the actor's up to 3 activeScripts to
+// clear; each slot gets its own Clear button now instead of one global one.
+async function clearActiveScript(slotIndex){
+  if(!builderActorId || slotIndex == null) return;
   await mutateTable(t => {
     const actor = resolveEntityRef(t, builderActorId);
-    if(!actor) return;
-    assignScript(actor, { targetId: builderTargetId, targetName, rows });
-  });
-  renderScriptsPanel();
-}
-
-async function clearActiveScript(){
-  if(!builderActorId) return;
-  await mutateTable(t => {
-    const actor = resolveEntityRef(t, builderActorId);
-    if(actor) actor.activeScript = null;
+    if(actor && actor.activeScripts) actor.activeScripts.splice(slotIndex, 1);
   });
   renderScriptsPanel();
 }

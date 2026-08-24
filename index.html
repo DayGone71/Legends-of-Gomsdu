@@ -4,8 +4,20 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Gomsdu &mdash; The Table</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Remote Google Fonts removed 2026-08-23, per dDd — "super basic universal
+     font, something really primitive." Originally suspected as the cause of
+     a Map-width layout-shift bug (".map-panel" measured 338px at the very
+     first render, 605px moments later) via these fonts' display=swap
+     behavior — disproven the same day by direct measurement: removing all
+     three fonts entirely did not fix the width reading. The real cause was
+     the Map-load race documented in CHANGELOG.md's "Map-Load Race" entry
+     (loadScene()'s own camera-centering race, plus a rejoin/hard-refresh
+     never centering the camera at all) — nothing to do with fonts. This
+     removal was kept anyway as a real, deliberate change in its own right:
+     every font-family in css/*.css now just names a plain CSS generic
+     (monospace/sans-serif/serif) instead of a branded Google Font — the OS's
+     own built-in font for each category, present on every machine with zero
+     network fetch. -->
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/layout.css">
 <link rel="stylesheet" href="css/panels.css">
@@ -117,6 +129,30 @@
     </div>
   </div>
 
+  <!-- LEGENDS — the Home > Legends > Main Game halfway point (2026-08-23, per
+       dDd: "we jump to Game Screen after making Table but it should be Home >
+       Legends > Main Game... just go to a screen that only has the Scenes
+       available, they'll launch the correct scene"). Shown to the Table's own
+       creator only, in place of Main Game, whenever no Scene is loaded yet —
+       js/main.js's enterTable() decides which screen to show; a joining
+       Player (or a rejoin once a Scene already exists) skips straight to
+       Main Game instead, since only the creator can Load a Scene at all (see
+       t.createdBy, same gate the in-Table "Load a Scene" dropdown already
+       uses). Reuses loadScene() (js/scenes.js) via the same data-scene
+       attribute pattern as that dropdown — picking a Legend here is exactly
+       the same action as picking one there, just the first-time entry point. -->
+  <div id="screen-legends" class="hidden">
+    <div class="brand-eyebrow">Gomsdu &mdash; Browser Tabletop</div>
+    <h1>Choose a Legend</h1>
+    <p class="sub">Pick which Era to Spawn the Table into &mdash; Yom Seeds the World accordingly. You can Load a different Scene later from the Table itself.</p>
+    <div class="legends-list">
+      <button class="legends-scene-btn btn-brass btn-block" data-scene="era1">Era 1: Tutorial</button>
+      <button class="legends-scene-btn btn-ghost btn-block" data-scene="era1gom">Era 1: Gom</button>
+      <button class="legends-scene-btn btn-ghost btn-block" data-scene="era1kulkrow">Era 1: Kulkrow</button>
+      <button class="legends-scene-btn btn-ghost btn-block" data-scene="dev">Dev</button>
+    </div>
+  </div>
+
   <div id="loading" class="loading-row hidden">Loading&hellip;</div>
 
   <!-- TABLE -->
@@ -133,6 +169,7 @@
           <button class="scene-menu-item" data-scene="dev">Dev</button>
           <button class="scene-menu-item" data-scene="era1">Era 1: Tutorial</button>
           <button class="scene-menu-item" data-scene="era1gom">Era 1: Gom</button>
+          <button class="scene-menu-item" data-scene="era1kulkrow">Era 1: Kulkrow</button>
         </div>
       </div>
       <button id="toolbar-character" class="btn-ghost btn-small">Create a Character</button>
@@ -184,8 +221,12 @@
           <button id="map-select-cancel" class="btn-ghost btn-small">Cancel</button>
         </div>
         <div class="map-toolbar">
-          <button id="tata-toggle" class="btn-ghost btn-small">TATA</button>
-          <button id="veil-vision-toggle" class="btn-ghost btn-small">TATA Veil Vision</button>
+          <!-- Labels only, 2026-08-23, per dDd ("TATA is kind of wack") — ids/
+               classes/AppState.tataActive left as-is on purpose, contained
+               cosmetic rename. See js/activeCharacter.js for the matching
+               placeholder-to-real-Yom swap this pairs with. -->
+          <button id="tata-toggle" class="btn-ghost btn-small">Yom</button>
+          <button id="veil-vision-toggle" class="btn-ghost btn-small">Yom Veil Vision</button>
           <button id="map-edit-toggle" class="btn-ghost btn-small">DM: edit tiles</button>
         </div>
         <div id="active-character-display" class="active-character-display"></div>
@@ -376,7 +417,7 @@
             </div>
             <div class="stat-grid">
               <div class="field"><label>Control</label><input id="ch-control" type="number" min="0" max="10" /></div>
-              <div class="field"><label>Attunement</label><input id="ch-attunement" type="number" min="0" max="10" /></div>
+              <div class="field"><label>Attunement</label><input id="ch-attunement" type="number" min="0" max="100" /></div>
               <div class="field"><label>Life</label><input id="ch-life" type="number" min="0" max="1" /></div>
             </div>
           </div>

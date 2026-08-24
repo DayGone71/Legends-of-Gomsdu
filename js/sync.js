@@ -21,15 +21,53 @@ export function triggerRender(){
   if(onStateChange) onStateChange();
 }
 
+// Tracks the highest _version this client has actually applied via a real
+// realtime echo — see the stale-echo guard in connectToSession() below.
+// Deliberately its OWN counter, not a read of AppState.table._version:
+// mutateTable() bumps that field optimistically, locally, the instant a
+// write is *attempted* — before the save is confirmed, and (found live
+// 2026-08-23, after the guard below first shipped) it's never rolled back
+// if that save genuinely fails outright (a real network/Supabase error, not
+// a version conflict — those already self-heal via their own refetch).
+// A guard compared against AppState.table._version would then be comparing
+// against a number already ahead of anything the server will ever actually
+// echo, silently rejecting every real echo forever — exactly what broke
+// live: "Yom casted Seed super late... I couldn't resolve any more turns
+// (or if they were resolving, nothing was occurring)" — a genuinely later
+// write's real, correct echo, rejected because some earlier optimistic bump
+// had already pushed the comparison baseline past it. This counter only
+// ever advances on an echo actually applied, so it can't be poisoned by an
+// optimistic bump that never gets confirmed.
+let lastAppliedVersion = -1;
+
 export async function connectToSession(code){
   const state = await loadSession(code);
   if(!state) return false;
 
   AppState.currentCode = code;
   AppState.table = state;
+  lastAppliedVersion = state._version || 0;
 
   if(AppState.unsubscribe) AppState.unsubscribe();
   AppState.unsubscribe = subscribeToSession(code, (newState) => {
+    // Stale-echo guard (2026-08-23) — root cause of the residual Map-load
+    // race dDd tracked down live (spawns/Facing/compass numbers visibly
+    // reverting-then-resettling after the loading screen already closed).
+    // mutateTable() never renders anything itself — every render, including
+    // one of our OWN writes, is driven by this realtime echo arriving back
+    // over the network. A sequence of several rapid mutateTable() calls
+    // (js/scenes.js's seedScene(), a staged Round resolving, ...) fires that
+    // many independent echoes, and network round-trips don't preserve send
+    // order — an EARLIER write's echo landing AFTER a LATER one already
+    // rendered would silently overwrite the screen with stale data for a
+    // moment (or until something else re-renders). Compared against
+    // lastAppliedVersion (see its own comment above), NOT AppState.table's
+    // own _version field — that field is mutateTable()'s optimistic local
+    // bookkeeping and can legitimately race ahead of what's actually been
+    // confirmed/rendered yet.
+    const incomingVersion = newState._version || 0;
+    if(incomingVersion < lastAppliedVersion) return;
+    lastAppliedVersion = incomingVersion;
     AppState.table = newState;
     if(onStateChange) onStateChange();
   });

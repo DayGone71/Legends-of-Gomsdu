@@ -4,8 +4,6 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Gomsdu &mdash; The Archive</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/base.css">
 <style>
   /* html's scroll-snap-type (from base.css, built for the Table's two-view
@@ -15,7 +13,7 @@
   body { padding: 28px 32px 60px; max-width: 1100px; margin: 0 auto; }
 
   .archive-header { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 6px; }
-  .archive-eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim); }
+  .archive-eyebrow { font-family: monospace; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim); }
   h1 { font-size: 28px; margin: 2px 0 4px; }
   .archive-sub { color: var(--text-dim); font-size: 14px; margin: 0 0 18px; max-width: 70ch; }
   .archive-nav { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 30px; }
@@ -39,19 +37,19 @@
   .comp-form label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 4px; }
   .comp-form input[type="text"], .comp-form textarea {
     width: 100%; background: var(--ink); color: var(--text-light); border: 1px solid var(--ink-line);
-    border-radius: 6px; padding: 9px 10px; font-family: 'Inter', sans-serif; font-size: 13px;
+    border-radius: 6px; padding: 9px 10px; font-family: sans-serif; font-size: 13px;
   }
-  .comp-form textarea { min-height: 160px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; resize: vertical; }
+  .comp-form textarea { min-height: 160px; font-family: monospace; font-size: 12px; resize: vertical; }
   .comp-form-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
   .comp-list { display: flex; flex-direction: column; gap: 10px; }
   .comp-item { background: var(--ink-soft); border: 1px solid var(--ink-line); border-radius: 10px; padding: 12px 14px; }
   .comp-item-header { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; cursor: pointer; }
   .comp-item-name { font-weight: 600; font-size: 14px; }
-  .comp-item-date { font-size: 11px; color: var(--text-dim); font-family: 'IBM Plex Mono', monospace; }
+  .comp-item-date { font-size: 11px; color: var(--text-dim); font-family: monospace; }
   .comp-item-body { display: none; margin-top: 10px; }
   .comp-item.open .comp-item-body { display: block; }
-  .comp-item pre { white-space: pre-wrap; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-light); background: var(--ink); border: 1px solid var(--ink-line); border-radius: 6px; padding: 10px; margin: 0 0 8px; }
+  .comp-item pre { white-space: pre-wrap; font-family: monospace; font-size: 12px; color: var(--text-light); background: var(--ink); border: 1px solid var(--ink-line); border-radius: 6px; padding: 10px; margin: 0 0 8px; }
   .comp-item-remove { font-size: 11px; color: var(--ember-bright); background: none; border: none; padding: 0; cursor: pointer; text-decoration: underline; }
   .empty-state { font-size: 13px; color: var(--text-dim); padding: 10px 0; }
 </style>

@@ -3,6 +3,23 @@ import { closeMapPopups } from './map.js';
 
 const PANEL_IDS = ['character', 'combat', 'dm', 'dmtest', 'character-view', 'stats', 'techniques', 'party', 'npcs', 'technique-use', 'help', 'information', 'personality', 'relationships', 'scripts'];
 
+// Moved here from js/main.js (2026-08-23) so js/scenes.js can use it too,
+// without a circular import (main.js already imports from both this file
+// and scenes.js). See its new loadScene() usage — per dDd, watching a real
+// Scene load: "it looks like all the Logic happens after the Map loads. The
+// Camera adjust, the Characters Spawn. It looks like they are racing and
+// winner is random... having a mandatory 1 second 'load' screen? All that
+// stuff happens... then presented visually?" — several sequential
+// mutateTable() calls (spawn NPCs, create the Player Character, seed
+// Mindeye/Personality, set Facing) each re-render as they land, and the
+// camera doesn't get centered until after all of them — so the Map visibly
+// renders several times at the wrong (default) camera position before ever
+// showing the right one. #loading is now a real full-screen blocking
+// overlay (css/base.css's .loading-row), not just an inline hint, so
+// wrapping a whole async sequence in showLoading(true)/(false) actually
+// hides the in-between churn instead of just leaving it visible underneath.
+export function showLoading(v){ document.getElementById('loading').classList.toggle('hidden', !v); }
+
 // Attack/Block/Essence submenus otherwise remember whatever open/closed state
 // they were left in — force them collapsed every time the panel opens instead.
 function collapseActionMenus(prefix){

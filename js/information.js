@@ -21,10 +21,16 @@ try {
   GLYPH_DATA = null;
 }
 
+// lookupGlyph/glyphMarkup/svgWrap exported (2026-08-23) — js/scripts.js's
+// Saved Scripts / Scripts to Assign lists reuse these directly to render a
+// Script's actual Glyphs ("Saved Scripts should display a rendering of the
+// Script alongside some Compositions," per dDd) instead of duplicating this
+// SVG-composition logic a second time — same "shared grammar over bespoke
+// systems" principle the rest of this codebase already leans on.
 function lookupPrimitive(id) {
   return GLYPH_DATA && GLYPH_DATA.primitives.find(p => p.id === id);
 }
-function lookupGlyph(id) {
+export function lookupGlyph(id) {
   return GLYPH_DATA && GLYPH_DATA.glyphs.find(g => g.id === id);
 }
 
@@ -39,7 +45,7 @@ function primitiveMarkup(prim) {
   return '';
 }
 
-function glyphMarkup(glyph, depth = 0) {
+export function glyphMarkup(glyph, depth = 0) {
   if (!glyph || !glyph.composition || depth > 6) return '';
   return glyph.composition.map(entry => {
     const pos = entry.position || [0.5, 0.5];
@@ -53,8 +59,52 @@ function glyphMarkup(glyph, depth = 0) {
   }).join('');
 }
 
-function svgWrap(inner) {
+export function svgWrap(inner) {
   return `<svg viewBox="0 0 100 100">${inner}</svg>`;
+}
+
+// One shared "card" for a Glyph / Expression / Composition (2026-08-23, per
+// dDd), REBUILT as an actual port of language/gomsdu-glyph-arranger.html's
+// real structure after the first pass got the shape wrong — read that file
+// directly rather than guessing again. What the Arranger actually does:
+// `#expressionGrid` is a CSS Grid, 3 columns (`grid-template-columns:
+// repeat(3, auto)`), 9 Expression-columns auto-wrapping into 3 rows of 3 —
+// THAT's what "3 rows and 3 columns" means, the grid of Expressions, not a
+// single Expression's own Glyphs. Each Expression-column is its own
+// vertical stack (the Arranger's `.expression-column`, `flex-direction:
+// column`) of up to 3 Glyph slots (interleaved with Line slots there, which
+// Scripts don't have). So: one Script `row` = one Expression = one grid
+// COLUMN, its own Glyphs stacked vertically inside that column; multiple
+// `rows` = multiple Expressions, laid out as columns SIDE BY SIDE
+// (`grid-template-columns: repeat(rows.length, 1fr)`), not stacked
+// underneath each other — that was the actual bug in the first version.
+// `opts.nextRowIndex` (2026-08-23) — optional progress overlay, so this one
+// card also serves as the Active Scripts status readout (js/scripts.js,
+// js/personality.js's Plan section) instead of a separate plain-text list,
+// per dDd: "a single Rectangular Button they all use." The Expression
+// before it greys out (already delivered), the one at it highlights (next
+// up); omitted for a plain preview (Write Script's live preview, Assign
+// Script's picker list — nothing has "progress" yet at that point). `rows`
+// is an array of Glyph-id arrays, same shape assignScript()/SAVED_SCRIPTS
+// already use.
+export function compositionCardHtml(rows, opts) {
+  const nextRowIndex = opts && opts.nextRowIndex;
+  const real = (rows || []).map(r => (r || []).filter(Boolean)).filter(r => r.length);
+  if (!real.length) return '<div class="composition-card composition-card-empty">—</div>';
+  const isSingleGlyph = real.length === 1 && real[0].length === 1;
+  const columnsHtml = real.map((row, i) => {
+    const stateClass = nextRowIndex == null ? '' : i < nextRowIndex ? ' composition-expr-done' : i === nextRowIndex ? ' composition-expr-next' : '';
+    return '<div class="composition-expression' + stateClass + '">' +
+      row.map(g => {
+        const glyph = lookupGlyph(g);
+        return '<span class="composition-glyph" title="' + escapeHtml(g) + '">' +
+          (glyph ? svgWrap(glyphMarkup(glyph)) : escapeHtml(g)) + '</span>';
+      }).join('') +
+    '</div>';
+  }).join('');
+  const sizeClass = isSingleGlyph ? 'composition-card-glyph' : 'composition-card-grid';
+  const gridStyle = isSingleGlyph ? '' : ' style="grid-template-columns:repeat(' + real.length + ',1fr);"';
+  return '<div class="composition-card ' + sizeClass + '"' + gridStyle + '>' + columnsHtml + '</div>';
 }
 
 function giMarkup() {
@@ -89,22 +139,17 @@ function inspecting(){
 }
 
 // Every Mindeye entry currently on the inspected/own Character, newest last.
-// Gom knows the entire Language innately (2026-08-22, per dDd, after
-// playtesting: "My Gom also doesn't have any Information memorized? He
-// should be able to see everything he knows, which should be everything.")
-// — display-only special case: synthesizes a full Gallery from every real
-// Glyph in GLYPH_DATA instead of his literal mindeye. His actual mindeye
-// stays exactly what it really is (a normal, Message-driven history) for
-// Behaviors/Intelligence-capacity purposes elsewhere — this only changes
-// what the Information panel itself shows him. All marked seen — there's no
-// "reveal" moment for something he's always known, so this also skips the
-// Spotlight animation automatically (renderInformationPanel's own `unseen`
-// filter finds nothing to show).
+// Gom's archetype special-case (a display-only synthesis of every real
+// Glyph, faking "knows everything" without touching his actual mindeye) is
+// gone as of 2026-08-23 — per dDd, it only existed because the real fix
+// (seeding Gom's actual Mindeye with his innate Glyphs at spawn, so
+// Behaviors/Face/etc. see the same knowledge the Information panel shows)
+// was never built; keeping the special case after that real fix landed
+// would just double up and break things further. Every Character, Gom
+// included, reads its own real mindeye now — see js/scenes.js's Spawn List
+// path and js/dm.js's addEnemy() for where his innate Glyphs actually land.
 function myMindeye() {
   const me = myCharacter();
-  if(me && me.archetype === 'Gom' && GLYPH_DATA){
-    return GLYPH_DATA.glyphs.map(g => ({ id: g.id, glyph: g.id, from: 'Innate', seen: true }));
-  }
   return (me && me.mindeye) || [];
 }
 
