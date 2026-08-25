@@ -3,6 +3,19 @@ import { closeMapPopups } from './map.js';
 
 const PANEL_IDS = ['character', 'combat', 'dm', 'dmtest', 'character-view', 'stats', 'techniques', 'party', 'npcs', 'technique-use', 'help', 'information', 'personality', 'relationships', 'scripts'];
 
+// The 3 Pillars merged into one Panel (2026-08-24, per dDd — "merge
+// Information, Personality, and Relationships into one Panel. They should
+// all look basically the same as they do right now, just in 3 separate
+// columns for one Panel"). Only #panel-information exists in the DOM now
+// (index.html) — 'personality'/'relationships' still work as names every
+// existing caller (toolbar buttons, dm.js's NPC-inspect buttons, etc.) can
+// keep passing unchanged, they just resolve to the same real panel instead
+// of their own. Kept as an alias layer rather than touching every call
+// site — the three names still mean something different (which column a
+// caller conceptually wants), just not which DOM element opens anymore.
+const PANEL_ALIASES = { personality: 'information', relationships: 'information' };
+function realPanelId(name){ return PANEL_ALIASES[name] || name; }
+
 // Moved here from js/main.js (2026-08-23) so js/scenes.js can use it too,
 // without a circular import (main.js already imports from both this file
 // and scenes.js). See its new loadScene() usage — per dDd, watching a real
@@ -18,7 +31,24 @@ const PANEL_IDS = ['character', 'combat', 'dm', 'dmtest', 'character-view', 'sta
 // overlay (css/base.css's .loading-row), not just an inline hint, so
 // wrapping a whole async sequence in showLoading(true)/(false) actually
 // hides the in-between churn instead of just leaving it visible underneath.
-export function showLoading(v){ document.getElementById('loading').classList.toggle('hidden', !v); }
+// Fades out instead of an instant cut (2026-08-24, per dDd's own spec: "The
+// Loading Screen is timed to fade away as the Player fades in"). .hidden
+// itself (display:none !important) can't transition — nothing to animate
+// once a property goes to none — so .loading-fade-out drives a real opacity
+// transition (css/base.css) first, and .hidden only lands ~500ms later,
+// once the fade has actually finished, instead of snapping away mid-fade.
+let loadingHideTimer = null;
+export function showLoading(v){
+  const el = document.getElementById('loading');
+  if(!el) return;
+  clearTimeout(loadingHideTimer);
+  if(v){
+    el.classList.remove('hidden', 'loading-fade-out');
+    return;
+  }
+  el.classList.add('loading-fade-out');
+  loadingHideTimer = setTimeout(() => el.classList.add('hidden'), 500);
+}
 
 // Attack/Block/Essence submenus otherwise remember whatever open/closed state
 // they were left in — force them collapsed every time the panel opens instead.
@@ -39,7 +69,7 @@ export function openPanel(name){
   // first for unrelated reasons, which silently defeated the document-level
   // dismiss listener (js/map.js's initMapPopupDismiss) for exactly this case.
   closeMapPopups();
-  AppState.activePanel = name;
+  AppState.activePanel = realPanelId(name);
   if(name === 'combat') collapseActionMenus('');
   if(name === 'dm') collapseActionMenus('dm-');
   render();
@@ -51,7 +81,7 @@ export function closePanel(){
 }
 
 export function togglePanel(name){
-  if(AppState.activePanel === name){
+  if(AppState.activePanel === realPanelId(name)){
     closePanel();
   }else{
     openPanel(name);
@@ -68,11 +98,13 @@ function render(){
     el.classList.toggle('hidden', AppState.activePanel !== id);
   });
 
-  // Toolbar buttons reflect which panel (if any) is currently open.
+  // Toolbar buttons reflect which panel (if any) is currently open. All 3
+  // Pillar toolbar buttons light up together now (realPanelId) — they open
+  // the same merged panel, so there's no single "active" one among them.
   PANEL_IDS.forEach(id => {
     const btn = document.getElementById('toolbar-' + id);
     if(!btn) return;
-    btn.classList.toggle('active', AppState.activePanel === id);
+    btn.classList.toggle('active', AppState.activePanel === realPanelId(id));
   });
 }
 

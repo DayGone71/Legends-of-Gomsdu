@@ -1,12 +1,12 @@
 import { AppState } from './state.js';
 import { mutateTable, triggerRender } from './sync.js';
-import { escapeHtml, timeNow, playerShorthand, apCostForControl, describeAction, flashHint, isDeathWounded, resolveEntityRef, resolvePositionRef, enemyRoster, allCharacterRoster, showBannerError, deliverMindeyeEntry } from './utils.js';
-import { BUILDS } from './character.js';
+import { escapeHtml, timeNow, playerShorthand, apCostForControl, describeAction, flashHint, isDeathWounded, resolveEntityRef, resolvePositionRef, enemyRoster, charactersRoster, allCharacterRoster, showBannerError } from './utils.js';
+import { BUILDS, spawnCharacter } from './character.js';
 import { getSavedCharacters } from './savedCharacters.js';
 import { getSavedEncounters, saveEncounterTemplate } from './savedEncounters.js';
 import { updateEncounterUI, openPanel } from './panels.js';
-import { TECHNIQUES, hasCategoryAccess, remaining, costText, glyphOptionsHtml } from './techniques.js';
-import { getDistance, hasLineOfSight, FACING_DEFAULT } from './map.js';
+import { TECHNIQUES, hasTechniqueAccess, remaining, costText, glyphOptionsHtml } from './techniques.js';
+import { getDistance, hasLineOfSight } from './map.js';
 import { showCharacterView } from './characterView.js';
 import { toggleActiveCharacter } from './activeCharacter.js';
 
@@ -50,31 +50,13 @@ export async function addEnemy(){
     const id = 'e_' + Math.random().toString(36).slice(2, 8);
     const count = Object.values(t.enemies).filter(e => e.archetype === b.archetype && e.name.indexOf(displayBase) === 0).length + 1;
     const pos = nextEnemyPosition(t);
-    t.enemies[id] = {
-      archetype: b.archetype, name: displayBase + ' #' + count, num: count,
-      wounds: b.wounds, woundsMax: b.woundsMax, ap: b.ap, flow: b.flow, flowMax: b.flowMax, recovery: b.recovery, power: b.power,
-      quickness: b.quickness, resilience: b.resilience, lightning: b.lightning, lava: b.lava, focus: b.focus,
-      control: b.control ?? 0, attunement: b.attunement ?? 0, life: b.life ?? 1,
-      species: b.species, deathWounds: b.deathWounds, body: b.body ? [...b.body] : undefined,
-      techniqueAccess: b.techniqueAccess,
-      // Found 2026-08-22 while wiring Gom's own Intelligence — this literal
-      // never copied Personality from BUILDS at all, so a spawned Enemy
-      // silently lost it even though the Build template (js/character.js's
-      // BUILDS) had it right there.
-      personality: b.personality ? JSON.parse(JSON.stringify(b.personality)) : undefined,
-      // passiveSpill (2026-08-23, found live — "I don't see any Lava
-      // Crafts, or Tiles getting effected") — same recurring bug class as
-      // species/personality above and mindeye before that: a new BUILDS
-      // field (Kulkrow's own) added without threading it through this
-      // literal too. This is the 3rd time; see ROADMAP.md for the real fix.
-      passiveSpill: b.passiveSpill,
-      apSpent: 0, focusSpent: 0, sequence: [], possessedBy: null, facing: FACING_DEFAULT
-    };
+    // Record construction now goes through js/character.js's spawnCharacter()
+    // (2026-08-24) — this literal used to hand-copy every field itself, and
+    // had already silently dropped Personality and passiveSpill on separate
+    // real occasions before being fixed; one shared function means that
+    // class of bug can't recur here specifically anymore.
+    t.enemies[id] = spawnCharacter(b, { name: displayBase + ' #' + count, num: count });
     t.positions[id] = pos;
-    // Innate Glyph knowledge, delivered as real Mindeye entries (2026-08-23,
-    // per dDd's knownGlyphs/mindeye merge) — "knowing" a Glyph now just
-    // means having a Mindeye entry for it, not a separate curriculum field.
-    (b.startingMindeye || []).forEach(g => deliverMindeyeEntry(t, id, 'Star Father', g, true));
     t.log.push({ type: 'system', text: 'An enemy joined the fight: ' + t.enemies[id].name, time: timeNow() });
   });
 }
@@ -192,7 +174,12 @@ export function renderDMEnemyPicker(){
 export function renderNpcList(containerId){
   const el = document.getElementById(containerId || 'npc-list');
   if(!el) return;
-  const rows = enemyRoster(AppState.table);
+  // Yom first (2026-08-24, per dDd: "he should stay in the NPC List as the
+  // first Character") — the Universal Characters Table's own roster,
+  // ahead of the ordinary Enemy roster. enemyRoster() itself stays
+  // untouched (Combat's resolveRound() reads table.enemies directly; Yom
+  // was never meant to become a Combat participant just by being listable).
+  const rows = [...charactersRoster(AppState.table), ...enemyRoster(AppState.table)];
   if(!rows.length){ el.innerHTML = '<div class="log-empty">No NPCs at the Table yet.</div>'; return; }
 
   // Active Character (2026-08-22, per dDd) — "A Character has to be made
@@ -233,7 +220,9 @@ export function renderNpcList(containerId){
   el.querySelectorAll('.npc-list-item').forEach(row => {
     row.onclick = (ev) => {
       if(ev.target.closest('.npc-active-btn') || ev.target.closest('.npc-inspect-btn')) return;
-      showCharacterView(AppState.table.enemies[row.dataset.id]);
+      // resolveEntityRef, not a raw table.enemies lookup (2026-08-24) —
+      // this row can now be Yom, who lives in table.characters.
+      showCharacterView(resolveEntityRef(AppState.table, row.dataset.id));
     };
   });
   el.querySelectorAll('.npc-active-btn').forEach(btn => {
@@ -347,7 +336,7 @@ function craftsKnownBy(actor){
     if(def.column === 'Lava' && !(actor.lava > 0)) return false;
     if(def.column === 'Focus' && !(actor.focus > 0)) return false;
     if(def.column === 'Flow' && !(actor.flow > 0)) return false;
-    return hasCategoryAccess(actor, def);
+    return hasTechniqueAccess(actor, def);
   });
 }
 

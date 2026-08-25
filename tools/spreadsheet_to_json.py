@@ -25,6 +25,15 @@ NUMERIC_CHAR_FIELDS = [
 ]
 NUMERIC_TECH_FIELDS = ['apCost', 'focusCost', 'flowCost', 'lightningCost', 'lavaCost', 'range', 'durationSequences']
 
+# techniqueAccess went per-Technique (2026-08-24, per dDd — "individual Craft
+# and Power, true/false, not all-or-nothing") — one spreadsheet column per
+# real Technique key (data/techniques.json), not the 4 old category columns.
+TECHNIQUE_ACCESS_KEYS = [
+    'wound', 'possess', 'empower', 'resonance', 'current', 'influence',
+    'heartAttack', 'skullExplosion', 'message', 'channel',
+    'separation', 'infuse', 'bloodkindle', 'seed',
+]
+
 
 def truthy(v, default=True):
     if v is None or v == '':
@@ -53,6 +62,16 @@ def num(v):
     return v
 
 
+def _tech_access_label(key):
+    # 'heartAttack' -> 'Tech: Heart Attack' — same "Tech: <Title Case>"
+    # convention the old 4 category columns used.
+    spaced = ''.join(' ' + c if c.isupper() else c for c in key).strip()
+    return 'Tech: ' + spaced[:1].upper() + spaced[1:]
+
+
+TECH_ACCESS_LABEL_TO_KEY = {_tech_access_label(k): k for k in TECHNIQUE_ACCESS_KEYS}
+
+
 def build_characters(ws):
     label_to_field = {
         'Key': 'key', 'Archetype': 'archetype', 'Category': 'category', 'Species': 'species',
@@ -60,8 +79,6 @@ def build_characters(ws):
         'Power': 'power', 'Quickness': 'quickness', 'Resilience': 'resilience',
         'Lightning': 'lightning', 'Lava': 'lava', 'Focus': 'focus', 'Control': 'control',
         'Attunement': 'attunement', 'Life': 'life',
-        'Tech: Flow Powers': 'techFlowPowers', 'Tech: Focus Powers': 'techFocusPowers',
-        'Tech: Lightning Crafts': 'techLightningCrafts', 'Tech: Lava Crafts': 'techLavaCrafts',
     }
     out = {}
     for raw in rows_of(ws):
@@ -71,16 +88,14 @@ def build_characters(ws):
             continue
         entry = {
             'archetype': row.get('archetype') or '',
-            'category': (row.get('category') or 'enemy').strip(),
+            'category': (row.get('category') or 'character').strip(),
             'species': (row.get('species') or '').strip() or None,
         }
         for field in NUMERIC_CHAR_FIELDS:
             entry[field] = num(row.get(field))
         access = {
-            'flowPowers': truthy(row.get('techFlowPowers')),
-            'focusPowers': truthy(row.get('techFocusPowers')),
-            'lightningCrafts': truthy(row.get('techLightningCrafts')),
-            'lavaCrafts': truthy(row.get('techLavaCrafts')),
+            tech_key: truthy(raw.get(label), default=False)
+            for label, tech_key in TECH_ACCESS_LABEL_TO_KEY.items()
         }
         if not all(access.values()):
             entry['techniqueAccess'] = access

@@ -55,9 +55,9 @@ export function showCharacterView(charLike, ownerId){
   const bodyEl = document.getElementById('cv-body-display');
   if(bodyEl) bodyEl.textContent = charLike.body ? (charLike.body.filter(Boolean).length + '/' + charLike.body.length) : '—';
 
-  // Technique Lists (2026-08-16) — read-only check/cross per category.
-  // Missing techniqueAccess (every pre-existing Character) defaults to full
-  // access, matching techniques.js's hasCategoryAccess().
+  // Technique Lists — read-only check/cross per category. Still reads the
+  // old 4-category shape; techniqueAccess itself moved to per-Technique
+  // granularity 2026-08-24 (js/techniques.js's hasTechniqueAccess()).
   const techEl = document.getElementById('cv-tech-access');
   if(techEl){
     const access = charLike.techniqueAccess;

@@ -1,91 +1,19 @@
-// Relationships Pillar — first real foothold (2026-08-21, per dDd), mirroring
-// Information/Personality's own build pattern. Remembered Glyphs (the same
-// Mindeye data Information shows) sit in a horizontal row at the top;
-// selecting one reveals how this Character feels about it — Attachment
-// (Connected/Mid/Separated) and Desire (Desirable/Mid/Undesirable), each a
-// 3-position Axis. Per dDd's own Notebook, both are per-piece-of-Information,
-// not Character-global: "Attachment is how fond they are of a piece of
-// Information... Desire is how intently they are pursuing a piece of
-// Information" — so both live directly on the Mindeye entry itself, not on
-// the Character.
-//
-// Own independent Glyphic System fetch + render helpers, same convention
-// js/information.js and js/techniques.js already each use rather than a
-// shared loader module.
+// Emotion Axes editor — Attachment/Desire, per dDd's own naming (2026-08-24:
+// "you can have the Emotion Axes, which are Attachment/Desire"). Used to be
+// its own full Relationships Pillar/Panel (2026-08-21) with its own Glyph
+// Gallery duplicating Information's; retired 2026-08-24 when the 3 Pillars
+// got redesigned into one Glyph-list-driven Personality Panel
+// (js/personality.js) — this module is now just the reusable Axis-editor
+// piece that panel's bottom-quarter Glyph detail renders, per dDd's own
+// Notebook: "Attachment is how fond they are of a piece of Information...
+// Desire is how intently they are pursuing a piece of Information" — both
+// live directly on the Mindeye entry itself, not the Character.
 
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
-import { escapeHtml, resolveEntityRef } from './utils.js';
+import { escapeHtml } from './utils.js';
 
-let GLYPH_DATA = null;
-try {
-  const res = await fetch('/language/gomsdu-glyphic-system.json');
-  GLYPH_DATA = await res.json();
-} catch (err) {
-  GLYPH_DATA = null;
-}
-
-function lookupPrimitive(id) {
-  return GLYPH_DATA && GLYPH_DATA.primitives.find(p => p.id === id);
-}
-function lookupGlyph(id) {
-  return GLYPH_DATA && GLYPH_DATA.glyphs.find(g => g.id === id);
-}
-function primitiveMarkup(prim) {
-  const r = prim && prim.render;
-  if (!r) return '';
-  const strokeAttrs = 'fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="square" stroke-linejoin="miter"';
-  if (r.type === 'rect') return `<rect x="${r.x}" y="${r.y}" width="${r.width}" height="${r.height}" rx="${r.rx || 0}" ${strokeAttrs}/>`;
-  if (r.type === 'path') return `<path d="${r.d}" ${strokeAttrs}/>`;
-  if (r.type === 'multipath') return r.d.map(d => `<path d="${d}" ${strokeAttrs}/>`).join('');
-  if (r.type === 'dots') return r.points.map(pt => `<circle cx="${pt.cx}" cy="${pt.cy}" r="${pt.r}" fill="currentColor"/>`).join('');
-  return '';
-}
-function glyphMarkup(glyph, depth = 0) {
-  if (!glyph || !glyph.composition || depth > 6) return '';
-  return glyph.composition.map(entry => {
-    const pos = entry.position || [0.5, 0.5];
-    const scale = entry.scale === undefined ? 1 : entry.scale;
-    const rotation = entry.rotation || 0;
-    const transform = `translate(${pos[0] * 100},${pos[1] * 100}) rotate(${rotation}) scale(${scale}) translate(-50,-50)`;
-    let inner = '';
-    if (entry.primitive) inner = primitiveMarkup(lookupPrimitive(entry.primitive));
-    else if (entry.glyph) inner = glyphMarkup(lookupGlyph(entry.glyph), depth + 1);
-    return `<g transform="${transform}">${inner}</g>`;
-  }).join('');
-}
-function svgWrap(inner) {
-  return `<svg viewBox="0 0 100 100">${inner}</svg>`;
-}
-function entryGlyphMarkup(entry) {
-  const glyph = entry && entry.glyph && lookupGlyph(entry.glyph);
-  return svgWrap(glyphMarkup(glyph || lookupGlyph('GI')));
-}
-function entryGlyphName(entry) {
-  const glyph = entry && entry.glyph && lookupGlyph(entry.glyph);
-  return glyph ? glyph.id : 'GI';
-}
-
-// Inspect mode (2026-08-22, per dDd) — same pattern as js/personality.js and
-// js/information.js: the viewing Player's own Character by default, or
-// AppState.inspectTargetId's Character (read-only) when set.
-function myCharacter(){
-  const id = AppState.inspectTargetId || AppState.playerId;
-  return resolveEntityRef(AppState.table, id);
-}
-function inspecting(){
-  return !!AppState.inspectTargetId;
-}
-function myMindeye() {
-  const me = myCharacter();
-  return (me && me.mindeye) || [];
-}
-
-// Local-only, mirrors information.js's originExpanded/revealingEntryId
-// pattern — which remembered Glyph the Axes below are currently showing.
-let selectedEntryId = null;
-
-async function setAxisValue(entryId, field, value) {
+export async function setAxisValue(entryId, field, value) {
   await mutateTable(t => {
     const me = t.players[AppState.playerId];
     const entry = me && me.mindeye && me.mindeye.find(e => e.id === entryId);
@@ -93,7 +21,7 @@ async function setAxisValue(entryId, field, value) {
   });
 }
 
-function renderAxis(name, leftLabel, rightLabel, field, entry, readOnly) {
+export function renderAxis(name, leftLabel, rightLabel, field, entry, readOnly) {
   const value = entry[field] ?? 1;
   const el = document.createElement('div');
   el.className = 'rel-axis';
@@ -114,54 +42,4 @@ function renderAxis(name, leftLabel, rightLabel, field, entry, readOnly) {
     });
   }
   return el;
-}
-
-export function renderRelationshipsPanel() {
-  const container = document.getElementById('relationships-content');
-  if (!container) return;
-
-  if (!GLYPH_DATA) {
-    container.innerHTML = '<div class="log-empty">Could not load the Glyphic System.</div>';
-    return;
-  }
-
-  const mindeye = myMindeye();
-  const readOnly = inspecting();
-  if (selectedEntryId && !mindeye.some(e => e.id === selectedEntryId)) selectedEntryId = null;
-  if (!selectedEntryId && mindeye.length) selectedEntryId = mindeye[mindeye.length - 1].id;
-
-  container.innerHTML = '';
-
-  const rowSheet = document.createElement('div');
-  rowSheet.className = 'sheet';
-  const me = myCharacter();
-  rowSheet.innerHTML = (readOnly ? '<div class="inspect-banner">Inspecting ' + escapeHtml((me && me.name) || 'Unnamed') + ' — read-only</div>' : '') +
-    '<div class="stat-header">Remembered Glyphs</div>';
-  const gallery = document.createElement('div');
-  gallery.className = 'info-gallery';
-  if (!mindeye.length) {
-    gallery.innerHTML = '<div class="log-empty">No Glyphs remembered yet.</div>';
-  } else {
-    mindeye.forEach(entry => {
-      const tile = document.createElement('div');
-      tile.className = 'info-tile' + (entry.id === selectedEntryId ? ' selected' : '');
-      tile.innerHTML = `<div class="info-glyph">${entryGlyphMarkup(entry)}</div><div class="info-glyph-label">${escapeHtml(entryGlyphName(entry))}</div>`;
-      tile.addEventListener('click', () => { selectedEntryId = entry.id; renderRelationshipsPanel(); });
-      gallery.appendChild(tile);
-    });
-  }
-  rowSheet.appendChild(gallery);
-  container.appendChild(rowSheet);
-
-  const axisSheet = document.createElement('div');
-  axisSheet.className = 'sheet';
-  const selected = mindeye.find(e => e.id === selectedEntryId);
-  if (selected) {
-    axisSheet.innerHTML = '<div class="stat-header">Feelings toward ' + escapeHtml(entryGlyphName(selected)) + '</div>';
-    axisSheet.appendChild(renderAxis('Attachment', 'Connected', 'Separated', 'attachment', selected, readOnly));
-    axisSheet.appendChild(renderAxis('Desire', 'Desirable', 'Undesirable', 'desire', selected, readOnly));
-  } else {
-    axisSheet.innerHTML = '<div class="log-empty">Select a Glyph above to see how this Character feels about it.</div>';
-  }
-  container.appendChild(axisSheet);
 }

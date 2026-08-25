@@ -15,7 +15,16 @@ import { MAX_MINI_PARTY } from './possession.js';
 // simple/deterministic enough to actually implement. Top-level await: this
 // module won't finish evaluating until the fetch resolves — nothing that
 // imports TECHNIQUES can run before it's real data.
-export const TECHNIQUES = await fetch('/data/techniques.json').then(r => r.json());
+// Each entry gets its own key threaded onto itself (2026-08-24) — the one
+// change needed so hasTechniqueAccess() below can look a Character's
+// techniqueAccess up by the Technique's own id, now that access is granted
+// per-Technique instead of per-category (see the field's own JSON, e.g.
+// data/characters.json's "seed": true) — no call site needs to change to
+// pass the key through separately.
+const TECHNIQUES_RAW = await fetch('/data/techniques.json').then(r => r.json());
+export const TECHNIQUES = Object.fromEntries(
+  Object.entries(TECHNIQUES_RAW).map(([key, def]) => [key, { ...def, key }])
+);
 
 // Message's Glyph picker (2026-08-21, per dDd) — its own independent fetch
 // of the Glyphic System, same pattern js/information.js already uses (no
@@ -46,27 +55,21 @@ const MOVEMENT_EXTRA_IDS = ['SUU', 'KULOG', 'KALAG'];
 
 const RESOURCE_LABELS = { ap: 'AP', focus: 'Focus', flow: 'Flow', lightning: 'Lightning', lava: 'Lava' };
 
-// Technique Lists (2026-08-16) — per-Character access, but at the category
-// level dDd asked for (Flow Powers/Focus Powers/Lightning Crafts/Lava
-// Crafts), not per-individual-Technique. Reuses each TECHNIQUES entry's
-// existing group/column metadata rather than adding a redundant field.
-// Missing techniqueAccess (every pre-existing Character) defaults to full
-// access — this is the first real gate past "anybody can Technique anybody,
-// for Testing purposes," not a retroactive lockout.
-const CATEGORY_BY_COLUMN = { Flow: 'flowPowers', Focus: 'focusPowers', Lightning: 'lightningCrafts', Lava: 'lavaCrafts' };
-export function hasCategoryAccess(actor, def){
-  // Mastery (2026-08-23, per dDd — "it's just Yom") — exclusive to Yom's own
-  // archetype specifically, not the general techniqueAccess flag system the
-  // other columns use, and not gated by category:'deity' either — Gom and
-  // Kulkrow are also category:'deity' (see data/characters.json) but have no
-  // claim on Master Techniques. Seed itself is never manually cast through
-  // this gate in practice (js/scenes.js's seedScene() invokes it directly);
-  // this exists so the gate is still correct if anything else ever checks it.
-  if(def && def.column === 'Mastery') return !!(actor && actor.archetype === 'Yom');
-  const catKey = def && CATEGORY_BY_COLUMN[def.column];
-  if(!catKey) return true;
+// Technique Lists (2026-08-24, per dDd — "techniqueAccess also needs to be
+// by individual Craft and Power, true/false, not all-or-nothing like that")
+// — was category-level (Flow Powers/Focus Powers/Lightning Crafts/Lava
+// Crafts, one boolean covering every Technique in it); now one explicit
+// boolean per real Technique key (data/characters.json). Mastery/Seed folds
+// into the same flat lookup now too — data alone decides who has it (only
+// Yom's Build sets seed:true) — no special-cased column check needed
+// anymore. A Character with NO techniqueAccess object at all still defaults
+// fully open (Mini-Party members, saved custom templates — untouched by
+// today's pass); a Character that HAS one but omits a specific key defaults
+// closed, matching the new explicit-per-Technique spirit.
+export function hasTechniqueAccess(actor, def){
   const access = actor && actor.techniqueAccess;
-  return access ? (access[catKey] ?? true) : true;
+  if(!access) return true;
+  return access[def && def.key] ?? false;
 }
 
 // Flow isn't a per-round "spent" pool like AP/Focus — it's the actor's real,
@@ -111,7 +114,7 @@ export function openTechniqueUse(key, presetTargetId){
   const def = TECHNIQUES[key];
   if(!def) return;
   const me = AppState.table && AppState.table.players[AppState.playerId];
-  if(!hasCategoryAccess(me, def)){ showBannerError('Your Character doesn’t have access to this Technique.'); return; }
+  if(!hasTechniqueAccess(me, def)){ showBannerError('Your Character doesn’t have access to this Technique.'); return; }
   currentTechniqueKey = key;
 
   document.getElementById('tu-name').textContent = def.name;
@@ -238,7 +241,7 @@ export async function stageTechnique(){
   if(!def) return;
   const me = AppState.table.players[AppState.playerId];
   if(!me) return;
-  if(!hasCategoryAccess(me, def)){ showBannerError('Your Character doesn’t have access to this Technique.'); return; }
+  if(!hasTechniqueAccess(me, def)){ showBannerError('Your Character doesn’t have access to this Technique.'); return; }
 
   const targetId = document.getElementById('tu-target').value;
   const target = resolveEntityRef(AppState.table, targetId);
@@ -375,7 +378,7 @@ export function renderTechniquesPanel(){
   const me = AppState.table && AppState.table.players[AppState.playerId];
   document.querySelectorAll('.tech-item[data-technique]').forEach(btn => {
     const def = TECHNIQUES[btn.dataset.technique];
-    const granted = hasCategoryAccess(me, def);
+    const granted = hasTechniqueAccess(me, def);
     btn.classList.toggle('tech-denied', !granted);
     btn.disabled = !granted;
   });

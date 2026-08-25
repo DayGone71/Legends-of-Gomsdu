@@ -84,7 +84,15 @@ export function subscribeToSession(code, onChange){
       }
     )
     .subscribe((status, err) => {
-      if(err) console.error('Realtime subscription error:', err);
+      // Downgraded from console.error 2026-08-24, per dDd noticing it live.
+      // Confirmed by direct test — a write immediately after this fired
+      // still landed and its own realtime echo still came back correctly —
+      // the underlying Phoenix socket reconnects on its own; this callback
+      // firing (status CHANNEL_ERROR/TIMED_OUT, a transient network blip)
+      // doesn't mean the channel actually died, just that it's mid-retry.
+      // console.warn, not error, so it doesn't read as a real problem in
+      // the console when it self-heals a moment later, which it does.
+      if(err) console.warn('[sync] Realtime channel hiccup (status: ' + status + '), reconnecting on its own:', err);
     });
 
   return function unsubscribe(){

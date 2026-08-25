@@ -101,7 +101,13 @@ input:focus, button:focus-visible, textarea:focus, select:focus{
   position:fixed; inset:0; z-index:100; background:var(--ink);
   display:flex; align-items:center; justify-content:center;
   font-family:monospace; font-size:13px; color:var(--text-dim); text-align:center;
+  opacity:1; transition:opacity .5s ease;
 }
+/* Fade-out state (2026-08-24) — js/panels.js's showLoading(false) adds this
+   first and only adds .hidden ~500ms later, once the transition's actually
+   finished. pointer-events:none so the reveal underneath is clickable
+   through the fading overlay rather than blocked until it's fully gone. */
+.loading-row.loading-fade-out{ opacity:0; pointer-events:none; }
 
 #landing-error, #banner-error{
   color:#F0BBAE; background:rgba(163,75,54,.15); border:1px solid rgba(163,75,54,.4);

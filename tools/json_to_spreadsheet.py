@@ -25,15 +25,28 @@ HEADER_FILL = PatternFill('solid', fgColor='4B3B2A')
 BODY_FONT = Font(name='Arial', size=11)
 NOTE_FONT = Font(name='Arial', size=11, italic=True, color='555555')
 
+# techniqueAccess went per-Technique (2026-08-24, per dDd — "individual Craft
+# and Power, true/false, not all-or-nothing") — one column per real Technique
+# key (data/techniques.json), not the 4 old category columns.
+TECHNIQUE_ACCESS_KEYS = [
+    'wound', 'possess', 'empower', 'resonance', 'current', 'influence',
+    'heartAttack', 'skullExplosion', 'message', 'channel',
+    'separation', 'infuse', 'bloodkindle', 'seed',
+]
+
+
+def _tech_access_label(key):
+    spaced = ''.join(' ' + c if c.isupper() else c for c in key).strip()
+    return 'Tech: ' + spaced[:1].upper() + spaced[1:]
+
+
 CHAR_COLUMNS = [
     ('key', 'Key'), ('archetype', 'Archetype'), ('category', 'Category'), ('species', 'Species'),
     ('woundsMax', 'Wounds Max (y)'), ('ap', 'AP'), ('flowMax', 'Flow'), ('recovery', 'Recovery'),
     ('power', 'Power'), ('quickness', 'Quickness'), ('resilience', 'Resilience'),
     ('lightning', 'Lightning'), ('lava', 'Lava'), ('focus', 'Focus'), ('control', 'Control'),
     ('attunement', 'Attunement'), ('life', 'Life'),
-    ('techFlowPowers', 'Tech: Flow Powers'), ('techFocusPowers', 'Tech: Focus Powers'),
-    ('techLightningCrafts', 'Tech: Lightning Crafts'), ('techLavaCrafts', 'Tech: Lava Crafts'),
-]
+] + [('tech_' + k, _tech_access_label(k)) for k in TECHNIQUE_ACCESS_KEYS]
 
 TECH_COLUMNS = [
     ('key', 'Key'), ('name', 'Name'), ('group', 'Group'), ('column', 'Column'), ('type', 'Type'),
@@ -64,22 +77,22 @@ def write_characters(wb, characters):
     for key, row in characters.items():
         access = row.get('techniqueAccess') or {}
         values = {
-            'key': key, 'archetype': row.get('archetype', ''), 'category': row.get('category', 'enemy'),
+            'key': key, 'archetype': row.get('archetype', ''), 'category': row.get('category', 'character'),
             'species': row.get('species') or '',
             'woundsMax': row.get('woundsMax'), 'ap': row.get('ap'), 'flowMax': row.get('flowMax'),
             'recovery': row.get('recovery'), 'power': row.get('power'), 'quickness': row.get('quickness'),
             'resilience': row.get('resilience'), 'lightning': row.get('lightning'), 'lava': row.get('lava'),
             'focus': row.get('focus'), 'control': row.get('control'), 'attunement': row.get('attunement'),
             'life': row.get('life', 1),
-            'techFlowPowers': access.get('flowPowers', True), 'techFocusPowers': access.get('focusPowers', True),
-            'techLightningCrafts': access.get('lightningCrafts', True), 'techLavaCrafts': access.get('lavaCrafts', True),
         }
+        for tech_key in TECHNIQUE_ACCESS_KEYS:
+            values['tech_' + tech_key] = access.get(tech_key, True)
         for i, (field, _) in enumerate(CHAR_COLUMNS, start=1):
             cell = ws.cell(row=r, column=i, value=values[field])
             cell.font = BODY_FONT
         r += 1
 
-    widths = [20, 26, 10, 16, 13, 6, 8, 10, 7, 11, 11, 11, 7, 7, 9, 12, 6, 15, 16, 18, 15]
+    widths = [20, 26, 10, 16, 13, 6, 8, 10, 7, 11, 11, 11, 7, 7, 9, 12, 6] + [9] * len(TECHNIQUE_ACCESS_KEYS)
     for i, w in enumerate(widths, start=1):
         ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = w
 
@@ -121,11 +134,11 @@ def write_legend(wb):
         ('LEGEND — valid values for the enum-like columns', ''),
         ('', ''),
         ('Characters sheet', ''),
-        ('key', 'Unique id, lowercase-hyphenated (e.g. "human-bandit"). Adding a new row = a new Character; reusing an existing key overwrites it.'),
-        ('category', '"player" or "enemy" — which optgroup it shows up under in-game.'),
+        ('key', 'Unique id, lowercase-hyphenated (e.g. "molten-one"). Adding a new row = a new Character; reusing an existing key overwrites it.'),
+        ('category', 'Free text — "character", "deity", etc. Not "player"/"enemy" anymore (2026-08-24, per dDd: "They are all Characters, Player is a tag on a live character if anything") — just which optgroup it shows up under in-game.'),
         ('species', '"humanoid", "sandman", "crystalBeing", "desertAbomination", or blank (not yet species-tagged — falls back to the universal Death Wounds default and has no Body).'),
         ('woundsMax (y)', 'Personal Down threshold — mutable/levelable, distinct from Species\' Death Wounds (z), which is not spreadsheet-editable (it comes from species alone).'),
-        ('Tech: * columns', 'TRUE/FALSE. Blank = TRUE (full access) — matches how the game treats any Character with no techniqueAccess set at all.'),
+        ('Tech: * columns', 'One column per real Technique (2026-08-24 — was 4 category columns, now per-individual-Technique). TRUE/FALSE. Blank on a row that already has a techniqueAccess object = FALSE; a Character with no techniqueAccess object at all still defaults fully open.'),
         ('', ''),
         ('Techniques sheet', ''),
         ('key', 'Unique id, camelCase (e.g. "heartAttack"). Matches the game\'s internal Technique key.'),

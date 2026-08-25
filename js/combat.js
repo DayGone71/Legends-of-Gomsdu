@@ -5,7 +5,7 @@ import { removeEnemy } from './dm.js';
 import { TECHNIQUES } from './techniques.js';
 import { MAX_MINI_PARTY } from './possession.js';
 import { addChunksAt, applySpillAt, tickLavaTiles } from './map.js';
-import { BUILDS } from './character.js';
+import { BUILDS, spawnCharacter } from './character.js';
 import { freezeSequencerReveal } from './sequencer.js';
 
 export function renderTargetRange(){
@@ -527,15 +527,11 @@ export function spawnBuildAt(t, buildKey, x, y){
   if(!t.positions) t.positions = {};
   const id = 'e_' + Math.random().toString(36).slice(2, 8);
   const count = Object.values(t.enemies).filter(e => e.archetype === b.archetype).length + 1;
-  t.enemies[id] = {
-    archetype: b.archetype, name: b.archetype + ' #' + count, num: count,
-    wounds: b.wounds, woundsMax: b.woundsMax, ap: b.ap, flow: b.flow, flowMax: b.flowMax, recovery: b.recovery, power: b.power,
-    quickness: b.quickness, resilience: b.resilience, lightning: b.lightning, lava: b.lava, focus: b.focus,
-    control: b.control ?? 0, attunement: b.attunement ?? 0, life: b.life ?? 1,
-    species: b.species, deathWounds: b.deathWounds, body: b.body ? [...b.body] : undefined,
-    techniqueAccess: b.techniqueAccess, passiveSpill: b.passiveSpill,
-    apSpent: 0, focusSpent: 0, sequence: [], possessedBy: null
-  };
+  // Record construction now goes through js/character.js's spawnCharacter()
+  // (2026-08-24) — this literal was the worst-off of the 3 near-identical
+  // ones (it never copied Personality or Mindeye at all, a real silent gap
+  // no one had caught yet); one shared function closes that for good.
+  t.enemies[id] = spawnCharacter(b, { name: b.archetype + ' #' + count, num: count });
   t.positions[id] = { x, y };
   return t.enemies[id];
 }

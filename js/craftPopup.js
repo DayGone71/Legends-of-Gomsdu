@@ -15,7 +15,7 @@
 // already are.
 
 import { AppState } from './state.js';
-import { TECHNIQUES, hasCategoryAccess, openTechniqueUse } from './techniques.js';
+import { TECHNIQUES, hasTechniqueAccess, openTechniqueUse } from './techniques.js';
 import { resolveEntityRef } from './utils.js';
 import { dmSelectCraft, selectDMTarget, dmToggleMenu } from './dm.js';
 import { openPanel } from './panels.js';
@@ -49,7 +49,7 @@ function openCraftPopup(targetId, anchorEl){
     // js/dm.js's own craftsKnownBy(), just never reached this second,
     // separate list-building path either.
     if(def.group !== 'Craft' && def.group !== 'Powers') return false;
-    if(!hasCategoryAccess(me, def)) return false;
+    if(!hasTechniqueAccess(me, def)) return false;
     if(!!def.selfOnly !== isSelf) return false;
     return true;
   });

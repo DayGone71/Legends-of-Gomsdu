@@ -95,7 +95,15 @@ export const BEHAVIORS = {
   // Lightning Stats toggle 0<->1, see data/techniques.json's 'current').
   // No-op for now, same reasoning as Maintain Empower above — Crafter-
   // initiated, a Behavior roll here just surfaces the inclination.
-  current: { name: 'Current' }
+  current: { name: 'Current' },
+  // Attack (2026-08-24, per dDd — S). First pass, deliberately minimal per
+  // dDd: "if you have Attack simply Start Encounter, instead of making it
+  // [try] to [do] something in Combat, that would simplify the work." Just
+  // flips the table into Combat — the actual Fast Attack itself isn't
+  // staged or resolved here, that's a later pass once Locality-based
+  // Combat exists (today's version is deliberately the coarse, table-wide
+  // Encounter-start, same as the DM's own Start Encounter button).
+  attack: { name: 'Attack', kind: 'attack' }
 };
 
 // Three separate Behaviors per Character (2026-08-22, per dDd, after
@@ -118,7 +126,7 @@ export const BEHAVIOR_CATEGORY = {
   standAround: 'movement',
   moveForward: 'movement', moveRight: 'movement', moveBackward: 'movement', moveLeft: 'movement',
   wander: 'movement', face: 'movement',
-  teach: 'actions', maintainEmpower: 'actions', current: 'actions'
+  teach: 'actions', maintainEmpower: 'actions', current: 'actions', attack: 'actions'
 };
 export const BEHAVIOR_CATEGORIES = [
   { key: 'movement', label: 'Movement' },
@@ -146,9 +154,15 @@ export const GLYPH_BEHAVIOR = {
   'KO': 'moveRight',
   'KULOG': 'wander',
   'KALAG': 'face',
+  // Stand Around is SUU (2026-08-24, per dDd) — same as every other
+  // Behavior, it now also earns real Pursuit off a remembered SUU Glyph,
+  // on top of the flat STAND_AROUND_BASELINE seed every Character still
+  // gets (movement should never come back completely empty).
+  'SUU': 'standAround',
   'WIM': 'teach',
   'KA': 'maintainEmpower',
-  'OG': 'current'
+  'OG': 'current',
+  'S': 'attack'
 };
 
 // Favorable(0)/Middle(1)/Disliked(2) -> 2/1/0 units (2026-08-22, per dDd:
@@ -163,10 +177,48 @@ function desireScore(entry){
   return DESIRE_WEIGHT[desire] * DESIRE_SCORE_UNIT;
 }
 
+// Plan (2026-08-24, per dDd) — "the 'huge Weight' from earlier." A flat
+// bonus onto any remembered Glyph that's also the Behavior half of a
+// Committed Plan Expression (js/personality.js's Plan section) — "If it
+// isn't committed, those Behaviors won't get flagged."
+export const PLAN_WEIGHT = 25;
+
 // Never negative — a Pursuit score below 0 has nothing meaningful left to
 // contribute to a percentage distribution.
-function pursuitScore(entry){
-  return Math.max(0, desireScore(entry) + (entry.longing || 0));
+function pursuitScore(entry, planBonus){
+  return Math.max(0, desireScore(entry) + (entry.longing || 0) + (planBonus || 0));
+}
+
+// Every Behavior Glyph currently flagged by a Committed Plan Expression,
+// paired with whichever Target ref that same row resolved (2026-08-24).
+// Simplification, flagged rather than hidden: a row can hold more than one
+// Targets-variety Glyph (dDd's own 3-Glyph form, `KROW WIM KROW` — Actor
+// then Target both KROW) — the literacy/disambiguation layer that would
+// tell them apart isn't built yet, so this just takes whichever ref the
+// row resolved last. Good enough for the common 2-Glyph case
+// (`WIM KROW` — exactly one Target ref per row) that's actually in use.
+function committedPlanInfo(actor){
+  const plan = actor && actor.plan;
+  const glyphs = new Set();
+  const refByGlyph = {};
+  if(plan && plan.committed && plan.rows){
+    plan.committed.forEach((isCommitted, r) => {
+      if(!isCommitted) return;
+      const row = plan.rows[r] || [];
+      let rowRef = null;
+      row.forEach((g, s) => {
+        const ref = plan.refs && plan.refs[r + '-' + s];
+        if(ref != null) rowRef = ref;
+      });
+      row.forEach(g => {
+        if(g && GLYPH_BEHAVIOR[g]){
+          glyphs.add(g);
+          if(rowRef && !(g in refByGlyph)) refByGlyph[g] = rowRef;
+        }
+      });
+    });
+  }
+  return { glyphs, refByGlyph };
 }
 
 // tickLonging (2026-08-22) — call once per remembered entry, once per
@@ -193,6 +245,7 @@ export function tickLonging(entry){
 // Round," not a fake 0%-labeled entry.
 export function computeBehaviors(actor){
   const mindeye = (actor && actor.mindeye) || [];
+  const { glyphs: committedGlyphs, refByGlyph } = committedPlanInfo(actor);
   const result = {};
 
   BEHAVIOR_CATEGORIES.forEach(cat => {
@@ -201,11 +254,19 @@ export function computeBehaviors(actor){
     mindeye.forEach(entry => {
       const behaviorKey = entry.glyph && GLYPH_BEHAVIOR[entry.glyph];
       if(!behaviorKey || BEHAVIOR_CATEGORY[behaviorKey] !== cat.key) return;
-      const pursuit = pursuitScore(entry);
+      const planBonus = committedGlyphs.has(entry.glyph) ? PLAN_WEIGHT : 0;
+      const pursuit = pursuitScore(entry, planBonus);
       behaviorPursuit[behaviorKey] = (behaviorPursuit[behaviorKey] || 0) + pursuit;
+      // desire (2026-08-24, per dDd — "All the Math should be visible to
+      // me... so I can see what is going on") — pursuit already combined
+      // Desire + Longing; this exposes the Desire half on its own too, so
+      // the UI can show the real breakdown, not just the merged total.
+      // plan/ref (2026-08-24) — the Committed-Plan bonus and whichever
+      // Target that Expression resolved, when this Glyph is Plan-flagged.
       perGlyph.push({
         entryId: entry.id, glyphId: entry.glyph, behaviorKey,
-        behaviorName: BEHAVIORS[behaviorKey].name, pursuit, longing: entry.longing || 0
+        behaviorName: BEHAVIORS[behaviorKey].name, pursuit, desire: desireScore(entry), longing: entry.longing || 0,
+        plan: planBonus, ref: planBonus ? (refByGlyph[entry.glyph] || null) : null
       });
     });
 
@@ -258,4 +319,55 @@ export function rollBehavior(distribution){
     r -= pct;
   }
   return entries[entries.length - 1][0];
+}
+
+// Behavior Queue (2026-08-24, per dDd) — "just takes AP and uses it to que
+// a bunch of moves." Capped at 9 (3 Expressions × 3 Glyphs each — enough
+// for 9 Glyphs in a row or a column, matching Plan's own total capacity)
+// or the Character's own AP, whichever is smaller — "instead of doing the
+// Math just once for Likely Behavior and Runner Up, all the relevant spots
+// will fill up with Behaviors."
+export const BEHAVIOR_QUEUE_CAP = 9;
+
+// Fills the whole Queue with one real weighted-random draw per slot, from
+// every Glyph across all 3 Categories at once (not just one Category's
+// distribution) — "That weighting formula should do the trick." Repeat
+// (2026-08-24, per dDd) stacks a -1 onto a candidate for every time it's
+// already been drawn THIS fill, so the same Behavior doesn't just eat every
+// slot outright — except a Plan-flagged candidate, which is immune ("If it
+// are part of a Plan that is overridden (only subconscious behaviors
+// causing this)"): a Committed Expression's Behavior is meant to actually
+// dominate the Queue, not get pushed out by its own repetition.
+export function fillBehaviorQueue(actor){
+  const cap = Math.min(BEHAVIOR_QUEUE_CAP, (actor && actor.ap) || 0);
+  if(cap <= 0) return [];
+  const categories = computeBehaviors(actor);
+  const pool = [];
+  BEHAVIOR_CATEGORIES.forEach(cat => {
+    categories[cat.key].perGlyph.forEach(g => {
+      if(g.pursuit > 0) pool.push(g);
+    });
+  });
+  if(!pool.length) return [];
+
+  const repeatCount = {};
+  const queue = [];
+  for(let i = 0; i < cap; i++){
+    const weighted = pool.map(c => {
+      const repeats = repeatCount[c.glyphId] || 0;
+      const penalty = c.plan ? 0 : repeats;
+      return { c, weight: Math.max(0, c.pursuit - penalty) };
+    }).filter(w => w.weight > 0);
+    if(!weighted.length) break;
+    const total = weighted.reduce((sum, w) => sum + w.weight, 0);
+    let r = Math.random() * total;
+    let picked = weighted[weighted.length - 1].c;
+    for(const w of weighted){
+      if(r < w.weight){ picked = w.c; break; }
+      r -= w.weight;
+    }
+    repeatCount[picked.glyphId] = (repeatCount[picked.glyphId] || 0) + 1;
+    queue.push({ glyph: picked.glyphId, ref: picked.ref || null });
+  }
+  return queue;
 }

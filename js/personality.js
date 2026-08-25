@@ -1,54 +1,53 @@
-// Personality Pillar — first real foothold, mirroring Information's own
-// build (2026-08-20). Heart/Stomach/Head are the three domains per the
-// Personality prototype (prototypes/personality-pillar.html), but First Era
-// Beings only need Head (per dDd, dialogue-system.md's "next session" entry
-// — Heart/Stomach are Second/Third Era concerns). Head is the only one with
-// real content; Heart/Stomach render too now (2026-08-23, per dDd: "they
-// should still be visible, just greyed out") — visible-but-inert, same
-// `opacity:.4` convention js/techniques.js's `.tech-denied` already uses,
-// not a functional gate on any Character. The prototype itself never had
-// real Axis content for either domain ("empty for now; which Axes belong
-// where is still open") — there's nothing being hidden or restored here,
-// just a placeholder made visible instead of omitted.
-//
-// Intelligence is the first real Axis (2026-08-21, per dDd's Notebook): "it's
-// going to relate to how many Expressions a Character can remember." The
-// actual capacity enforcement lives in utils.js's deliverMindeyeEntry/
-// getIntelligence, shared with information.js's Mindeye — this panel is just
-// the Character-facing view/editor onto that same number.
+// The Personality Panel — unified 2026-08-24, per dDd, after "we can
+// actually rethink the entire interface... Information, Personality, and
+// Relationships don't really need to be so intensely separated." One
+// Glyph-list-driven layout replacing what used to be 3 separate Pillars
+// (Information/Personality/Relationships), each duplicating its own Glyph
+// Gallery. dDd's own spec, close to verbatim:
+//   Left:   a Glyph list (Memory-state Filters above it), grouped by the
+//           Variety Categories (Directions/Targets/Actions/Ideas),
+//           stacking vertically.
+//   Right:  Behavior Information (incl. the Active Plan) / Personality
+//           Stats / Relationship details, stacked.
+//   Bottom: detail on whichever Glyph is currently highlighted (Emotion
+//           Axes, notes on how it affects an Axis, associated Crafts/
+//           Powers) — clicking a Glyph on the left highlights it.
+// "All the Math should be visible... so I can see what is going on" — the
+// Behavior section shows Desire/Longing/Pursuit broken out, not just a
+// rolled percentage.
 
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
-import { getIntelligence, mindeyeCapacity, INTELLIGENCE_DEFAULT, escapeHtml, resolveEntityRef } from './utils.js';
-import { computeBehaviors, sortedBehaviors, BEHAVIOR_CATEGORIES } from './behaviors.js';
-import { compositionCardHtml } from './information.js';
+import { getIntelligence, mindeyeCapacity, INTELLIGENCE_DEFAULT, escapeHtml, resolveEntityRef, mindeyeCategory, allCharacterRoster } from './utils.js';
+import { computeBehaviors, sortedBehaviors, BEHAVIOR_CATEGORIES, BEHAVIOR_QUEUE_CAP, fillBehaviorQueue } from './behaviors.js';
+import { compositionCardHtml, renderGlyphColumn, getSelectedGlyphEntryId, myMindeye, entryGlyphMarkup, entryGlyphName, lookupGlyph, varietyOf } from './information.js';
+import { renderAxis } from './relationships.js';
+import { glyphOptionsHtml } from './techniques.js';
 
-// Inspect mode (2026-08-22, per dDd) — the viewing Player's own Character by
-// default, or whichever Character AppState.inspectTargetId points at (set
-// from a new NPC Panel row button, js/dm.js's renderNpcList) — read-only in
-// that case, "to see what is going on," not to edit someone else's sheet.
+function myCharacterId(){
+  return AppState.inspectTargetId || AppState.playerId;
+}
 function myCharacter(){
-  const id = AppState.inspectTargetId || AppState.playerId;
-  return resolveEntityRef(AppState.table, id);
+  return resolveEntityRef(AppState.table, myCharacterId());
 }
 function inspecting(){
   return !!AppState.inspectTargetId;
 }
 
-// Plan (2026-08-23, per dDd) — sits between Head and Behaviors: Suppress
-// Subconscious (a hard per-Character freeze on Behaviors rolling at all —
-// see js/noncombat.js's resolveBehavior()) and a read-only readout of
-// whatever Scripts are currently active on this Character. The mechanism
-// already exists (js/scripts.js's assignScript()/activeScripts, advanced by
-// the Teach Behavior) — this is purely the missing visibility, per dDd:
-// "You already seem to have that behavior going, just need a way to verify
-// it." Real assignment still happens from the separate Scripts Panel;
-// Suppress Subconscious is left editable even while inspecting an NPC
-// (unlike Intelligence below) since freezing an NPC's own Behaviors before
-// TATA manually directs it is exactly the DM-side case this exists for.
-// Up to 3 concurrent Scripts (2026-08-23, per dDd — "the Character can only
-// have one Script for Plan. Can we make it 3?"), same cap the Row builder
-// itself already used per-Script.
+// Memory filter (2026-08-24) — which single Category (if any) the left
+// Glyph list is narrowed to. Local UI state, same pattern as
+// information.js's own originExpanded/selectedGlyphEntryId.
+let memoryFilter = null;
+const MEMORY_FILTERS = ['Fleeting', 'Retained', 'Known', 'Perfected'];
+
+function filterBarHtml(){
+  const all = '<button class="glyph-filter-btn' + (!memoryFilter ? ' active' : '') + '" data-filter="">All</button>';
+  const rest = MEMORY_FILTERS.map(f =>
+    '<button class="glyph-filter-btn' + (memoryFilter === f ? ' active' : '') + '" data-filter="' + f + '">' + f + '</button>'
+  ).join('');
+  return '<div class="glyph-filter-bar">' + all + rest + '</div>';
+}
+
 async function toggleSuppressSubconscious(){
   const me = myCharacter();
   if(!me) return;
@@ -59,13 +58,16 @@ async function toggleSuppressSubconscious(){
   });
 }
 
-// Teach mode toggle (2026-08-23, per dDd — the arrow-button 3-way concept:
-// "To the right does approach you just made [sequential] / Down for the
-// throughput approach [parallel] / Both directions, so dynamically going
-// through (which is harder to do)"). Only cycles the two built modes —
-// dynamic needs a not-yet-designed priority Stat, so it's left out of the
-// click cycle entirely rather than wired to a mode that silently does
-// nothing.
+async function toggleWorkTowardsPlan(){
+  const me = myCharacter();
+  if(!me) return;
+  const id = AppState.inspectTargetId || AppState.playerId;
+  await mutateTable(t => {
+    const actor = resolveEntityRef(t, id);
+    if(actor) actor.workTowardsPlan = !actor.workTowardsPlan;
+  });
+}
+
 async function toggleTeachMode(){
   const me = myCharacter();
   if(!me) return;
@@ -77,15 +79,129 @@ async function toggleTeachMode(){
   });
 }
 
+// Plan (2026-08-24, redone per dDd) — no longer a settings list; it's now 3
+// Expression slots the Character is actively trying to fulfill. dDd's own
+// examples: `WIM KROW` ("I Teach them") down to `KROW WIM KROW` ("they
+// Teach them") — each Expression can be 2 or 3 Glyphs. Role isn't fixed by
+// slot position — it's read off each Glyph's own Variety (js/information.js's
+// varietyOf()): an Actions-variety Glyph (WIM/S/BA/...) is the Behavior; a
+// Targets-variety Glyph (KROW/GOM/...) is a Character reference,
+// disambiguated inline with a "who does this represent?" picker next to it.
+// Deliberately NOT wired into Behavior resolution yet — the "huge Weight"/
+// Behavior Queue piece and the literacy/misunderstanding layer are both
+// bigger, separate builds (see ROADMAP.md's AP-draining Behavior loop
+// item); this just gets Plan real, storable, editable state.
+//
+// Slot interaction is a real port of language/gomsdu-glyph-arranger.html's
+// own popup mechanic (2026-08-24, per dDd's correction — "I explicitly
+// said Glyph Arranger," not Write Script's always-visible selects, which
+// is where the "always defaults to RO" bug came from: slot 0 there never
+// gets an empty option, so an untouched select just shows the browser's
+// own first-in-list default while the real stored value stays null).
+// A slot starts blank; clicking it (`openPlanSlot`, local-only UI state,
+// same pattern as memoryFilter above) swaps it for a real `<select>` —
+// choosing a Glyph or `<select>`'s own blur (Cancel, no change) both close
+// it back to a plain icon/blank box.
+const PLAN_ROWS = 3, PLAN_SLOTS = 3;
+let openPlanSlot = null; // { r, s } — which Plan slot currently shows its picker
+function emptyPlan(){
+  return { rows: [[null, null, null], [null, null, null], [null, null, null]], refs: {}, committed: [false, false, false] };
+}
+function planOf(me){
+  const plan = me.plan || emptyPlan();
+  if(!plan.committed) plan.committed = [false, false, false];
+  return plan;
+}
+
+async function setPlanGlyph(r, s, glyphId){
+  const id = AppState.inspectTargetId || AppState.playerId;
+  await mutateTable(t => {
+    const actor = resolveEntityRef(t, id);
+    if(!actor) return;
+    if(!actor.plan) actor.plan = emptyPlan();
+    actor.plan.rows[r][s] = glyphId || null;
+    if(!glyphId) delete actor.plan.refs[r + '-' + s];
+  });
+}
+
+async function setPlanRef(r, s, refId){
+  const id = AppState.inspectTargetId || AppState.playerId;
+  await mutateTable(t => {
+    const actor = resolveEntityRef(t, id);
+    if(!actor) return;
+    if(!actor.plan) actor.plan = emptyPlan();
+    actor.plan.refs[r + '-' + s] = refId || null;
+  });
+}
+
+function queueOf(me){
+  return me.behaviorQueue || [];
+}
+
+// Commit (2026-08-24, per dDd) — a Character's own declaration that a given
+// Expression is real intent, not just a draft mid-edit. Toggling it flags
+// (or unflags) that Expression's Behavior Glyph(s) for the Plan weight
+// (js/behaviors.js's PLAN_WEIGHT), then regenerates the whole Behavior
+// Queue via fillBehaviorQueue() — a real weighted-random autofill across
+// every remembered Glyph, not just this Expression's own. Slot edits above
+// still save live either way; Commit only ever changes which Glyphs are
+// Plan-flagged and re-rolls the Queue from scratch off the current state.
+async function togglePlanCommit(r){
+  const id = AppState.inspectTargetId || AppState.playerId;
+  await mutateTable(t => {
+    const actor = resolveEntityRef(t, id);
+    if(!actor) return;
+    if(!actor.plan) actor.plan = emptyPlan();
+    if(!actor.plan.committed) actor.plan.committed = [false, false, false];
+    actor.plan.committed[r] = !actor.plan.committed[r];
+    actor.behaviorQueue = fillBehaviorQueue(actor);
+  });
+}
+
+function planSlotHtml(plan, r, s){
+  const glyphId = plan.rows[r][s];
+  const isOpen = openPlanSlot && openPlanSlot.r === r && openPlanSlot.s === s;
+  if(isOpen){
+    return '<select class="write-glyph-select plan-glyph-select" data-row="' + r + '" data-slot="' + s + '">' +
+      glyphOptionsHtml(true, glyphId) + '</select>';
+  }
+  const body = glyphId ? compositionCardHtml([[glyphId]]) : '<div class="plan-slot-empty">—</div>';
+  return '<div class="plan-slot" data-row="' + r + '" data-slot="' + s + '">' + body + '</div>';
+}
+
+function planExpressionColumnHtml(selfId, plan, r){
+  const roster = allCharacterRoster(AppState.table);
+  const slotsHtml = Array.from({ length: PLAN_SLOTS }).map((_, s) => {
+    const glyphId = plan.rows[r][s];
+    const slotHtml = planSlotHtml(plan, r, s);
+    if(!glyphId || varietyOf(glyphId) !== 'targets'){
+      // Reserved, invisible spacer (2026-08-24, per dDd — "the left 3 Rows
+      // are not lined up") — the 3 Expression columns are independent flex
+      // stacks, so a ref-select appearing in one but not another used to
+      // push that column's Commit button out of line with its neighbors.
+      // Every slot now always claims the same height whether or not it
+      // actually needs the picker.
+      return slotHtml + '<div class="write-ref-select plan-ref-spacer" aria-hidden="true"></div>';
+    }
+    const refId = plan.refs[r + '-' + s] ?? selfId;
+    const refOptions = roster.map(c =>
+      '<option value="' + c.id + '"' + (c.id === refId ? ' selected' : '') + '>' + escapeHtml(c.id === selfId ? c.name + ' (self)' : c.name) + '</option>'
+    ).join('');
+    return slotHtml + '<select class="write-ref-select plan-ref-select" data-row="' + r + '" data-slot="' + s + '">' + refOptions + '</select>';
+  }).join('');
+  const committed = !!plan.committed[r];
+  return '<div class="write-expression-column">' +
+    '<div class="write-expression-label">Expression ' + (r + 1) + '</div>' +
+    slotsHtml +
+    '<button class="btn-ghost btn-small plan-commit-btn' + (committed ? ' active' : '') + '" data-row="' + r + '">' +
+      (committed ? 'Committed' : 'Commit') +
+    '</button>' +
+  '</div>';
+}
+
 function planHtml(me){
-  const suppressed = !!me.suppressSubconscious;
   const teachMode = me.teachMode === 'parallel' ? 'parallel' : 'sequential';
   const scripts = me.activeScripts || [];
-  // Same card component Scripts Panel's own Active Scripts readout uses
-  // (2026-08-23, per dDd: "Personality... should use the same formatting
-  // you decide on for the Scripts in Scripts") — js/information.js's
-  // compositionCardHtml(rows, {nextRowIndex}), not a separate plain-text
-  // layout.
   const scriptsHtml = scripts.length
     ? scripts.map(script =>
         '<div class="script-slot">' +
@@ -96,64 +212,55 @@ function planHtml(me){
       ).join('')
     : '<div class="log-empty">No active Scripts.</div>';
 
+  const plan = planOf(me);
+  const columnsHtml = Array.from({ length: PLAN_ROWS }).map((_, r) => planExpressionColumnHtml(myCharacterId(), plan, r)).join('');
+
   return '<div class="stat-header">Plan</div>' +
+    '<div class="write-expression-grid">' + columnsHtml + '</div>' +
     '<div class="personality-axis">' +
-      '<div class="personality-axis-name">Suppress Subconscious</div>' +
-      '<div class="personality-axis-desc">Freezes Behaviors from rolling/executing at all — prevents conflicts with a Move/Order you\'re staging by hand yourself.</div>' +
-      '<button class="btn-ghost btn-small' + (suppressed ? ' active' : '') + '" id="personality-suppress-toggle">' + (suppressed ? 'Suppressed' : 'Active') + '</button>' +
-    '</div>' +
-    '<div class="personality-axis" style="margin-top:10px;">' +
       '<div class="personality-axis-name">Teach Mode</div>' +
-      '<div class="personality-axis-desc">' + (teachMode === 'parallel'
-        ? 'Parallel — every active Script advances a Row the same Round (real multiplayer throughput).'
-        : 'Sequential — one Row total per Round, from the first Script queued.') + '</div>' +
       '<button class="btn-ghost btn-small' + (teachMode === 'parallel' ? ' active' : '') + '" id="personality-teach-mode-toggle" title="Click to switch modes">' +
         (teachMode === 'parallel' ? '↓ Parallel' : '→ Sequential') +
       '</button>' +
     '</div>' +
-    '<div class="personality-axis" style="margin-top:10px;">' +
+    '<div class="personality-axis">' +
       '<div class="personality-axis-name">Active Scripts (' + scripts.length + ' / 3)</div>' +
       scriptsHtml +
     '</div>';
 }
 
-// Heart/Stomach (2026-08-23) — greyed-out placeholders, Second/Third Era
-// domains with no real Axis content designed yet. `note` names which Era
-// unlocks it; kept as one small shared helper rather than two near-copies.
-function domainPlaceholderHtml(label, note){
-  return '<div class="personality-domain-locked">' +
-    '<div class="stat-header">' + label + '</div>' +
-    '<div class="personality-axis-desc">' + note + '</div>' +
+// Behavior Queue display (2026-08-24, per dDd) — chips flow like the Active
+// Character Display's own Name+Stats line (js/activeCharacter.js,
+// `.active-char-stats{display:contents}`): a compact flow of items, 3 per
+// line by the Queue's own 3-Glyphs-per-Expression shape. Always all 3 rows
+// (per dDd: "no reason for More/Less Queue — just keep it 3 Rows").
+function behaviorQueueHtml(me){
+  const queue = queueOf(me);
+  const slotsHtml = Array.from({ length: BEHAVIOR_QUEUE_CAP }).map((_, i) => {
+    const item = queue[i];
+    return '<div class="behavior-queue-slot">' + (item ? compositionCardHtml([[item.glyph]]) : '') + '</div>';
+  }).join('');
+  return '<div class="behavior-queue">' +
+    '<div class="behavior-queue-label">Behavior Queue (' + queue.length + ' / ' + BEHAVIOR_QUEUE_CAP + ')</div>' +
+    '<div class="behavior-queue-grid">' + slotsHtml + '</div>' +
   '</div>';
 }
 
-async function adjustIntelligence(delta){
-  await mutateTable(t => {
-    const me = t.players[AppState.playerId];
-    if(!me) return;
-    if(!me.personality) me.personality = {};
-    if(!me.personality.head) me.personality.head = {};
-    const current = me.personality.head.intelligence ?? INTELLIGENCE_DEFAULT;
-    const next = Math.max(1, current + delta);
-    me.personality.head.intelligence = next;
-    // Lowering capacity below what's already remembered forgets the oldest
-    // Expressions immediately, same rule deliverMindeyeEntry enforces on
-    // arrival — capacity is the raw stat × 10 (2026-08-22), not a 1:1 count.
-    if(me.mindeye){
-      const capacity = mindeyeCapacity(me);
-      while(me.mindeye.length > capacity) me.mindeye.shift();
-    }
-  });
+function behaviorTermHtml(name, value){
+  return '<span class="behavior-term"><span class="behavior-term-name">' + name + '</span><span class="behavior-term-value">' + value + '</span></span>';
 }
 
-// Behaviors (2026-08-22, per dDd; split into 3 independent columns same day
-// after playtesting — "Characters should have 3 separate Behaviors. This is
-// for moving, selecting, acting basically... it's basically the same
-// layout, just 3 times in the same area... 3 columns would be best.") —
-// tracks Information (remembered Glyphs) and the Character's Relationship
-// to it; a Behavior is the result. Only the math/display live here for
-// Actions/Targeting (Crafter-initiated, not yet auto-executed) — Movement
-// really does play out on the Map (js/noncombat.js's resolveNonCombatRound()).
+// Behaviors — "All the Math should be visible" (2026-08-24, per dDd) — each
+// Glyph row now shows Desire, Longing, and the Pursuit they combine into
+// (behaviors.js's computeBehaviors() already computed all 3, `desire` newly
+// exposed there today), not just the final rolled percentage. A second row
+// (2026-08-24, per dDd) breaks that same math down further: Desire +
+// Longing + Plan + Repeat = Pursuit. Plan is real now (js/behaviors.js's
+// PLAN_WEIGHT, +25 whenever this Glyph is part of a Committed Plan
+// Expression) and folded into Pursuit itself. Repeat stays a flat 0 here —
+// it's a -1-per-repeat penalty that only exists mid-fill (js/behaviors.js's
+// fillBehaviorQueue()), so it has nothing meaningful to show on this
+// static, pre-fill snapshot.
 function behaviorsHtml(me){
   const categories = computeBehaviors(me);
 
@@ -165,12 +272,24 @@ function behaviorsHtml(me){
 
     const glyphRows = perGlyph.length
       ? perGlyph.map(g =>
-          '<div class="behavior-glyph-row">' +
-            '<span class="behavior-glyph-id">' + escapeHtml(g.glyphId) + '</span>' +
-            '<span class="behavior-glyph-assoc">' + escapeHtml(g.behaviorName) +
-              ' <span class="behavior-glyph-longing">(Longing ' + g.longing + ')</span>' +
-            '</span>' +
-            '<span class="behavior-glyph-pct">' + g.impactPct + '%</span>' +
+          '<div class="behavior-glyph-item">' +
+            '<div class="behavior-glyph-row">' +
+              '<span class="behavior-glyph-id">' + escapeHtml(g.glyphId) + '</span>' +
+              '<span class="behavior-glyph-assoc">' + escapeHtml(g.behaviorName) + '</span>' +
+              '<span class="behavior-glyph-math" title="Desire + Longing + Plan = Pursuit">' + g.desire + ' + ' + g.longing + (g.plan ? ' + ' + g.plan : '') + ' = ' + g.pursuit + '</span>' +
+              '<span class="behavior-glyph-pct">' + g.impactPct + '%</span>' +
+            '</div>' +
+            '<div class="behavior-glyph-detail-row">' +
+              behaviorTermHtml('Desire', g.desire) +
+              '<span class="behavior-term-op">+</span>' +
+              behaviorTermHtml('Longing', g.longing) +
+              '<span class="behavior-term-op">+</span>' +
+              behaviorTermHtml('Plan', g.plan) +
+              '<span class="behavior-term-op">+</span>' +
+              behaviorTermHtml('Repeat', 0) +
+              '<span class="behavior-term-op">=</span>' +
+              behaviorTermHtml('Pursuit', g.pursuit) +
+            '</div>' +
           '</div>'
         ).join('')
       : '<div class="log-empty">Nothing yet.</div>';
@@ -193,32 +312,49 @@ function behaviorsHtml(me){
     '</div>';
   }).join('');
 
-  return '<div class="stat-header">Behaviors</div><div class="behavior-columns">' + columns + '</div>';
+  const suppressed = !!me.suppressSubconscious;
+  const workingPlan = !!me.workTowardsPlan;
+  return '<div class="stat-header">Behaviors</div><div class="behavior-columns">' + columns + '</div>' +
+    '<div class="behavior-toggles-row">' +
+      '<div class="behavior-toggles-col">' +
+        '<button class="btn-ghost btn-small behavior-toggle-btn' + (suppressed ? ' active' : '') + '" id="personality-suppress-toggle">Suppress Subconscious</button>' +
+        '<button class="btn-ghost btn-small behavior-toggle-btn' + (workingPlan ? ' active' : '') + '" id="personality-work-plan-toggle">Work towards Plan</button>' +
+      '</div>' +
+      behaviorQueueHtml(me) +
+    '</div>';
 }
 
-export function renderPersonalityPanel(){
-  const container = document.getElementById('personality-head-list');
-  if(!container) return;
+async function adjustIntelligence(delta){
+  await mutateTable(t => {
+    const me = t.players[AppState.playerId];
+    if(!me) return;
+    if(!me.personality) me.personality = {};
+    if(!me.personality.head) me.personality.head = {};
+    const current = me.personality.head.intelligence ?? INTELLIGENCE_DEFAULT;
+    const next = Math.max(1, current + delta);
+    me.personality.head.intelligence = next;
+    if(me.mindeye){
+      const capacity = mindeyeCapacity(me);
+      while(me.mindeye.length > capacity) me.mindeye.shift();
+    }
+  });
+}
 
-  const me = myCharacter();
-  if(!me){
-    container.innerHTML = '<div class="log-empty">No Character yet.</div>';
-    return;
-  }
+function domainPlaceholderHtml(label, note){
+  return '<div class="personality-domain-locked">' +
+    '<div class="stat-header">' + label + '</div>' +
+    '<div class="personality-axis-desc">' + note + '</div>' +
+  '</div>';
+}
 
+function statsHtml(me, readOnly){
   const intelligence = getIntelligence(me);
   const capacity = mindeyeCapacity(me);
   const remembered = (me.mindeye || []).length;
-  const readOnly = inspecting();
-
-  const sheet = document.createElement('div');
-  sheet.className = 'sheet';
-  sheet.innerHTML = `
-    ${readOnly ? '<div class="inspect-banner">Inspecting ' + escapeHtml(me.name || 'Unnamed') + ' — read-only</div>' : ''}
+  return `
     <div class="stat-header">Head</div>
     <div class="personality-axis">
       <div class="personality-axis-name">Intelligence</div>
-      <div class="personality-axis-desc">How many Expressions this Character can remember at once — 10 Memories per Intelligence point. The Mindeye forgets its oldest arrival past this limit.</div>
       <div class="personality-stepper">
         ${readOnly ? '' : '<button class="btn-ghost btn-small" id="personality-intelligence-minus">−</button>'}
         <span class="personality-value">${intelligence}</span>
@@ -229,24 +365,139 @@ export function renderPersonalityPanel(){
     ${domainPlaceholderHtml('Heart', 'Second Era — no Axes designed yet.')}
     ${domainPlaceholderHtml('Stomach', 'Third Era — no Axes designed yet.')}
   `;
-  const planSheet = document.createElement('div');
-  planSheet.className = 'sheet';
-  planSheet.innerHTML = planHtml(me);
+}
 
-  const behaviorSheet = document.createElement('div');
-  behaviorSheet.className = 'sheet';
-  behaviorSheet.innerHTML = behaviorsHtml(me);
+// Relationship details (2026-08-24) — the Character's own PERSONAL
+// Relationship Axes, per dDd: "there are going to be Relationship Axis that
+// are Personal to the Character, influencing how they react to stuff they
+// receive... their Personalities are meant to interpret that via
+// Personality Stats and Mechanisms." Real, not-yet-designed mechanic —
+// distinct from Attachment/Desire (the Emotion Axes, per-Glyph, shown in
+// the bottom detail panel instead) — deliberately a real labeled
+// placeholder, not faked content.
+function relationshipDetailsHtml(){
+  return '<div class="stat-header">Relationship Details</div>' +
+    '<div class="log-empty">Not designed yet — these are personal Relationship Axes for the Character itself (distinct from the Emotion Axes below, which are per-Glyph), influencing how they interpret what they receive.</div>';
+}
 
+// Bottom-quarter Glyph detail (2026-08-24) — whichever Glyph is currently
+// selected in the left column (information.js's own selection state).
+// Emotion Axes (Attachment/Desire) reuse relationships.js's renderAxis()
+// exactly as the old Relationships Pillar did; Crafts/Powers association
+// and axis-effect notes are both real fields with nothing behind them yet.
+function glyphDetailHtml(container, readOnly){
+  const entryId = getSelectedGlyphEntryId();
+  const entry = entryId && myMindeye().find(e => e.id === entryId);
   container.innerHTML = '';
-  container.appendChild(sheet);
-  container.appendChild(planSheet);
-  container.appendChild(behaviorSheet);
+  if(!entry){
+    container.innerHTML = '<div class="stat-header">Glyph Detail</div><div class="log-empty">Select a Glyph above to see detail on it.</div>';
+    return;
+  }
+  const glyph = lookupGlyph(entry.glyph);
+  const head = document.createElement('div');
+  head.className = 'glyph-detail-head';
+  head.innerHTML =
+    '<div class="glyph-detail-icon">' + entryGlyphMarkup(entry) + '</div>' +
+    '<div>' +
+      '<div class="glyph-detail-name">' + escapeHtml(entryGlyphName(entry)) + '</div>' +
+      '<div class="glyph-detail-meaning">' + escapeHtml((glyph && glyph.meaning) || 'No meaning recorded.') + '</div>' +
+      '<div class="glyph-detail-category">' + mindeyeCategory(entry.retention) + ' — from ' + escapeHtml(entry.from || 'Someone') + '</div>' +
+    '</div>';
+  container.appendChild(head);
 
-  container.querySelector('#personality-suppress-toggle').addEventListener('click', toggleSuppressSubconscious);
-  container.querySelector('#personality-teach-mode-toggle').addEventListener('click', toggleTeachMode);
+  const axesWrap = document.createElement('div');
+  axesWrap.className = 'glyph-detail-axes';
+  axesWrap.appendChild(renderAxis('Attachment', 'Connected', 'Separated', 'attachment', entry, readOnly));
+  axesWrap.appendChild(renderAxis('Desire', 'Desirable', 'Undesirable', 'desire', entry, readOnly));
+  container.appendChild(axesWrap);
 
+  const notes = document.createElement('div');
+  notes.className = 'glyph-detail-notes log-empty';
+  notes.textContent = 'No notes yet on how this Glyph affects an Axis.';
+  container.appendChild(notes);
+
+  const crafts = document.createElement('div');
+  crafts.className = 'glyph-detail-crafts log-empty';
+  crafts.textContent = 'Not tied to any Craft or Power yet.';
+  container.appendChild(crafts);
+}
+
+export function renderPersonalityPanel(){
+  const glyphColEl = document.getElementById('personality-glyph-list');
+  const filterBarEl = document.getElementById('personality-glyph-filters');
+  const behaviorEl = document.getElementById('personality-behavior-section');
+  const statsEl = document.getElementById('personality-stats-section');
+  const relEl = document.getElementById('personality-relationship-section');
+  const detailEl = document.getElementById('personality-glyph-detail');
+  if(!glyphColEl) return;
+
+  const me = myCharacter();
+  const readOnly = inspecting();
+
+  if(!me){
+    glyphColEl.innerHTML = '<div class="log-empty">No Character yet.</div>';
+    if(filterBarEl) filterBarEl.innerHTML = '';
+    if(behaviorEl) behaviorEl.innerHTML = '';
+    if(statsEl) statsEl.innerHTML = '';
+    if(relEl) relEl.innerHTML = '';
+    if(detailEl) detailEl.innerHTML = '';
+    return;
+  }
+
+  if(filterBarEl){
+    filterBarEl.innerHTML = filterBarHtml();
+    filterBarEl.querySelectorAll('.glyph-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => { memoryFilter = btn.dataset.filter || null; renderPersonalityPanel(); });
+    });
+  }
+  renderGlyphColumn(glyphColEl, memoryFilter, renderPersonalityPanel);
+
+  if(behaviorEl) behaviorEl.innerHTML = behaviorsHtml(me) + planHtml(me);
+  if(statsEl) statsEl.innerHTML = (readOnly ? '<div class="inspect-banner">Inspecting ' + escapeHtml(me.name || 'Unnamed') + ' — read-only</div>' : '') + statsHtml(me, readOnly);
+  if(relEl) relEl.innerHTML = relationshipDetailsHtml();
+  if(detailEl) glyphDetailHtml(detailEl, readOnly);
+
+  const suppressBtn = document.getElementById('personality-suppress-toggle');
+  if(suppressBtn) suppressBtn.addEventListener('click', toggleSuppressSubconscious);
+  const workPlanBtn = document.getElementById('personality-work-plan-toggle');
+  if(workPlanBtn) workPlanBtn.addEventListener('click', toggleWorkTowardsPlan);
+  const teachBtn = document.getElementById('personality-teach-mode-toggle');
+  if(teachBtn) teachBtn.addEventListener('click', toggleTeachMode);
+  if(behaviorEl){
+    behaviorEl.querySelectorAll('.plan-slot').forEach(el => {
+      el.addEventListener('click', () => {
+        openPlanSlot = { r: Number(el.dataset.row), s: Number(el.dataset.slot) };
+        renderPersonalityPanel();
+      });
+    });
+    behaviorEl.querySelectorAll('.plan-glyph-select').forEach(sel => {
+      sel.addEventListener('change', ev => {
+        const r = Number(ev.target.dataset.row), s = Number(ev.target.dataset.slot);
+        openPlanSlot = null;
+        setPlanGlyph(r, s, ev.target.value);
+        renderPersonalityPanel();
+      });
+      sel.addEventListener('click', ev => ev.stopPropagation());
+      sel.addEventListener('blur', () => { openPlanSlot = null; renderPersonalityPanel(); });
+    });
+    behaviorEl.querySelectorAll('.plan-ref-select').forEach(sel => {
+      sel.addEventListener('change', ev => setPlanRef(Number(ev.target.dataset.row), Number(ev.target.dataset.slot), ev.target.value));
+    });
+    behaviorEl.querySelectorAll('.plan-commit-btn').forEach(btn => {
+      btn.addEventListener('click', () => togglePlanCommit(Number(btn.dataset.row)));
+    });
+    // Arranger parity — a freshly-opened slot's select grabs focus and pops
+    // its own native picker immediately, same as openSlotMenu() there.
+    const openSel = openPlanSlot && behaviorEl.querySelector('.plan-glyph-select[data-row="' + openPlanSlot.r + '"][data-slot="' + openPlanSlot.s + '"]');
+    if(openSel){
+      openSel.focus();
+      try{ openSel.showPicker && openSel.showPicker(); }catch(err){}
+    }
+  }
   if(!readOnly){
-    container.querySelector('#personality-intelligence-minus').addEventListener('click', () => adjustIntelligence(-1));
-    container.querySelector('#personality-intelligence-plus').addEventListener('click', () => adjustIntelligence(1));
+    const minus = document.getElementById('personality-intelligence-minus');
+    const plus = document.getElementById('personality-intelligence-plus');
+    if(minus) minus.addEventListener('click', () => adjustIntelligence(-1));
+    if(plus) plus.addEventListener('click', () => adjustIntelligence(1));
   }
 }

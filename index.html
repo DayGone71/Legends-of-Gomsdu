@@ -208,9 +208,15 @@
         <button id="toolbar-techniques">Techniques</button>
         <button id="toolbar-party">Party</button>
         <button id="toolbar-npcs">NPCs</button>
-        <button id="toolbar-information">Information</button>
+        <!-- Information/Relationships toolbar buttons retired 2026-08-24, per
+             dDd — "The buttons for Information and Relationships can leave
+             the Game Screen now" — redundant once all 3 Pillars merged into
+             one Panel (see panel-information below); Personality alone still
+             opens it. js/panels.js's PANEL_IDS/realPanelId() aliasing is
+             untouched, so js/dm.js's NPC-row inspect buttons (which pass
+             'information'/'relationships' directly, not through a toolbar
+             button) still work exactly as before. -->
         <button id="toolbar-personality">Personality</button>
-        <button id="toolbar-relationships">Relationships</button>
         <button id="toolbar-help">Help</button>
       </div>
 
@@ -695,43 +701,30 @@
       <div id="npc-list" class="npc-list"></div>
     </div>
 
-    <div id="panel-information" class="panel-overlay hidden">
-      <div class="panel-overlay-header">
-        <h2>Information</h2>
-        <button id="panel-close-information" class="btn-ghost btn-small">Close</button>
-      </div>
-      <div class="pillar-nav">
-        <button class="pillar-nav-btn active" data-pillar="information">Information</button>
-        <button class="pillar-nav-btn" data-pillar="personality">Personality</button>
-        <button class="pillar-nav-btn" data-pillar="relationships">Relationships</button>
-      </div>
-      <div id="info-received-list"></div>
-    </div>
-
-    <div id="panel-personality" class="panel-overlay hidden">
+    <!-- The Personality Panel — rethought as one Glyph-list-driven layout
+         2026-08-24, per dDd ("Information, Personality, and Relationships
+         don't really need to be so intensely separated"), replacing the
+         earlier same-day 3-equal-columns merge. js/panels.js's
+         realPanelId() still aliases 'information'/'relationships' onto this
+         one panel id, so every existing opener (toolbar button, NPC Panel
+         inspect buttons) keeps working unchanged. -->
+    <div id="panel-information" class="panel-overlay personality-panel hidden">
       <div class="panel-overlay-header">
         <h2>Personality</h2>
-        <button id="panel-close-personality" class="btn-ghost btn-small">Close</button>
+        <button id="panel-close-information" class="btn-ghost btn-small">Close</button>
       </div>
-      <div class="pillar-nav">
-        <button class="pillar-nav-btn" data-pillar="information">Information</button>
-        <button class="pillar-nav-btn active" data-pillar="personality">Personality</button>
-        <button class="pillar-nav-btn" data-pillar="relationships">Relationships</button>
+      <div class="personality-panel-body">
+        <div class="personality-glyph-col">
+          <div id="personality-glyph-filters"></div>
+          <div id="personality-glyph-list"></div>
+        </div>
+        <div class="personality-info-col">
+          <div id="personality-behavior-section" class="sheet"></div>
+          <div id="personality-stats-section" class="sheet"></div>
+          <div id="personality-relationship-section" class="sheet"></div>
+        </div>
       </div>
-      <div id="personality-head-list"></div>
-    </div>
-
-    <div id="panel-relationships" class="panel-overlay hidden">
-      <div class="panel-overlay-header">
-        <h2>Relationships</h2>
-        <button id="panel-close-relationships" class="btn-ghost btn-small">Close</button>
-      </div>
-      <div class="pillar-nav">
-        <button class="pillar-nav-btn" data-pillar="information">Information</button>
-        <button class="pillar-nav-btn" data-pillar="personality">Personality</button>
-        <button class="pillar-nav-btn active" data-pillar="relationships">Relationships</button>
-      </div>
-      <div id="relationships-content"></div>
+      <div id="personality-glyph-detail" class="sheet personality-glyph-detail"></div>
     </div>
 
     <div id="panel-scripts" class="panel-overlay hidden">

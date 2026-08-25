@@ -1109,6 +1109,14 @@ Grew directly out of playtesting the new Personality Panel Plan section (see [RO
 
 **The Directions/Movement Behavior should queue**, so a Character with a real Target (destination) can path there across as many Rounds as it takes, rather than one direction-pick per roll. The Player's own Move Order already carries a multi-Tile path across Rounds (js/map.js/js/noncombat.js) — worth checking whether that same mechanism generalizes to Behavior-driven movement once this gets picked up, rather than building a second, separate path-carrying system.
 
+## 2026-08-24 — The Universal Characters Table, built for real
+
+Follow-up to 2026-08-22's "The Universal Characters Table" section above — that entry was the design; this is it actually existing. Surfaced the same way the original did: chasing what looked like a small bug (the New Game screen not genuinely leading into a Scene) turned up a real gap between what had been scoped and what had shipped. dDd, checking on Yom specifically: *"Yom is a Full Character in the Data Model. We scoped that, we planned for that, I was told that was what we built. That's not what is happening."* He wasn't — `js/activeCharacter.js` had been rebuilding an ephemeral display object off `BUILDS.yom` every render the whole time, with no persisted record at all.
+
+**The fix confirmed the original design was right, not just theoretical.** When the question came up of where a newly-real Yom should actually live, the instinct was `table.enemies` — exactly the structure the 2026-08-22 conversation had already flagged as due for replacement. dDd caught it directly: *"Why table.enemies? What happened to the Universal Character Table?"* Since Yom was brand new — nothing to migrate, no existing callers to break — he turned out to be the cleanest possible place to actually start the "merge feature by feature, not a rewrite" migration that was only ever a plan before. `table.characters` exists now, for real, with Yom as its first tenant. `table.players`/`table.enemies` are untouched, exactly as the original plan called for.
+
+Full build detail — `spawnYom()`, `resolveEntityRef()`/`allCharacterRoster()` extended additively, the NPC Panel and Active Character default both updated, Yom appearing on the Map alone then vanishing the moment a real Player arrives — lives in [CHANGELOG.md](CHANGELOG.md) 2026-08-24. Worth remembering as a pattern going forward: the next Character that needs to exist without an obvious `players`/`enemies` home is the next natural migration step, same as this one was — not a signal to reach for `table.enemies` again out of habit.
+
 ## Closing framing
 
 The goal was never to simulate an infinite conversation — that's the LLM

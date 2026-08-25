@@ -267,6 +267,10 @@ function allEntities(table){
   const out = {};
   Object.entries(table.players || {}).forEach(([id, p]) => { out[id] = { name: p.name || 'Unnamed', dead: isDeathWounded(p), facing: p.facing || FACING_DEFAULT, side: 'player', empowered: !!(p.empoweredBy && p.empoweredBy.length) }; });
   Object.entries(table.enemies || {}).forEach(([id, e]) => { out[id] = { name: e.name || 'Enemy', dead: isDeathWounded(e), facing: e.facing || FACING_DEFAULT, side: 'enemy', empowered: !!(e.empoweredBy && e.empoweredBy.length) }; });
+  // Universal Characters Table (2026-08-24) — currently just Yom, briefly
+  // positioned alone on a freshly-loaded Scene's Map before a real Player
+  // arrives (see js/scenes.js's spawnYom()/seedScene()).
+  Object.entries(table.characters || {}).forEach(([id, c]) => { out[id] = { name: c.name || 'Character', dead: isDeathWounded(c), facing: c.facing || FACING_DEFAULT, side: 'yom', empowered: false }; });
   return out;
 }
 
@@ -802,6 +806,21 @@ export function renderMap(){
   // cell, including the header-block ones, is explicitly grid-placed rather
   // than relying on source-order auto-flow, since a grid this sparse (most
   // of row 1/column 1 is empty) can't be filled correctly by auto-flow alone.
+  // Uniform squares, no buffer (2026-08-24, per dDd, after seeing the real
+  // rendered CSS — the leading/trailing "Utility" columns/rows used to
+  // auto-size to their own content, so the compass/header cells came out
+  // different widths than an actual Tile; a same-day buffer-ring add made
+  // that worse, not better). dDd's own exact layout for the Utility corner:
+  //   Row1: empty | N | empty
+  //   Row2: W | Compass | Reset
+  //   Row3: empty | Undo | "0" (start of the real header rows/columns)
+  // Column 3/Row 3 (COL_OFFSET/ROW_OFFSET) exist specifically because
+  // that's where the E/S compass axis lines actually start (Reset anchors
+  // the horizontal line, Undo the vertical one) — not filler. Trailing side
+  // mirrors it at 2 tracks, not 3 (no separate buffer): one gap column/row,
+  // then the Pan row/column itself. Every track — Utility, Tile, or Pan —
+  // is now the exact same TILE_SIZE square, so the whole grid is just one
+  // uniform repeat() instead of a mix of `auto` and fixed-px segments.
   const COL_OFFSET = 3; // data tiles start at grid-column 3+1=4; column 3 is the row-letter header
   const ROW_OFFSET = 3; // data tiles start at grid-row 3+1=4; row 3 is the column-number header
   // Dedicated pan-button row/column (2026-08-22, per dDd — "It's supposed
@@ -812,15 +831,17 @@ export function renderMap(){
   // Fixed pixel Tiles, not minmax(34px,1fr) (2026-08-20, dDd's catch — "it
   // should be designed to always have 7x7 as the view, instead of shrinking
   // or expanding"). TILE_SIZE is a flat constant, identical at every map
-  // size and every screen width. The grid now only ever renders the
-  // viewW x viewH window itself (2026-08-22, per dDd — a tile-clicker pan
-  // control replacing native/CSS scroll over a fully-rendered grid), so
-  // gridTemplateColumns/Rows are sized off viewW/viewH, not map.width/height.
-  el.style.gridTemplateColumns = 'auto auto auto repeat(' + viewW + ', ' + TILE_SIZE + 'px) auto auto';
-  // Tile rows stay `auto` (unchanged from the 2026-08-17 fix) — `auto` lets
-  // each row size itself to its tallest content, which is exactly TILE_SIZE
-  // since every Tile is aspect-ratio:1 against its now-fixed-width column.
-  el.style.gridTemplateRows = 'auto auto auto repeat(' + viewH + ', auto) auto auto';
+  // size and every screen width, and every Tile/header/Pan track uses it —
+  // except the outermost two tracks on each side (2026-08-24, per dDd:
+  // "shrink width of first two and last two columns by half... same for
+  // rows"), which are HALF_TILE. That's columns/rows 1-2 (W/N/Compass/Undo
+  // — the small decorative Utility cells) and the 2 trailing gap+Pan
+  // tracks; column/row 3 (COL_OFFSET/ROW_OFFSET — Reset, the "0" corner,
+  // and every real header) stays full-size, since it reads directly
+  // against the Tiles themselves.
+  const HALF_TILE = TILE_SIZE / 2;
+  el.style.gridTemplateColumns = HALF_TILE + 'px ' + HALF_TILE + 'px ' + TILE_SIZE + 'px repeat(' + viewW + ', ' + TILE_SIZE + 'px) ' + HALF_TILE + 'px ' + HALF_TILE + 'px';
+  el.style.gridTemplateRows = HALF_TILE + 'px ' + HALF_TILE + 'px ' + TILE_SIZE + 'px repeat(' + viewH + ', ' + TILE_SIZE + 'px) ' + HALF_TILE + 'px ' + HALF_TILE + 'px';
 
   // Compass + axis lines: N/W sit right by the compass (row2/col2), lines
   // run the full length of the tile grid, S/E land at the far edges — see
@@ -839,8 +860,8 @@ export function renderMap(){
     '<div class="map-corner" title="8-directional compass" style="grid-column:2; grid-row:2;">' +
       '<span class="map-compass-icon">🧭</span>' +
     '</div>' +
-    '<button class="map-pan-btn" id="map-pan-rest" title="Reset (recenter on you)" style="grid-column:' + COL_OFFSET + '; grid-row:2;">⌂ Reset</button>' +
-    '<button class="map-pan-btn" id="map-pan-back" title="Undo (back one pan)" style="grid-column:2; grid-row:' + ROW_OFFSET + ';">↺ Undo</button>' +
+    '<button class="map-pan-btn" id="map-pan-rest" title="Reset (recenter on you)" style="grid-column:' + COL_OFFSET + '; grid-row:2;">Reset</button>' +
+    '<button class="map-pan-btn" id="map-pan-back" title="Undo (back one pan)" style="grid-column:2; grid-row:' + ROW_OFFSET + ';">↺</button>' +
     '<span class="map-axis-head n" style="grid-column:2; grid-row:1;">N</span>' +
     '<span class="map-axis-head w" style="grid-column:1; grid-row:2;">W</span>' +
     '<span class="map-axis-head e" style="grid-column:' + (COL_OFFSET + viewW) + '; grid-row:2;">E</span>' +
@@ -909,9 +930,16 @@ export function renderMap(){
       // Cyan regardless of actual side, same "you're one of mine now" cue
       // Empower's own +1 Control/+1 AP is meant to convey.
       const facingColor = here.length === 1 ? (here[0].empowered ? FACING_COLOR_PLAYER : here[0].side === 'enemy' ? FACING_COLOR_NPC : FACING_COLOR_PLAYER) : null;
+      // Reveal stagger (2026-08-24, per dDd — "Loading Screen is timed to
+      // fade away as the Player fades in, followed by NPCS"). Only actually
+      // plays during a Scene's own genesis — css/panels.css scopes the
+      // fade-in animation to the brief #app.scene-revealing window
+      // js/scenes.js's loadScene() toggles, so this custom property sits
+      // inert on every ordinary Move/Combat re-render in between.
+      const revealDelay = (here.length && here[0].side !== 'player') ? '.35s' : '0s';
       const label = here.length === 1
-        ? '<span class="facing-marker" style="--facing-deg:' + FACING_DEGREES[here[0].facing || FACING_DEFAULT] + 'deg; --facing-color:' + facingColor + '"></span>'
-        : (here.length ? escapeHtml(here.map(n => n.name[0]).join(',')) : '');
+        ? '<span class="facing-marker" style="--facing-deg:' + FACING_DEGREES[here[0].facing || FACING_DEFAULT] + 'deg; --facing-color:' + facingColor + '; --reveal-delay:' + revealDelay + '"></span>'
+        : (here.length ? '<span class="map-tile-occ-label" style="--reveal-delay:' + revealDelay + '">' + escapeHtml(here.map(n => n.name[0]).join(',')) + '</span>' : '');
       const titleBits = here.map(n => n.name + (n.dead ? ' (dead)' : '')).join(', ');
       const titleMeta = (occ.down ? ' — ' + occ.down + ' Down' : '') + (chunkCount ? ' — ' + chunkCount + ' Chunks' : '');
       const popupHtml = (AppState.moveClickTile && AppState.moveClickTile.x === x && AppState.moveClickTile.y === y)

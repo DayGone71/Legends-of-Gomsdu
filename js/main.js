@@ -11,9 +11,8 @@ import { SCENES, loadScene, toggleSceneMenu, seedScene } from './scenes.js';
 import { openPanel, closePanel, togglePanel, updateEncounterUI, initPanelBackdrop, showLoading } from './panels.js';
 import { renderDMTestPanel, runDMTestRound, runDMTestNRounds, runDMTestUntilDefeat } from './dmtest.js';
 import { initTechniquesUI, renderTechniquesPanel } from './techniques.js';
-import { renderInformationPanel, hasUnseenMindeye } from './information.js';
+import { hasUnseenMindeye } from './information.js';
 import { renderPersonalityPanel } from './personality.js';
-import { renderRelationshipsPanel } from './relationships.js';
 import { renderScriptsPanel } from './scripts.js';
 import { renderPartyPanel } from './party.js';
 import { renderActiveCharacterDisplay } from './activeCharacter.js';
@@ -95,11 +94,17 @@ function renderAll(){
   renderCharacterSheet();
   renderCreateCharacterParty();
   renderTechniquesPanel();
-  renderInformationPanel();
-  const infoBtn = document.getElementById('toolbar-information');
+  // Moved off the retired toolbar-information button (2026-08-24) onto
+  // toolbar-personality, the one surviving entry point into the unified
+  // Personality Panel — the "new Information arrived" pulse still needs a
+  // home.
+  const infoBtn = document.getElementById('toolbar-personality');
   if(infoBtn) infoBtn.classList.toggle('pulsing-gom', hasUnseenMindeye());
+  // Information/Personality/Relationships collapsed into one render call
+  // (2026-08-24) — js/personality.js's renderPersonalityPanel() now owns
+  // the whole unified layout, including what used to be Information's own
+  // Glyph Gallery and Relationships' own Axis editor.
   renderPersonalityPanel();
-  renderRelationshipsPanel();
   renderPartyPanel();
   renderCombatCounters();
   renderTargetRange();
@@ -805,27 +810,21 @@ function wireEvents(){
   document.getElementById('toolbar-techniques').addEventListener('click', () => togglePanel('techniques'));
   document.getElementById('toolbar-party').addEventListener('click', () => togglePanel('party'));
   document.getElementById('toolbar-npcs').addEventListener('click', () => togglePanel('npcs'));
-  // Inspect mode (2026-08-22) — these 3 toolbar buttons always mean "show
-  // my own Character," so they reset AppState.inspectTargetId back to null
+  // Inspect mode (2026-08-22) — this toolbar button always means "show my
+  // own Character," so it resets AppState.inspectTargetId back to null
   // first; the NPC Panel's own Information/Personality/Relationships row
   // buttons (js/dm.js) are what set it, deliberately not reset here.
   // renderAll() (not just togglePanel()) because these panels only
   // re-render their content from a real table mutation otherwise — without
   // it, switching back from inspecting an NPC would open showing that NPC's
   // stale content until the next unrelated table change.
-  document.getElementById('toolbar-information').addEventListener('click', () => { AppState.inspectTargetId = null; togglePanel('information'); renderAll(); });
+  // The 3 Pillars now share one merged Panel (2026-08-24) — Information's
+  // and Relationships' own toolbar buttons retired (per dDd: "can leave the
+  // Game Screen now"), Personality alone still opens it. js/panels.js's
+  // realPanelId() aliasing means openPanel('information')/('relationships')
+  // still work fine for callers other than a toolbar button (js/dm.js's NPC
+  // Panel row buttons, in particular).
   document.getElementById('toolbar-personality').addEventListener('click', () => { AppState.inspectTargetId = null; togglePanel('personality'); renderAll(); });
-  document.getElementById('toolbar-relationships').addEventListener('click', () => { AppState.inspectTargetId = null; togglePanel('relationships'); renderAll(); });
-  // Pillar cross-navigation (2026-08-22, per dDd, after playtesting: "All
-  // the Personality Pillars should be accessible to each other from each
-  // other's Panels") — jumps straight to Information/Personality/
-  // Relationships from inside any of the other two, deliberately NOT
-  // resetting inspectTargetId (unlike the 3 toolbar buttons above) — this
-  // is "keep looking at whoever I'm already looking at, just show me a
-  // different Pillar of them," not "go back to my own Character."
-  document.querySelectorAll('.pillar-nav-btn').forEach(btn => {
-    btn.addEventListener('click', () => { openPanel(btn.dataset.pillar); renderAll(); });
-  });
   document.getElementById('toolbar-help').addEventListener('click', () => togglePanel('help'));
   document.getElementById('panel-close-character').addEventListener('click', closePanel);
   document.getElementById('panel-close-combat').addEventListener('click', closePanel);
@@ -837,8 +836,6 @@ function wireEvents(){
   document.getElementById('panel-close-npcs').addEventListener('click', closePanel);
   document.getElementById('panel-close-party').addEventListener('click', closePanel);
   document.getElementById('panel-close-information').addEventListener('click', closePanel);
-  document.getElementById('panel-close-personality').addEventListener('click', closePanel);
-  document.getElementById('panel-close-relationships').addEventListener('click', closePanel);
   document.getElementById('panel-close-scripts').addEventListener('click', closePanel);
   document.getElementById('panel-close-help').addEventListener('click', closePanel);
   document.getElementById('panel-close-technique-use').addEventListener('click', closePanel);
@@ -912,9 +909,7 @@ function wireEvents(){
   // every render); this just wires the shared one-instance form parts.
   initAddPartyMemberUI();
   initTechniquesUI();
-  renderInformationPanel();
   renderPersonalityPanel();
-  renderRelationshipsPanel();
   renderScriptsPanel();
   renderPartyPanel();
   renderActiveCharacterDisplay();

@@ -19,18 +19,18 @@ import { BUILDS } from './character.js';
 // wack... we could have Yom be the default Active Character, instead of
 // using the Architect Adversary placeholder"). TATA itself stood for "The
 // Architect and The Adversary" (see reference/dialogue-system.md's Naming
-// note), flagged as needing a rename since 2026-08-15 — this finally
-// resolves that flag, not just cosmetically: the old placeholder had "no
-// Stats, just blank space for now," where Yom is a real Build (data/
-// characters.json) with real Stats and a real (limited) Crafts/Powers kit.
-// Still not a real table.enemies entry, same as the old placeholder — Yom
-// has no Map position and is never targetable/interactable there; he acts
-// only through Seed (his one Master Technique, see js/scenes.js's
-// seedScene()), never through the normal per-Tile Craft popup. Built fresh
-// off BUILDS.yom every call rather than cached, same reasoning `wounds`/
-// `apSpent`-style fields would need if he ever gained persisted state later
-// — right now he never takes damage or spends a resource that needs to
-// survive between renders, so there's nothing to persist yet.
+// note), flagged as needing a rename since 2026-08-15.
+//
+// As of 2026-08-24, Yom is a real Character in the new Universal Characters
+// Table (table.characters — see js/scenes.js's spawnYom()), not just a
+// display template — resolveActiveCharacter() below reads his real,
+// persisted record. He appears on the Map alone the instant a Scene loads
+// (spawnYom()/loadScene()), then vanishes once a real Player actually
+// arrives (seedScene()) — never targetable/interactable there in between,
+// but a genuine Character the rest of the time, listable/inspectable from
+// the NPC Panel same as anyone else. yomDisplayCharacter() below only ever
+// fires now as a last-resort fallback, for the rare case nothing has
+// created him yet (no Scene ever loaded this Table).
 function yomDisplayCharacter(){
   const b = BUILDS.yom;
   if(!b) return null;
@@ -74,13 +74,23 @@ export function resolveActiveCharacter(){
 
   const id = AppState.activeCharacterId;
   const enemy = id && table.enemies && table.enemies[id];
-  if(!enemy || isDeathWounded(enemy)){
+  // Universal Characters Table (2026-08-24) — Yom (and whoever else lands
+  // there later) checked separately from Enemies, not merged into the same
+  // lookup: he was never meant to become a Combat participant just by
+  // being Active-able.
+  const universal = id && !enemy && table.characters && table.characters[id];
+  const found = enemy || universal;
+  if(!found || isDeathWounded(found)){
     // Dead/removed since being made Active — fall back to the default
-    // rather than a display pointing at nothing.
+    // rather than a display pointing at nothing. The default is now Yom's
+    // own real, persisted record (table.characters.yom) — yomDisplayCharacter()
+    // survives only as a last-resort fallback for the (now rare) case where
+    // no Scene has ever been loaded, so he doesn't exist yet at all.
     if(id){ AppState.activeCharacterId = null; AppState.actingEnemyId = null; }
-    return { name: 'Yom', side: 'yom', character: yomDisplayCharacter() };
+    const realYom = table.characters && table.characters.yom;
+    return { name: 'Yom', side: 'yom', character: realYom || yomDisplayCharacter() };
   }
-  return { name: enemy.name || 'Enemy', side: 'enemy', character: enemy };
+  return { name: found.name || (enemy ? 'Enemy' : 'Character'), side: enemy ? 'enemy' : 'yom', character: found };
 }
 
 // The Map Panel's new Active Character card (2026-08-22, per dDd — "In the
@@ -115,10 +125,36 @@ export function renderActiveCharacterDisplay(){
     '</div>';
   }
 
+  // Placeholder row (2026-08-24, per dDd — "add another Row... 7 square
+  // Placeholder buttons"). No spec yet for what they'll actually do —
+  // inert squares, same "reserve the space now, wire it up later" pattern
+  // as the Map Grid's own buffer-track work earlier this session.
+  const placeholderRow = '<div class="active-char-placeholder-row">' +
+    '<div class="active-char-placeholder-btn"></div>'.repeat(7) +
+  '</div>';
+
   el.innerHTML =
-    '<div class="active-char-avatar ' + avatarCls + '">' + escapeHtml(initial) + '</div>' +
-    '<div class="active-char-info">' +
-      '<div class="active-char-name">' + escapeHtml(active.name) + '</div>' +
-      statsHtml +
-    '</div>';
+    '<div class="active-character-display-row1">' +
+      '<div class="active-char-avatar ' + avatarCls + '">' + escapeHtml(initial) + '</div>' +
+      '<div class="active-char-info">' +
+        '<div class="active-char-name">' + escapeHtml(active.name) + '</div>' +
+        statsHtml +
+      '</div>' +
+    '</div>' +
+    placeholderRow;
+
+  // Width scaled to the Map Grid, minus its first and last column
+  // (2026-08-24, per dDd) — read live off the real rendered grid rather
+  // than hardcoding today's HALF_TILE value, so this keeps matching if the
+  // Grid's own edge-column sizing ever changes again. renderMap() always
+  // runs immediately before this in renderAll() (js/main.js), so #map-grid
+  // is already laid out with real geometry by the time this reads it.
+  const mapGrid = document.getElementById('map-grid');
+  if(mapGrid){
+    const colWidths = getComputedStyle(mapGrid).gridTemplateColumns.split(' ').map(parseFloat);
+    if(colWidths.length >= 2){
+      const inset = colWidths[0] + colWidths[colWidths.length - 1];
+      el.style.width = (mapGrid.getBoundingClientRect().width - inset) + 'px';
+    }
+  }
 }

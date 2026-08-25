@@ -111,7 +111,8 @@ export function resolveEntityRef(table, targetId){
     const p = table.players && table.players[pid];
     return (p && p.miniParty && p.miniParty[parseInt(idxStr, 10)]) || null;
   }
-  return (table.players && table.players[targetId]) || (table.enemies && table.enemies[targetId]) || null;
+  return (table.players && table.players[targetId]) || (table.enemies && table.enemies[targetId]) ||
+    (table.characters && table.characters[targetId]) || null;
 }
 
 // Personality/Head's first Axis (2026-08-21, per dDd's Notebook) — for now,
@@ -132,6 +133,49 @@ export function mindeyeCapacity(actor){
   return getIntelligence(actor) * MINDEYE_CAPACITY_PER_POINT;
 }
 
+// The 4-stage Category lifecycle (2026-08-24, per dDd's full spec — see
+// reference/dialogue-system.md's 2026-08-23 section, "The 4-stage Memory
+// lifecycle"). A single continuous 0-100 Retention stat per Mindeye entry —
+// Category is just which band it currently falls in, not a separate stored
+// flag. Scoped strictly to Memory/Mindeye, per dDd: "the 100 is only for
+// memory" — not reused for Personality Axes, Relationships, or anything else.
+export const MINDEYE_RETENTION_PERFECTED = 100;
+// `born`/innate deliveries (the seen=true case below) start Perfected
+// outright — per dDd: "born being Born with it, learned in the Womb, pure
+// instinct," converging to the same protected end state a climbed-to-100
+// entry reaches. A real arrival starts inside the Retained band, not
+// Fleeting — per dDd: "2 (Retained) should be most common," and nothing
+// yet exists to actually climb a fresh entry out of Fleeting (decay and
+// KA-reinforcement are both still unbuilt — see the ROADMAP.md item this
+// closes part of), so starting there would just strand it.
+const MINDEYE_RETENTION_BORN = 100;
+const MINDEYE_RETENTION_DEFAULT = 40;
+// Perfected (100) is a one-way door — per dDd: "Imprinting should only be
+// able to be removed by advanced means (like a Technique designed for it).
+// It wouldn't be subject to getting forgotten or downgraded in the
+// Hierarchy." No Technique does that yet; this is the rule waiting for one.
+export function mindeyeCategory(retention){
+  const r = retention ?? MINDEYE_RETENTION_DEFAULT;
+  if(r >= MINDEYE_RETENTION_PERFECTED) return 'Perfected';
+  if(r >= 76) return 'Known';
+  if(r >= 26) return 'Retained';
+  return 'Fleeting';
+}
+
+// A Build's own startingMindeye, turned into real entries directly (2026-08-24)
+// — js/character.js's spawnCharacter() uses this so every spawn path builds
+// a Character's innate Mindeye the same way, in one pass, rather than each
+// spawn function looping its own deliverMindeyeEntry() calls afterward.
+// Detached from any table — the caller is the one assembling a fresh
+// Character record, not mutating one that's already in table.players/
+// table.enemies/table.characters yet.
+export function bornMindeyeEntries(glyphIds){
+  return (glyphIds || []).map(g => ({
+    id: genId(), from: 'Star Father', glyph: g || null, seen: true,
+    retention: MINDEYE_RETENTION_BORN, receivedAt: timeNow()
+  }));
+}
+
 // Mindeye (2026-08-20) — where a Character's received Glyphs show up, per
 // dDd. Called from inside a mutateTable draft, both from the Player-side
 // Technique engine (techniques.js) and the DM's own Craft staging (dm.js),
@@ -143,16 +187,37 @@ export function mindeyeCapacity(actor){
 // "he shouldn't be getting every single Glyph he knows as new Information.
 // It should all be there already, good to go" — no reveal moment for
 // something a Character has simply always known, straight to the Gallery.
+// Deliberately separate from `retention` (2026-08-24) above — `seen` gates
+// the one-time reveal *animation*, `retention` gates the Category the
+// Information Panel displays; they both happen to start "already settled"
+// for the same born entries, but they're not the same concept.
 export function deliverMindeyeEntry(table, targetId, fromName, glyphId, seen = false){
   const target = resolveEntityRef(table, targetId);
   if(!target) return;
   if(!target.mindeye) target.mindeye = [];
-  target.mindeye.push({ id: genId(), from: fromName, glyph: glyphId || null, seen, receivedAt: timeNow() });
-  // Capacity is Intelligence-gated — the oldest Expression is forgotten (not
-  // just left unseen) once the Character's remembered count exceeds it.
+  const retention = seen ? MINDEYE_RETENTION_BORN : MINDEYE_RETENTION_DEFAULT;
+  target.mindeye.push({ id: genId(), from: fromName, glyph: glyphId || null, seen, retention, receivedAt: timeNow() });
+  // Capacity is Intelligence-gated. Forgetting-priority is the inverse of
+  // Retention, not a separate mechanism (2026-08-24, per dDd — answers the
+  // "tiered forgetting" question flagged in ROADMAP.md): the weakest-held
+  // (lowest-Retention) entry goes first, ties broken oldest-first, rather
+  // than a flat FIFO that treated everything as equally forgettable.
+  // Perfected entries are exempt — per dDd, above, they "wouldn't be
+  // subject to getting forgotten... in the Hierarchy" at all.
   const capacity = mindeyeCapacity(target);
   while(target.mindeye.length > capacity){
-    target.mindeye.shift();
+    const forgettable = target.mindeye.filter(e => (e.retention ?? MINDEYE_RETENTION_DEFAULT) < MINDEYE_RETENTION_PERFECTED);
+    if(!forgettable.length) break; // everything left is Perfected — protected, stays over capacity.
+    // Oldest-first tiebreak comes for free from scanning in array order
+    // (push()-appended, so index order IS arrival order) and only replacing
+    // on a strictly lower Retention — receivedAt is a locale time-of-day
+    // string ("01:27 PM"), not chronologically sortable on its own, so this
+    // avoids relying on it at all.
+    let weakest = forgettable[0];
+    forgettable.forEach(e => {
+      if((e.retention ?? MINDEYE_RETENTION_DEFAULT) < (weakest.retention ?? MINDEYE_RETENTION_DEFAULT)) weakest = e;
+    });
+    target.mindeye.splice(target.mindeye.indexOf(weakest), 1);
   }
 }
 
@@ -239,12 +304,24 @@ export function enemyRoster(table){
   }));
 }
 
-// Every real Character at the table, both sides at once — the canonical
-// "everybody" list (NPC Panel's inspect targets, Script Panel's Actor/
-// Target pickers, DM Target Range now that targetSide no longer restricts
-// it) — allied side first, then Enemies.
+// Every real Character living in the new Universal Characters Table
+// (2026-08-24) — currently just Yom, its first tenant (see js/scenes.js's
+// spawnYom()). table.players/table.enemies deliberately stay right where
+// they are for now, per dDd's own "merge feature by feature, not a
+// rewrite" call (reference/dialogue-system.md, 2026-08-22) — this is
+// additive, not a replacement for either roster below.
+export function charactersRoster(table){
+  return Object.entries((table && table.characters) || {}).map(([id, c]) => ({
+    id, entity: c, name: c.name || 'Character', dead: isDeathWounded(c)
+  }));
+}
+
+// Every real Character at the table, all three buckets at once — the
+// canonical "everybody" list (NPC Panel's inspect targets, Script Panel's
+// Actor/Target pickers, DM Target Range now that targetSide no longer
+// restricts it) — allied side first, then the Universal Table, then Enemies.
 export function allCharacterRoster(table){
-  return [...alliedRoster(table), ...enemyRoster(table)];
+  return [...alliedRoster(table), ...charactersRoster(table), ...enemyRoster(table)];
 }
 
 // Id-only views over the same rosters, for callers that never needed the

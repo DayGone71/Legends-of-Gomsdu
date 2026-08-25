@@ -1,7 +1,7 @@
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
 import { getSavedCharacters, saveCharacterTemplate } from './savedCharacters.js';
-import { clampInt, timeNow, flashHint, isDown, escapeHtml } from './utils.js';
+import { clampInt, timeNow, flashHint, isDown, escapeHtml, bornMindeyeEntries } from './utils.js';
 import { addPossessor, addMiniPartyMember } from './possession.js';
 import { possessorGridHtml, miniPartyGridHtml, wirePossessorMiniPartyClicks } from './possessionView.js';
 import { showCharacterView } from './characterView.js';
@@ -143,6 +143,34 @@ export const BUILDS = Object.fromEntries(
   })
 );
 
+// spawnCharacter() (2026-08-24, per dDd) — the one shared way any Character
+// (NPC, Enemy, Yom, and eventually the Player too) gets built from a Build
+// template, replacing 4 near-identical hand-copied literals (js/combat.js's
+// spawnBuildAt, js/dm.js's addEnemy, js/scenes.js's spawnNpc and spawnYom).
+// Those had already silently dropped a new BUILDS field on spawn 3 separate
+// times before today (species/personality, then mindeye, then passiveSpill —
+// spawnBuildAt specifically was still missing personality AND mindeye
+// entirely) — one function now means one place to update, not three-going-
+// on-four. Doesn't touch table.positions or the naming/counting logic
+// ("Gom #1", etc.) — those stay the caller's job, since they depend on
+// what's already on the table, which this function has no business knowing.
+export function spawnCharacter(build, overrides = {}){
+  if(!build) return null;
+  return {
+    archetype: build.archetype, name: overrides.name || build.archetype, num: overrides.num,
+    wounds: 0, woundsMax: build.woundsMax, ap: build.ap, flow: build.flowMax, flowMax: build.flowMax,
+    recovery: build.recovery, power: build.power, quickness: build.quickness, resilience: build.resilience,
+    lightning: build.lightning, lava: build.lava, focus: build.focus, control: build.control ?? 0,
+    attunement: build.attunement ?? 0, life: build.life ?? 1, species: build.species, deathWounds: build.deathWounds,
+    body: build.body ? [...build.body] : undefined, techniqueAccess: build.techniqueAccess,
+    personality: build.personality ? JSON.parse(JSON.stringify(build.personality)) : undefined,
+    passiveSpill: build.passiveSpill,
+    apSpent: 0, focusSpent: 0, sequence: [], possessedBy: null,
+    facing: overrides.facing || FACING_DEFAULT,
+    mindeye: bornMindeyeEntries(build.startingMindeye)
+  };
+}
+
 // Only fills the form fields — doesn't save. Picking a build used to call
 // scheduleSave() immediately, which meant just browsing the dropdown silently
 // overwrote whoever was the live active character. Now it's a preview: nothing
@@ -283,17 +311,22 @@ function readStatsFromSheet(){
   const speciesKey = document.getElementById('ch-species').value || 'humanoid';
   const sp = SPECIES[speciesKey] || SPECIES.humanoid;
   const flowVal = clampInt(parseInt(document.getElementById('ch-flow').value || '0', 10), sp.caps.flow[0], sp.caps.flow[1]);
-  const techniqueAccess = {};
-  TECHNIQUE_CATEGORIES.forEach(key => {
-    const el = document.getElementById('ch-tech-' + key);
-    techniqueAccess[key] = el ? el.checked : true;
-  });
+  // techniqueAccess deliberately NOT read from the sheet's own checkboxes
+  // here (2026-08-24) — those still reflect the old 4-category model
+  // (TECHNIQUE_CATEGORIES below), which no longer matches how access is
+  // actually checked (js/techniques.js's hasTechniqueAccess(), per-Technique
+  // now). Omitting the key entirely means saveCharacter()'s {...me,
+  // ...sheetStats} spread leaves the real per-Technique object (set by
+  // js/character.js's own spawnCharacter() at spawn time) alone, same as
+  // mindeye/personality already survive a sheet save today — writing a
+  // stale 4-key object here would silently zero out every real Technique's
+  // access instead (hasTechniqueAccess() would find the object present but
+  // none of its keys matching a real Technique, denying everything).
   return {
     archetype: document.getElementById('ch-archetype').value.trim(),
     species: speciesKey,
     deathWounds: sp.deathWounds,
     body: new Array(sp.bodyParts).fill(true),
-    techniqueAccess,
     wounds: clampInt(parseInt(document.getElementById('ch-wounds').value || '0', 10), 0, sp.deathWounds),
     woundsMax: parseInt(document.getElementById('ch-woundsmax').value || '1', 10),
     ap: clampInt(parseInt(document.getElementById('ch-ap').value || '0', 10), sp.caps.ap[0], sp.caps.ap[1]),
@@ -428,8 +461,11 @@ export function renderCharacterSheet(){
   setIfNotActive('ch-attunement', me.attunement ?? 0);
   setIfNotActive('ch-life', me.life ?? 1);
 
-  // Missing techniqueAccess (every pre-existing Character) defaults to full
-  // access, matching hasCategoryAccess()'s fallback in techniques.js.
+  // Category-level checkboxes only — techniqueAccess itself moved to
+  // per-Technique granularity 2026-08-24 (js/techniques.js's
+  // hasTechniqueAccess()). This sheet UI is dormant along with the rest of
+  // Create-a-Character (per dDd: on hold until Second Era) rather than
+  // updated to match; left as-is, not actively relied on right now.
   TECHNIQUE_CATEGORIES.forEach(key => {
     const el = document.getElementById('ch-tech-' + key);
     if(el && el !== active) el.checked = me.techniqueAccess ? (me.techniqueAccess[key] ?? true) : true;

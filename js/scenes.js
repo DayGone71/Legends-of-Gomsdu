@@ -1,7 +1,7 @@
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
 import { defaultMap, FACING_DEFAULT, centerMapView } from './map.js';
-import { BUILDS, loadBuild, makeActiveCharacter } from './character.js';
+import { BUILDS, loadBuild, makeActiveCharacter, spawnCharacter } from './character.js';
 import { timeNow, deliverMindeyeEntry, showBannerError } from './utils.js';
 import { showLoading } from './panels.js';
 
@@ -36,16 +36,14 @@ export const SCENES = {
       { build: 'living-stone', x: 5, y: 3, facing: 'W' }
     ],
     npcSpawns: [
-      // mindeye (2026-08-22, per dDd — "My Gom still spawns not having any
-      // Information in his Mindeye") — knownGlyphs is just a curriculum
-      // list ("what he could ever say"), not Memory; Behaviors are driven
-      // entirely by the Mindeye (js/behaviors.js's computeBehaviors()), so
-      // without a real starting entry Gom had nothing to weigh Teach
-      // against at all. Left at default Attachment/Desire (Mid/Mid, omitted
-      // here) on purpose — the Desire weighting (Middle worth real Pursuit
-      // weight) means a plain, never-tuned default already gives Teach a
-      // real, non-zero chance to roll, no manual Give Memory tuning needed.
-      { build: 'gom', x: 2, y: 3, facing: 'E', mindeye: [{ glyph: 'WIM' }] }
+      // The scripted extra `mindeye: [{ glyph: 'WIM' }]` this used to carry
+      // (2026-08-22 workaround for Gom spawning with an empty Mindeye
+      // entirely, before he had a real startingMindeye of his own) was
+      // removed 2026-08-24 — Gom's own Build now carries all 39 real
+      // Glyphs, WIM included, so this had been silently duplicating one of
+      // his own innate entries (a redundant Retained-tier copy sitting
+      // alongside the real Perfected one) ever since the actual fix landed.
+      { build: 'gom', x: 2, y: 3, facing: 'E' }
     ],
     restrictBuilds: ['living-stone', 'gom']
   },
@@ -68,20 +66,21 @@ export const SCENES = {
   era1gom: {
     name: 'Era 1: Gom',
     mapWidth: 24, mapHeight: 30,
+    // Re-arranged 2026-08-24, per dDd's own Tile-Code layout (column-number
+    // + row-letter, e.g. "14,R" = column 14, row R — matching js/map.js's
+    // real tileKey() format, not the older row-letter-first tileXY() one):
+    // Gom centered facing South, a Living Stone pair mirrored east/west on
+    // either side of him (facing inward, toward each other across Gom) two
+    // rows up, and a 5th Living Stone below him facing North.
     playerSpawns: [
-      { build: 'gom', x: 10, y: 12 }
+      { build: 'gom', x: 10, y: 12, facing: 'S' }
     ],
-    // 5 Living Stones, lower-right of Gom's own spawn and within the same
-    // VIEWPORT_TILES window loadScene() centers on him below — visible
-    // immediately with no panning needed, per dDd: "we just need 5 Living
-    // Stone in visual Range of where Gom Spawns. I'd go with lower right,
-    // to verify the Map Mechanics."
     npcSpawns: [
-      { build: 'living-stone', x: 11, y: 13 },
-      { build: 'living-stone', x: 12, y: 13 },
-      { build: 'living-stone', x: 13, y: 13 },
-      { build: 'living-stone', x: 11, y: 14 },
-      { build: 'living-stone', x: 12, y: 14 },
+      { build: 'living-stone', x: 8, y: 10, facing: 'E' },
+      { build: 'living-stone', x: 12, y: 10, facing: 'W' },
+      { build: 'living-stone', x: 8, y: 12, facing: 'E' },
+      { build: 'living-stone', x: 12, y: 12, facing: 'W' },
+      { build: 'living-stone', x: 10, y: 14, facing: 'N' },
       // Kulkrow (2026-08-23, per dDd — "the Gom scene should have Kulkrow
       // in it, where he is [as Player] in the Kulkrow scene. Literally the
       // same scene from different perspectives."). Same position as his own
@@ -113,32 +112,19 @@ export const SCENES = {
   }
 };
 
-// Shared Enemy-spawn literal (2026-08-22, per dDd's Lists-consolidation
-// go-ahead) — both the older single-enemyBuild path and the newer Spawn
-// List path build an Enemy the exact same way; this was duplicated between
-// them until now. Mutates t directly, matching every other in-callback
-// helper's own shape in this codebase (js/scripts.js's dispatchScript, etc.).
+// Shared Enemy-spawn helper — both the older single-enemyBuild path and the
+// newer Spawn List path build an Enemy the exact same way. Record
+// construction itself now goes through js/character.js's spawnCharacter()
+// (2026-08-24, per dDd's spawn-consolidation call) — this just adds the
+// Scene-specific bits spawnCharacter() has no business knowing about: which
+// table bucket, and any extra Scene-authored mindeye on top of the Build's
+// own innate one.
 function spawnNpc(t, enemyId, build, num, facing, mindeye){
   const eb = BUILDS[build];
   if(!eb) return;
-  t.enemies[enemyId] = {
-    archetype: eb.archetype, name: eb.archetype + ' #' + num, num,
-    wounds: 0, woundsMax: eb.woundsMax, ap: eb.ap, flow: eb.flowMax, flowMax: eb.flowMax,
-    recovery: eb.recovery, power: eb.power, quickness: eb.quickness, resilience: eb.resilience,
-    lightning: eb.lightning, lava: eb.lava, focus: eb.focus, control: eb.control ?? 0,
-    attunement: eb.attunement ?? 0, life: eb.life ?? 1, species: eb.species, deathWounds: eb.deathWounds,
-    body: eb.body ? [...eb.body] : undefined, techniqueAccess: eb.techniqueAccess,
-    personality: eb.personality ? JSON.parse(JSON.stringify(eb.personality)) : undefined,
-    passiveSpill: eb.passiveSpill,
-    apSpent: 0, focusSpent: 0, sequence: [], possessedBy: null,
-    facing: facing || FACING_DEFAULT
-  };
-  // Innate Glyph knowledge (2026-08-23, per dDd's knownGlyphs/mindeye merge)
-  // — the Build's own startingMindeye delivers first, as real Mindeye
-  // entries ("knowing" a Glyph just means having one now), then any
-  // Scene-specific extras (the `mindeye` param — e.g. Era 1: Tutorial's
-  // enemyMindeye) layer on top the same way they always did.
-  (eb.startingMindeye || []).forEach(g => deliverMindeyeEntry(t, enemyId, 'Star Father', g, true));
+  t.enemies[enemyId] = spawnCharacter(eb, { name: eb.archetype + ' #' + num, num, facing });
+  // Scene-specific extras (e.g. Era 1: Tutorial's enemyMindeye) layer on top
+  // of the Build's own innate Mindeye, which spawnCharacter() already built.
   (mindeye || []).forEach(m => {
     deliverMindeyeEntry(t, enemyId, 'Yom', m.glyph); // was 'TATA' — renamed 2026-08-23 alongside TATA's own retirement, see js/activeCharacter.js
     const entry = t.enemies[enemyId].mindeye[t.enemies[enemyId].mindeye.length - 1];
@@ -146,6 +132,25 @@ function spawnNpc(t, enemyId, build, num, facing, mindeye){
     if(m.desire !== undefined) entry.desire = m.desire;
     entry.seen = true;
   });
+}
+
+// Yom, the Universal Characters Table's first real tenant (2026-08-24, per
+// dDd: "Yom is a Full Character in the Data Model. We scoped that, we
+// planned for that." — js/activeCharacter.js's old yomDisplayCharacter()
+// rebuilt him fresh off BUILDS.yom every render instead, with no persisted
+// record at all; that was the actual gap). Lives in the new t.characters
+// bucket, not t.enemies — table.players/table.enemies stay exactly where
+// they are for now, per dDd's own "merge feature by feature, not a
+// rewrite" call (reference/dialogue-system.md, 2026-08-22). Created once
+// per Table and never rebuilt — unlike enemies, loadScene()'s reset doesn't
+// wipe him between Scenes, same as a Player's own Character surviving a
+// Scene switch.
+function spawnYom(t){
+  if(!t.characters) t.characters = {};
+  if(t.characters.yom) return;
+  const b = BUILDS.yom;
+  if(!b) return;
+  t.characters.yom = spawnCharacter(b, { name: 'Yom' });
 }
 
 export async function loadScene(key){
@@ -176,6 +181,15 @@ export async function loadScene(key){
   // seedScene(), Yom's own Master Technique, see its own comment below),
   // closed only once the camera is actually centered on the real result.
   showLoading(true);
+  // Reveal window (2026-08-24, per dDd's own spec — "Loading Screen is timed
+  // to fade away as the Player fades in, followed by NPCS"). #app carries
+  // .scene-revealing only for this brief window; css/panels.css scopes the
+  // Map token fade-in animation to it specifically, so an ordinary Move/
+  // Combat re-render later never replays a fade — only a real Scene-genesis
+  // reveal does. Removed on a timer below, well after both the loading
+  // overlay and every staggered token fade have actually finished.
+  const app = document.getElementById('app');
+  if(app) app.classList.add('scene-revealing');
   await mutateTable(t => {
     // Just the reset — clears whatever the previous Scene left behind.
     // Actual spawning is Yom's job now (seedScene(), right below), not
@@ -188,11 +202,22 @@ export async function loadScene(key){
     t.map = defaultMap(scene.mapWidth, scene.mapHeight);
     t.enemies = {};
     t.positions = {};
+    // Yom appears on the Map alone (2026-08-24, per dDd) — the World, with
+    // only its own Creator standing in it, for the brief moment before a
+    // real Player arrives. spawnYom() is idempotent — he's only ever built
+    // once per Table, this just (re)claims the Tile every Scene load.
+    spawnYom(t);
+    t.positions.yom = { x: Math.floor(scene.mapWidth / 2), y: Math.floor(scene.mapHeight / 2) };
     t.log.push({ type: 'system', text: 'Scene loaded: ' + scene.name, time: timeNow() });
   });
   await seedScene();
   centerMapView();
   showLoading(false);
+  // Facing can visibly settle after the fade rather than gating it (per
+  // dDd) — this timer only ever removes the reveal-animation scope, it
+  // doesn't hold anything up. 900ms clears the loading fade (500ms) plus
+  // the NPC stagger delay and their own fade duration below.
+  setTimeout(() => { if(app) app.classList.remove('scene-revealing'); }, 900);
 }
 
 // Seed (2026-08-23, per dDd) — Yom's own Master Technique ("Spawns all
@@ -242,8 +267,22 @@ export async function seedScene(){
 
   if(!npcsMissing && !mySpawn) return; // Nothing missing — Seed has nothing to do.
 
-  if(npcsMissing){
-    await mutateTable(t => {
+  // One Event, not several (2026-08-24, per dDd, after a live version-
+  // conflict bug traced directly to this function racing its own sequential
+  // writes: "It's one Event; not 4 you know? They are all part of One Thing
+  // happening."). Used to be up to 5 separate sequential mutateTable() calls
+  // — NPC spawns, my Tile claim, Personality/Mindeye, Facing, the log line —
+  // each its own network round-trip racing the others' realtime echoes.
+  // Down to 2 real writes now: everything that doesn't need my own
+  // t.players[myId] record to already exist lands in this first one — NPC
+  // spawns, my Tile claim, Yom's own vanishing act (he only ever stood on
+  // the Map alone for the moment before a real Player arrived), and the log
+  // line. What's left after this (Personality/Mindeye/Facing) genuinely
+  // can't fold in here — it needs makeActiveCharacter() to have committed
+  // t.players[myId] first — so it's a second, smaller write below, not
+  // three more.
+  await mutateTable(t => {
+    if(npcsMissing){
       if(!t.enemies) t.enemies = {};
       if(!t.positions) t.positions = {};
       const counts = {};
@@ -253,49 +292,52 @@ export async function seedScene(){
         spawnNpc(t, enemyId, spawn.build, counts[spawn.build], spawn.facing, spawn.mindeye);
         t.positions[enemyId] = { x: spawn.x, y: spawn.y };
       });
-    });
-  }
-
-  if(mySpawn){
-    await mutateTable(t => {
+    }
+    if(mySpawn){
       if(!t.positions) t.positions = {};
       t.positions[myId] = { x: mySpawn.x, y: mySpawn.y };
-    });
-    if(mySpawn.build){
-      // loadBuild()/makeActiveCharacter() (js/character.js) drive the
-      // Character sheet's own form + commit flow — the only way a Player's
-      // own t.players[id] gets its real Stats, same as every other spawn
-      // path in this codebase.
-      loadBuild(mySpawn.build);
-      await makeActiveCharacter();
-      // Innate Glyph knowledge + Personality (2026-08-23) — makeActiveCharacter()
-      // has to run first (it's what actually creates t.players[id] for a
-      // brand new Character); only then does the Build's own startingMindeye/
-      // personality have a real record to land on. Same gap js/dm.js's
-      // addEnemy() and this file's own spawnNpc() (above) already had fixed
-      // for Enemies/NPCs — Players were the one spawn path missing both
-      // entirely (readStatsFromSheet() only ever returns sheet-editable
-      // stats; personality/mindeye have no sheet field at all).
-      const build = BUILDS[mySpawn.build];
-      if(build && ((build.startingMindeye && build.startingMindeye.length) || build.personality)){
-        await mutateTable(t => {
-          const p = t.players[myId];
-          if(build.personality && p) p.personality = JSON.parse(JSON.stringify(build.personality));
-          (build.startingMindeye || []).forEach(g => deliverMindeyeEntry(t, myId, 'Star Father', g, true));
-        });
-      }
-      if(mySpawn.facing){
-        await mutateTable(t => {
-          const me = t.players[myId];
-          if(me) me.facing = mySpawn.facing;
-        });
-      }
+      // Yom vanishes from the Map the moment a real Player actually arrives
+      // in the World he Seeded — per dDd: "He should also vanish from Map
+      // as Player comes in." He stays a real Character in t.characters
+      // (see spawnYom above) — just no longer positioned on this Tile.
+      if(t.positions.yom) delete t.positions.yom;
     }
-  }
-
-  await mutateTable(t => {
     t.log.push({ type: 'system', text: 'Yom casts Seed — the World takes shape.', time: timeNow() });
   });
+
+  if(mySpawn && mySpawn.build){
+    // loadBuild()/makeActiveCharacter() (js/character.js) drive the
+    // Character sheet's own form + commit flow — the only way a Player's
+    // own t.players[id] gets its real Stats, same as every other spawn
+    // path in this codebase. Its own write can't fold into the one above:
+    // t.players[myId] has to actually exist before Personality/Mindeye/
+    // Facing below have anywhere real to land.
+    loadBuild(mySpawn.build);
+    await makeActiveCharacter();
+
+    const build = BUILDS[mySpawn.build];
+    // Second and last write — Personality/Mindeye plus Facing together,
+    // instead of the two separate sequential writes that used to collide
+    // here (the exact bug this whole pass started from). Facing landing in
+    // the same write as everything else doesn't block the visual reveal —
+    // per dDd, "Facing can get adjusted after a Fade" is about the Loading
+    // Screen's own timing, not about the write itself needing to be split.
+    await mutateTable(t => {
+      const p = t.players[myId];
+      if(build && build.personality && p) p.personality = JSON.parse(JSON.stringify(build.personality));
+      // techniqueAccess (2026-08-24) — carried over the same way Personality
+      // is, right above. saveCharacter()'s own sheet-save no longer writes
+      // this field at all (js/character.js's readStatsFromSheet() — the
+      // sheet's checkboxes are the old 4-category model, incompatible with
+      // per-Technique access now), so without this a Player would fall back
+      // to the permissive "no techniqueAccess object" default and get every
+      // Technique, including ones their own Build explicitly denies (Gom's
+      // Lava Crafts, Seed itself).
+      if(build && build.techniqueAccess && p) p.techniqueAccess = JSON.parse(JSON.stringify(build.techniqueAccess));
+      if(build) (build.startingMindeye || []).forEach(g => deliverMindeyeEntry(t, myId, 'Star Father', g, true));
+      if(mySpawn.facing && p) p.facing = mySpawn.facing;
+    });
+  }
 }
 
 export function toggleSceneMenu(){

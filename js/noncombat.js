@@ -439,6 +439,26 @@ export async function resolveNonCombatRound(){
             outcome = ' — teaches ' + (script.targetName || 'someone') + ' (' + row.join(', ') + ')' + (done ? '; Script complete' : '');
             if(done) actor.activeScripts = scripts.filter(s => s !== script);
           }
+        }else if(meta.kind === 'attack'){
+          // Attack (2026-08-24, per dDd — S), first pass. Deliberately
+          // minimal: no staged Fast Attack, no roll, nothing that touches
+          // combat.js's own resolution — this Round just starts the
+          // Encounter (per dDd: "simply Start Encounter, instead of making
+          // it [do] something in Combat... would simplify the work"). Real
+          // Combat resolution takes over from the next Resolve, once
+          // table.inEncounter routes through combat.js's resolveRound()
+          // instead of this file. Target defaults to a Living Stone, per
+          // dDd — real Targeting (who to attack) has no mechanism yet;
+          // KRO/KROW (Glyphs for "a Living Stone" as a Target) are the
+          // eventual real source, not built this pass.
+          const target = Object.entries(t.players || {}).find(([tid, p]) => tid !== id && p.archetype === 'Living Stone')
+            || Object.entries(t.enemies || {}).find(([tid, e]) => tid !== id && e.archetype === 'Living Stone');
+          if(target){
+            t.inEncounter = true;
+            outcome = ' — attacks ' + (target[1].name || 'a Living Stone') + '. The Encounter begins';
+          }else{
+            outcome = ' (no Living Stone to attack)';
+          }
         }
 
         t.log.push({ type: 'system', text: (actor.name || 'Someone') + ' does ' + meta.name + ' (' + pct + '%)' + outcome + '.', time: timeNow() });

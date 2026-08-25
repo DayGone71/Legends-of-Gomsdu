@@ -10,8 +10,7 @@
 
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
-import { escapeHtml, resolveEntityRef } from './utils.js';
-import { TECHNIQUES, hasCategoryAccess } from './techniques.js';
+import { escapeHtml, resolveEntityRef, mindeyeCategory } from './utils.js';
 
 let GLYPH_DATA = null;
 try {
@@ -32,6 +31,44 @@ function lookupPrimitive(id) {
 }
 export function lookupGlyph(id) {
   return GLYPH_DATA && GLYPH_DATA.glyphs.find(g => g.id === id);
+}
+
+// Variety (2026-08-24, per dDd's own live categorization pass) — which of
+// the 4 kinds a real Glyph is. Not stored in the Glyphic System JSON itself
+// (that file's own "category" field means composition-complexity — glyph/
+// diglyph/triglyph — a different axis entirely) — this is a first-pass,
+// best-effort static map built from each Glyph's authored `meaning` plus
+// dDd's own corrections live. Confirmed uncertain/worth revisiting: `BE`
+// (only exists because the Glyph Designer had no delete button dDd could
+// find — not necessarily real canon), `W`/`M` (Facing Marks, not obviously
+// any of the 4), the diagonals (KOR/ROK/POK/KOP, grouped with Directions on
+// the strength of their own meaning text alone, never explicitly confirmed).
+export const GLYPH_VARIETY = {
+  // Directions — Movement Commands, First Era's 7 (once SUU ships in-game)
+  // plus the 4 diagonals.
+  'RO / OR': 'directions', 'OP / PO': 'directions', 'KO': 'directions', 'OK': 'directions',
+  'SUU': 'directions', 'KULOG': 'directions', 'KALAG': 'directions',
+  'KOR': 'directions', 'ROK': 'directions', 'POK': 'directions', 'KOP': 'directions',
+  // Targets — Characters/entities a Glyph can refer to.
+  'KROW': 'targets', 'KRO': 'targets', 'GOM': 'targets', 'GO': 'targets',
+  'KULKROW': 'targets', 'ZON': 'targets', 'ZIN': 'targets', 'YO': 'targets',
+  // Actions — verbs, things a Character does. GOM is dual (Target and Idea,
+  // per dDd — see below) but not dual into Actions; kept single-Variety here.
+  'WIM': 'actions', 'KA': 'actions', 'OG': 'actions', 'S': 'actions', 'BA': 'actions',
+  'BE': 'actions', 'OR': 'actions', 'MO': 'actions', 'DU': 'actions', 'KUL': 'actions',
+  // Ideas — meta-language (describes WIMBIS itself) and abstract concepts.
+  'GI': 'ideas', 'GeKA': 'ideas', 'GeKARAP': 'ideas', 'GeKARI': 'ideas',
+  'WIMBIS': 'ideas', 'WIMZIN': 'ideas', 'GOMGOM': 'ideas', 'BIS': 'ideas',
+  'W': 'ideas', 'M': 'ideas'
+};
+export const GLYPH_VARIETIES = [
+  { key: 'directions', label: 'Directions' },
+  { key: 'targets', label: 'Targets' },
+  { key: 'actions', label: 'Actions' },
+  { key: 'ideas', label: 'Ideas' }
+];
+export function varietyOf(glyphId){
+  return GLYPH_VARIETY[glyphId] || 'ideas';
 }
 
 function primitiveMarkup(prim) {
@@ -114,11 +151,11 @@ function giMarkup() {
 // The specific Glyph a Mindeye entry actually carries (2026-08-21, per dDd's
 // Message Glyph picker) — falls back to plain GI for the permanent origin
 // item and any older entry that predates this field.
-function entryGlyphMarkup(entry) {
+export function entryGlyphMarkup(entry) {
   const glyph = entry && entry.glyph && lookupGlyph(entry.glyph);
   return glyph ? svgWrap(glyphMarkup(glyph)) : giMarkup();
 }
-function entryGlyphName(entry) {
+export function entryGlyphName(entry) {
   const glyph = entry && entry.glyph && lookupGlyph(entry.glyph);
   return glyph ? glyph.id : 'GI';
 }
@@ -126,7 +163,7 @@ function entryGlyphName(entry) {
 // Inspect mode (2026-08-22, per dDd) — the viewing Player's own Character by
 // default, or whichever Character AppState.inspectTargetId points at (a new
 // NPC Panel row button, js/dm.js's renderNpcList). Read-only, and skips the
-// Spotlight reveal animation entirely (see renderInformationPanel below) —
+// Spotlight reveal animation entirely (see renderGlyphColumn below) —
 // that's the Player's own live "a new Glyph just arrived" experience, which
 // doesn't mean anything the same way for someone inspecting a different
 // Character's Mindeye after the fact.
@@ -148,27 +185,17 @@ function inspecting(){
 // would just double up and break things further. Every Character, Gom
 // included, reads its own real mindeye now — see js/scenes.js's Spawn List
 // path and js/dm.js's addEnemy() for where his innate Glyphs actually land.
-function myMindeye() {
+export function myMindeye() {
   const me = myCharacter();
   return (me && me.mindeye) || [];
 }
 
 // Crafts Known (2026-08-21, per dDd) — a standing row on the Information
 // panel listing every Craft-group Technique the viewed Character has access
-// to, regardless of Mindeye state (reveal stage or Gallery). Visibility, not
-// usability — per dDd: "Techniques aren't supposed to be globally available
-// for anyone to use, but they should be all available to see by everyone."
-function craftsKnownRow() {
-  const me = myCharacter();
-  const row = document.createElement('div');
-  row.className = 'sheet';
-  const known = me ? Object.entries(TECHNIQUES).filter(([key, def]) => def.group === 'Craft' && hasCategoryAccess(me, def)) : [];
-  row.innerHTML = '<div class="stat-header">Crafts Known</div>' +
-    (known.length
-      ? '<div class="info-crafts-row">' + known.map(([key, def]) => '<div class="info-craft-chip">' + escapeHtml(def.name) + '</div>').join('') + '</div>'
-      : '<div class="log-empty">No Crafts known.</div>');
-  return row;
-}
+// to — retired from here 2026-08-24, per dDd: "Crafts Known is supposed to
+// be on the Character Sheet actually." Not rebuilt there yet (the sheet's
+// own UI is on hold until Second Era) — this is a real gap, not silently
+// dropped, just not owned by the Personality Panel anymore.
 
 async function markSeen(entryId) {
   await mutateTable(t => {
@@ -182,17 +209,29 @@ async function markSeen(entryId) {
 let originExpanded = false;
 // Mindeye reveal (2026-08-20, dDd's spec, close to verbatim) — which unseen
 // entry (if any) THIS browser has clicked into its split/Vesica-Piscis/
-// Glyph-box sequence. Local-only, not synced — deliberately mirrors
-// originExpanded's pattern: renderInformationPanel() re-runs on every table
-// mutation (any Player's action, not just this one's), and without this the
-// very next unrelated re-render would rebuild the Mindeye stage from
-// scratch back in its pre-split state, killing the animation mid-reveal.
+// Glyph-box sequence. Local-only, not synced — without this the very next
+// unrelated re-render would rebuild the Mindeye stage from scratch back in
+// its pre-split state, killing the animation mid-reveal.
 let revealingEntryId = null;
 
-export function renderInformationPanel() {
-  const container = document.getElementById('info-received-list');
-  if (!container) return;
+// Which remembered Glyph the new unified Personality Panel's bottom-quarter
+// detail view is currently showing (2026-08-24) — local UI state, same
+// pattern as revealingEntryId/originExpanded above. js/personality.js reads
+// this via getSelectedGlyphEntryId() to render the detail panel; selecting
+// happens here since this module owns the Glyph list's own click handlers.
+let selectedGlyphEntryId = null;
+export function getSelectedGlyphEntryId(){ return selectedGlyphEntryId; }
 
+// The Glyph list (2026-08-24) — replaces the old flat "Received" Gallery.
+// Renders into whatever container the caller hands it (the new Personality
+// Panel's left column, js/personality.js), grouped by Variety (Directions/
+// Targets/Actions/Ideas — GLYPH_VARIETY above) instead of one flat wrapping
+// grid, and optionally filtered to one Memory Category at a time. The
+// Mindeye reveal (an unseen arrival) still takes over the whole column when
+// there is one, same as before — a new Glyph is always the first thing
+// shown, filter or no filter.
+export function renderGlyphColumn(container, memoryFilter, onChange) {
+  if (!container) return;
   if (!GLYPH_DATA) {
     container.innerHTML = '<div class="log-empty">Could not load the Glyphic System.</div>';
     return;
@@ -200,20 +239,14 @@ export function renderInformationPanel() {
 
   const unseen = inspecting() ? [] : myMindeye().filter(e => !e.seen);
 
-  // The Mindeye Interface (2026-08-20, dDd's spec) — replaces the old plain
-  // text spotlight entirely. Renders straight onto the panel's own dark
-  // background (not the light .sheet parchment the Gallery below uses) —
-  // white smoke needs a dark backdrop to read at all. Two stages:
-  //  1. Resting: one small GI point with a compact, hazy smoke halo around
-  //     it — "doesn't need to be much larger than the point."
+  // The Mindeye Interface (2026-08-20, dDd's spec) — a real animated reveal
+  // (smoke → split → Vesica Piscis → Glyph box) instead of a text caption.
+  //  1. Resting: one small GI point with a compact, hazy smoke halo.
   //  2. Split (revealingEntryId === this entry, set on click): the GI
-  //     becomes two, one drifting up and one down, each towing its own
-  //     smoke halo. The two halos are sized so each one's radius equals the
-  //     distance between their two centers — the actual classic Vesica
-  //     Piscis construction, not just a vague overlap — and a dark-purple/
-  //     electric-blue box big enough for one Glyph fades into the lens
-  //     between them. Clicking that box is what finally marks the entry
-  //     seen and returns to the Gallery.
+  //     becomes two, each towing its own smoke halo sized so its radius
+  //     equals the distance between the two centers (a real Vesica Piscis),
+  //     with a Glyph box fading in between. Clicking that box marks the
+  //     entry seen and returns to the normal Glyph list.
   if (unseen.length) {
     const newest = unseen[unseen.length - 1];
     const revealing = revealingEntryId === newest.id;
@@ -229,19 +262,8 @@ export function renderInformationPanel() {
     `;
     container.innerHTML = '';
     container.appendChild(stage);
-    container.appendChild(craftsKnownRow());
-
-    // Both listeners are wired on every render, regardless of `revealing` —
-    // not just the one relevant to the current stage. The split itself is
-    // deliberately done by hand-toggling a class on the already-rendered
-    // stage (below), not by calling renderInformationPanel() again, so the
-    // browser has a real "before" state to transition smoothly from — which
-    // means the Glyph box's own click listener would never get attached if
-    // it only got wired on a fresh render that never actually happens.
-    // Pointer-events stays none on the box until .split (see CSS), so
-    // wiring it early is inert until the reveal actually gets there.
     stage.querySelector('.mindeye-gi-a').addEventListener('click', () => {
-      if (revealingEntryId) return; // already mid-reveal, GI-a isn't clickable again
+      if (revealingEntryId) return;
       revealingEntryId = newest.id;
       stage.classList.add('split');
       stage.querySelector('.mindeye-caption').textContent = (newest.from || 'Someone') + ' sent a Message';
@@ -253,50 +275,76 @@ export function renderInformationPanel() {
     return;
   }
 
-  const sheet = document.createElement('div');
-  sheet.className = 'sheet';
+  container.innerHTML = '';
   const me = myCharacter();
-  sheet.innerHTML = (inspecting() ? '<div class="inspect-banner">Inspecting ' + escapeHtml((me && me.name) || 'Unnamed') + ' — read-only</div>' : '') +
-    '<div class="stat-header">Received</div>';
+  if (inspecting()) {
+    const banner = document.createElement('div');
+    banner.className = 'inspect-banner';
+    banner.textContent = 'Inspecting ' + escapeHtml((me && me.name) || 'Unnamed') + ' — read-only';
+    container.appendChild(banner);
+  }
 
-  const gallery = document.createElement('div');
-  gallery.className = 'info-gallery';
-
+  // Permanent origin Expression (GI + KRO + KROW -> yield-line -> Yield: GI)
+  // — unchanged from the old Gallery, still its own click-to-expand tile,
+  // pinned above the filtered/grouped list rather than folded into any one
+  // Variety (it isn't a real remembered Glyph, it's the Language's own
+  // origin story).
   const origin = document.createElement('div');
-  origin.className = 'info-tile info-received-item' + (originExpanded ? ' open' : '');
+  origin.className = 'glyph-tile glyph-tile-origin' + (originExpanded ? ' open' : '');
   origin.title = originExpanded ? 'Click to collapse' : 'Click to reveal';
   if (!originExpanded) {
-    origin.innerHTML = `<div class="info-glyph">${giMarkup()}</div>`;
+    origin.innerHTML = `<div class="glyph-tile-icon">${giMarkup()}</div>`;
   } else {
     const kro = lookupGlyph('KRO');
     const krow = lookupGlyph('KROW');
     const yieldLine = lookupPrimitive('yield-line');
     origin.innerHTML = `
-      <div class="info-glyph">${giMarkup()}</div>
-      <div class="info-glyph-label">GI</div>
-      <div class="info-glyph">${svgWrap(glyphMarkup(kro))}</div>
-      <div class="info-glyph-label">KRO</div>
-      <div class="info-glyph">${svgWrap(glyphMarkup(krow))}</div>
-      <div class="info-glyph-label">KROW</div>
+      <div class="glyph-tile-icon">${giMarkup()}</div><span class="glyph-tile-label">GI</span>
+      <div class="glyph-tile-icon">${svgWrap(glyphMarkup(kro))}</div><span class="glyph-tile-label">KRO</span>
+      <div class="glyph-tile-icon">${svgWrap(glyphMarkup(krow))}</div><span class="glyph-tile-label">KROW</span>
       <div class="info-line">${svgWrap(primitiveMarkup(yieldLine))}</div>
-      <div class="info-glyph">${giMarkup()}</div>
-      <div class="info-glyph-label">Yield: GI</div>
+      <div class="glyph-tile-icon">${giMarkup()}</div><span class="glyph-tile-label">Yield: GI</span>
     `;
   }
-  origin.addEventListener('click', () => { originExpanded = !originExpanded; renderInformationPanel(); });
-  gallery.appendChild(origin);
+  origin.addEventListener('click', () => { originExpanded = !originExpanded; if (onChange) onChange(); });
+  container.appendChild(origin);
 
-  myMindeye().forEach(entry => {
-    const tile = document.createElement('div');
-    tile.className = 'info-tile';
-    tile.innerHTML = `<div class="info-glyph">${entryGlyphMarkup(entry)}</div><div class="info-glyph-label">${escapeHtml(entryGlyphName(entry))}</div><div class="info-tile-label">${escapeHtml(entry.from || 'Someone')}</div>`;
-    gallery.appendChild(tile);
+  // Grouped by Variety, stacking vertically (2026-08-24, per dDd's own
+  // layout: "They are in the Categories we've decided, stacking
+  // vertically"), each optionally narrowed to one Memory Category first —
+  // the "few buttons at the top act like Filters (like filtering by
+  // Memory)" js/personality.js renders above this container.
+  const mindeye = myMindeye().filter(e => !memoryFilter || mindeyeCategory(e.retention) === memoryFilter);
+  const grouped = { directions: [], targets: [], actions: [], ideas: [] };
+  mindeye.forEach(entry => grouped[varietyOf(entry.glyph)].push(entry));
+
+  GLYPH_VARIETIES.forEach(variety => {
+    const entries = grouped[variety.key];
+    if (!entries.length) return;
+    const header = document.createElement('div');
+    header.className = 'glyph-variety-header';
+    header.textContent = variety.label;
+    container.appendChild(header);
+
+    const row = document.createElement('div');
+    row.className = 'glyph-variety-row';
+    entries.forEach(entry => {
+      const tile = document.createElement('div');
+      tile.className = 'glyph-tile' + (entry.id === selectedGlyphEntryId ? ' selected' : '');
+      tile.title = entryGlyphName(entry) + ' — ' + mindeyeCategory(entry.retention);
+      tile.innerHTML = `<div class="glyph-tile-icon">${entryGlyphMarkup(entry)}</div><span class="glyph-tile-label">${escapeHtml(entryGlyphName(entry))}</span>`;
+      tile.addEventListener('click', () => { selectedGlyphEntryId = entry.id; if (onChange) onChange(); });
+      row.appendChild(tile);
+    });
+    container.appendChild(row);
   });
 
-  sheet.appendChild(gallery);
-  container.innerHTML = '';
-  container.appendChild(sheet);
-  container.appendChild(craftsKnownRow());
+  if (!mindeye.length) {
+    const empty = document.createElement('div');
+    empty.className = 'log-empty';
+    empty.textContent = memoryFilter ? 'Nothing in ' + memoryFilter + ' yet.' : 'No Glyphs remembered yet.';
+    container.appendChild(empty);
+  }
 }
 
 // Whether the current Player's own Information toolbar button should be
