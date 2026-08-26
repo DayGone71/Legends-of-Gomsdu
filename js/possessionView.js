@@ -1,15 +1,13 @@
-// Shared Possessor/Mini-Party grid rendering (2026-08-16) — originally built
-// once for the Roster (ledger.js), now reused by Create-a-Character and the
-// read-only Character Sheet too, per dDd's "the Roster should basically be
-// duplicated" call: a Player (or the DM) should be able to generate a whole
-// family — Character + Mini-Party + Possessors — from one place, not just
-// after the fact from the Roster's own add-buttons.
+// Shared Possessor/Mini-Party grid rendering — used by the Roster
+// (ledger.js), Create-a-Character, and the read-only Character Sheet, so a
+// Player (or the DM) can generate a whole family — Character + Mini-Party +
+// Possessors — from one place.
 //
 // Click handling is dependency-injected (onShowView) rather than importing
 // characterView.js directly: ledger.js, character.js, and characterView.js
-// all need this module, and characterView.js is itself where showCharacterView
-// lives, so importing it here would risk a cycle. Keeping this module a leaf
-// (only state.js/utils.js) avoids that entirely.
+// all need this module, and characterView.js is itself where
+// showCharacterView lives, so importing it here would risk a cycle. Keeping
+// this module a leaf (only state.js/utils.js) avoids that.
 import { AppState } from './state.js';
 import { escapeHtml } from './utils.js';
 import { MAX_MINI_PARTY } from './possession.js';
@@ -22,24 +20,20 @@ import { MAX_MINI_PARTY } from './possession.js';
 // renders left, higher-tier (4/5, "Higher Power"/"Supreme Force") right —
 // sorted by tier for layout, but data-possessor-index still points at the
 // real position in player.possessors for click-to-view.
-// hideShadow (Veil Vision, 2026-08-16): when set, a "shadow"-type Possessor
-// renders as a blank slot — same markup shape as the empty-slot filler
-// below, so the grid's own fixed slot count/height never changes — instead
-// of its real name/icon. Only ledger.js's live Roster passes this; Create-
-// a-Character and the read-only Character Sheet never do, since you're
-// intentionally inspecting/editing that specific Character there, not
-// scanning the Party at a glance through the fog.
-// canManage (2026-08-17, dDd's Party Panel redesign — was "showAddButtons",
-// renamed since it now gates removal too): only the live Roster passes
-// this, and only for the viewer's own Player Group, or anyone's Group once
-// Veil Vision is on (see ledger.js's renderRoster()) — an empty *manual*
-// possessor slot (never the Gom/Kulkrow default, which isn't something you
-// add or remove) renders as a real "+Add Possessor" button instead of an
-// invisible placeholder, and a real manually-added entry gets the same
-// hover-reveals-a-red-X removal affordance already used for defeated Enemy
-// chips (.chip-remove-x). Create-a-Character and the read-only Character
-// Sheet never pass it — the former already has its own separate add-flow,
-// the latter is read-only.
+// hideShadow (Veil Vision): when set, a "shadow"-type Possessor renders as a
+// blank slot — same markup shape as the empty-slot filler below, so the
+// grid's fixed slot count/height never changes — instead of its real name/
+// icon. Only ledger.js's live Roster passes this; Create-a-Character and the
+// read-only Character Sheet never do, since you're intentionally inspecting/
+// editing that specific Character there, not scanning the Party through the
+// fog.
+// canManage: only the live Roster passes this, and only for the viewer's own
+// Player Group, or anyone's Group once Veil Vision is on — an empty manual
+// possessor slot (never the Gom/Kulkrow default) renders as a real
+// "+Add Possessor" button instead of an invisible placeholder, and a real
+// manually-added entry gets the same hover-reveals-a-red-X removal
+// affordance already used for defeated Enemy chips (.chip-remove-x).
+// Create-a-Character and the read-only Character Sheet never pass it.
 export function possessorGridHtml(player, playerId, hideShadow, canManage){
   const defaultShadowHidden = hideShadow;
   const defaultPossessorHtml = defaultShadowHidden
@@ -64,14 +58,10 @@ export function possessorGridHtml(player, playerId, hideShadow, canManage){
 // A Possessed member (from the Possess Technique) reflects a real Enemy
 // still living in table.enemies — hexagon icon, distinct color, and its
 // current live name (not the frozen name from the moment it was possessed).
-// Always reserves MAX_MINI_PARTY slots (empty ones padded, invisible) —
-// added 2026-08-17, matching possessorGridHtml's own reserved-slot pattern
-// above. Previously returned '' when a Character had zero Mini-Party
-// members, so the grid box didn't exist at all — that's what was actually
-// causing the Roster's "+ Add AI Party Member" button to shift position
-// depending on how many members a Character had (dDd's spacing complaint):
-// a fixed slot count, not a variable one, is what makes a Character's whole
-// block the same height regardless of what's actually in it.
+// Always reserves MAX_MINI_PARTY slots (empty ones padded, invisible),
+// matching possessorGridHtml's own reserved-slot pattern above — a fixed
+// slot count is what makes a Character's whole block the same height
+// regardless of how many members it actually has.
 export function miniPartyGridHtml(player, playerId, canManage){
   const miniPartyEntries = player.miniParty || [];
   const emptySlotHtml = canManage

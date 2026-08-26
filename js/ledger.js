@@ -27,10 +27,9 @@ export function renderLedger(){
         '<span class="name">' + escapeHtml(entry.name) + ':</span>' +
         '<span>' + escapeHtml(entry.text) + '</span></div>';
     }
-    // Combat resolution entries get a tiered, spelled-out layout instead of one
-    // flat line — attacker/defender, then the action, then what happened —
-    // since a single dense sentence per hit is what made the Ledger hard to
-    // read as a human during a real fight.
+    // Combat resolution entries get a tiered, spelled-out layout instead of
+    // one flat line — attacker/defender, then the action, then what
+    // happened — a single dense sentence per hit was hard to read live.
     if(entry.type === 'combat'){
       return '<div class="log-entry combat">' +
         '<div class="log-meta"><span class="time">' + entry.time + '</span>' +
@@ -53,21 +52,17 @@ export function renderLedger(){
     return '<div class="log-entry system"><span class="time">' + entry.time + '</span><span>' +
       escapeHtml(entry.text) + '</span></div>';
   }).join('');
-  // #ledger is flex-direction:column-reverse (newest renders at top), which also
-  // reverses what scrollTop:0 means — manual scrollTop math fights the browser.
-  // scrollIntoView on the newest entry resolves correctly regardless of axis.
-  // Two guards on top of that, both earned the hard way: block:'nearest' (not
-  // 'end') keeps the scroll contained to #ledger's own overflow-y:auto box
-  // rather than planting the entry at the bottom of the whole viewport: but
-  // 'nearest' alone still isn't enough when #ledger itself is off-screen
-  // (e.g. the user's scrolled up to watch the Sequencer divider) — the
-  // browser still has to scroll *something* to bring an invisible element
-  // into view, and during resolveRound() (many Ledger entries pushed in
-  // quick succession) that was yanking the whole page down and off the
-  // divider every time, so you'd never actually see the sweep play out. The
-  // real fix: only auto-scroll if #ledger is already at least partly visible
-  // — never hijack the page to reveal a panel the user isn't currently
-  // looking at.
+  // #ledger is flex-direction:column-reverse (newest renders at top), which
+  // also reverses what scrollTop:0 means — scrollIntoView on the newest
+  // entry resolves correctly regardless of axis, with two guards: block:
+  // 'nearest' (not 'end') keeps the scroll contained to #ledger's own
+  // overflow-y:auto box rather than planting the entry at the bottom of the
+  // whole viewport. But 'nearest' alone isn't enough when #ledger itself is
+  // off-screen — the browser still has to scroll *something* to bring an
+  // invisible element into view, which during resolveRound() (many Ledger
+  // entries pushed quickly) was yanking the whole page down and off the
+  // Sequencer divider. Real fix: only auto-scroll if #ledger is already at
+  // least partly visible.
   if(el.lastElementChild){
     const rect = el.getBoundingClientRect();
     const ledgerVisible = rect.top < window.innerHeight && rect.bottom > 0;
@@ -87,8 +82,8 @@ export async function sendMessage(){
 }
 
 // Which player's Group the Add popup (#party-add-popup) currently targets,
-// and which kind of slot was clicked. Module-level since the popup itself
-// is a single shared instance repositioned per-target, not duplicated per
+// and which kind of slot was clicked. Module-level since the popup itself is
+// a single shared instance repositioned per-target, not duplicated per
 // player — see openAddPartyPopup() below.
 let addPartyTargetId = null;
 let addPartyKind = null; // 'possessor' | 'miniparty'
@@ -97,50 +92,40 @@ export function renderRoster(){
   const el = document.getElementById('roster');
   if(!el) return;
   const players = (AppState.table && AppState.table.players) || {};
-  // Sorted by joinOrder (2026-08-17, dDd's "Player Order in Party is
-  // scuffed" note) rather than trusting Object.entries()' own insertion
-  // order — see joinOrder's own comment in js/main.js for why. Missing
-  // joinOrder (pre-existing records from before this field existed) sorts
-  // first rather than erroring.
+  // Sorted by joinOrder rather than trusting Object.entries()' own insertion
+  // order (concurrent writes can scramble it — see joinOrder's own comment
+  // in main.js). Missing joinOrder (pre-existing records from before this
+  // field existed) sorts first rather than erroring.
   const list = Object.entries(players).sort((a, b) => (a[1].joinOrder || 0) - (b[1].joinOrder || 0));
   // Re-rendering innerHTML resets scrollTop to 0 by default — every table
-  // update (including someone just moving on the Map) was snapping the Party
-  // Panel back to the top, per dDd's 2026-08-17 playthrough note ("Moving
-  // changes the Camera in a bad way" — this was the actual culprit, not a
-  // real camera). Preserve/restore it across the re-render, same fix shape
-  // as the Ledger's own scroll guard above.
+  // update was snapping the Party Panel back to the top. Preserve/restore it
+  // across the re-render, same fix shape as the Ledger's own scroll guard above.
   const prevScrollTop = el.scrollTop;
   if(!list.length){ el.innerHTML = '<div class="log-empty">No one here yet.</div>'; return; }
 
-  // The "sandwich" model (see reference/ROADMAP.md, Party System item C):
-  // Possessors render above a player's row, Mini-Party members below.
-  // Gom/Kulkrow's ambient Tier-5 default always renders as the topmost row
-  // for every player — it isn't tracked as data, only manually-added Tier
-  // 2-5 possessors and mini-party members are.
+  // The "sandwich" model: Possessors render above a player's row, Mini-Party
+  // members below. Gom/Kulkrow's ambient Tier-5 default always renders as
+  // the topmost row for every player — it isn't tracked as data, only
+  // manually-added Tier 2-5 possessors and mini-party members are.
   el.innerHTML = list.map(([id, p]) => {
-    // Wounds (x) counts UP toward woundsMax (y, the Down threshold) now, not
-    // down from it — so the bar has to show *remaining* health (100% at
-    // x=0, empty once Down), the inverse of the raw x/y ratio.
+    // Wounds (x) counts UP toward woundsMax (y, the Down threshold), so the
+    // bar has to show *remaining* health (100% at x=0, empty once Down),
+    // the inverse of the raw x/y ratio.
     const wounds = p.wounds ?? 0, woundsMax = p.woundsMax || 1;
     const pct = Math.max(0, Math.min(100, Math.round((1 - wounds / woundsMax) * 100)));
     const low = pct <= 30;
     const initial = (p.name || '?').trim().charAt(0).toUpperCase() || '?';
-    // Self (2026-08-17, dDd's "obvious this-is-you effect" note) — the
-    // reserved Green from the Enemy/Ally/Self palette pass (style-guide.md),
-    // its first real UI use. Departed (same date, "grey them out instead of
-    // removing") — leaveTable() in main.js now flags departed instead of
-    // deleting, so the row (and its history) stays, just dimmed and inert.
+    // Self — the reserved Green from the Enemy/Ally/Self palette. Departed —
+    // leaveTable() in main.js flags departed instead of deleting, so the row
+    // (and its history) stays, just dimmed and inert.
     const isSelf = id === AppState.playerId;
     const itemCls = 'roster-item' + (isSelf ? ' self' : '') + (p.departed ? ' departed' : '');
 
-    // Empty Possessor/Mini-Party slots render as their own "+Add" buttons
-    // (showAddButtons, last arg) — 2026-08-17 redesign, refined same day:
-    // a Player can only build their OWN Group (isSelf) — the buttons
-    // simply don't exist on anyone else's — unless Veil Vision is on, which
-    // unlocks adding to every connected Player's Group (dDd's own framing:
-    // Veil Vision is already the "see/do more than an ordinary Player
-    // normally could" toggle). A departed Player's Group is frozen either
-    // way, never recruitable.
+    // Empty Possessor/Mini-Party slots render as their own "+Add" buttons. A
+    // Player can only build their OWN Group (isSelf) — the buttons simply
+    // don't exist on anyone else's — unless Veil Vision is on, which unlocks
+    // adding to every connected Player's Group. A departed Player's Group is
+    // frozen either way, never recruitable.
     const canAddToThisGroup = !p.departed && (isSelf || AppState.veilVision);
     return '<div class="roster-stack' + (p.departed ? ' departed' : '') + '" data-player-id="' + id + '">' +
       possessorGridHtml(p, id, !AppState.veilVision, canAddToThisGroup) +
@@ -162,10 +147,10 @@ export function renderRoster(){
     btn.onclick = (ev) => { ev.stopPropagation(); openAddPartyPopup(btn.dataset.playerId, btn.dataset.kind); };
   });
 
-  // Hover-reveals-an-X removal (2026-08-17) — same pattern as the defeated
-  // Enemy chip's .chip-remove-x in combat.js/dm.js, applied here to real
-  // (manually-added) Possessors/Mini-Party members. stopPropagation so it
-  // doesn't also trigger the parent's click-to-view.
+  // Hover-reveals-an-X removal — same pattern as the defeated Enemy chip's
+  // .chip-remove-x in combat.js/dm.js, applied here to real (manually-added)
+  // Possessors/Mini-Party members. stopPropagation so it doesn't also
+  // trigger the parent's click-to-view.
   el.querySelectorAll('.roster-remove-x').forEach(x => {
     x.onclick = (ev) => {
       ev.stopPropagation();
@@ -175,8 +160,8 @@ export function renderRoster(){
     };
   });
 
-  // Click any name/avatar in the roster — the player themselves, a Possessor,
-  // or a Mini-Party member — for the same universal read-only stats snapshot.
+  // Click any name/avatar in the roster — the player themselves, a
+  // Possessor, or a Mini-Party member — for the same universal read-only stats snapshot.
   el.querySelectorAll('.roster-item[data-player-id]').forEach(item => {
     item.onclick = () => {
       const player = AppState.table.players[item.dataset.playerId];
@@ -187,14 +172,10 @@ export function renderRoster(){
   el.scrollTop = prevScrollTop;
 }
 
-// Party Add popup (2026-08-17 redesign) — replaces the old shared inline
-// form that lived at the bottom of the Roster. Clicking an empty grid
-// slot's "+" button (wired in renderRoster) now opens a small popup
-// positioned over that specific Player's Group (their whole .roster-stack
-// — Possessors + the Player row + Mini-Party, dDd's own term for the unit)
-// instead of a single form shared by the whole Roster. Kind (possessor vs.
-// mini-party) is already known from which button was clicked — no separate
-// kind-choice step needed anymore.
+// Party Add popup — a small popup positioned over the specific Player's
+// Group (their whole .roster-stack — Possessors + the Player row +
+// Mini-Party) instead of a single form shared by the whole Roster. Kind
+// (possessor vs. mini-party) is already known from which button was clicked.
 function openAddPartyPopup(targetPlayerId, kind){
   const stack = document.querySelector('.roster-stack[data-player-id="' + targetPlayerId + '"]');
   const popup = document.getElementById('party-add-popup');
@@ -204,15 +185,12 @@ function openAddPartyPopup(targetPlayerId, kind){
 
   const rect = stack.getBoundingClientRect();
   // .party-add-popup is `position:fixed` (viewport-relative), so rect.top/
-  // right — already viewport-relative via getBoundingClientRect() — are
-  // used directly, with NO scrollY/scrollX addition. That addition is only
-  // correct for position:absolute (document-relative); adding it here was
-  // the actual bug — it placed the popup further down/right by exactly the
-  // page's current scroll offset, off in space the first time this ran.
+  // right are used directly, with NO scrollY/scrollX addition — that
+  // addition is only correct for position:absolute (document-relative).
   popup.style.top = Math.round(rect.top) + 'px';
   popup.style.minHeight = Math.round(rect.height) + 'px';
-  // Keep it on-screen if the Player's Group is near the right edge —
-  // flip to the left side of the Group instead of running off-window.
+  // Keep it on-screen if the Player's Group is near the right edge — flip to
+  // the left side of the Group instead of running off-window.
   const preferredLeft = rect.right + 10;
   popup.style.left = Math.round(preferredLeft + 250 > window.innerWidth ? rect.left - 250 : preferredLeft) + 'px';
 
@@ -248,8 +226,8 @@ async function confirmAddPartyMember(){
   closeAddPartyPopup();
 }
 
-// Wires the shared (single-instance) parts of the Add popup — called once
-// at startup. The per-slot trigger buttons are wired inside renderRoster
+// Wires the shared (single-instance) parts of the Add popup — called once at
+// startup. The per-slot trigger buttons are wired inside renderRoster
 // itself, since they're recreated on every render.
 export function initAddPartyMemberUI(){
   const buildOptions = Object.entries(BUILDS).map(([key, b]) => '<option value="' + key + '">' + b.archetype + '</option>').join('');

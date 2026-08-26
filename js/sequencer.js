@@ -2,24 +2,22 @@ import { AppState } from './state.js';
 import { escapeHtml, computeEntryTick, computeCounterMax, alliedActorIds, resolveEntityRef, possessedEnemyIds } from './utils.js';
 
 // Matches the needle's own CSS animation-duration (sequencer-needle-sweep,
-// css/layout.css) — kept as a JS constant rather than read from the DOM
-// since nothing here needs to be dynamic, just consistent with that value.
+// css/layout.css) — kept as a JS constant since nothing here needs to be
+// dynamic, just consistent with that value.
 const NEEDLE_SWEEP_MS = 6500;
 
-// Twilight Milk — the Time Mechanic (2026-08-21), per dDd. The First/Second
-// Era sky is permanent Twilight: Gom (a Black Hole) eats the light Yom/Star
-// Father constantly feeds him, which for whatever reason reads as a milky
-// haze to the Planet's inhabitants. Repurposes the Sequencer Bar's own 13
-// tick positions (6 per Wing, the Orb as the 7th/center) as a literal
-// globe-lighting model — table.timeTick (0-12, where the "light" currently
-// sits) advances by one every Non-Combat Round (js/noncombat.js's
-// resolveNonCombatRound()). Per dDd's own spec, neither a literal tick mark
-// nor a needle renders here — the whole Wing background IS the display, and
-// moving the (invisible) needle just changes how that background looks.
+// Twilight Milk — the Time Mechanic. The First/Second Era sky is permanent
+// Twilight: Gom (a Black Hole) eats the light Yom/Star Father constantly
+// feeds him, which reads as a milky haze to the Planet's inhabitants.
+// Repurposes the Sequencer Bar's own 13 tick positions (6 per Wing, the Orb
+// as the 7th/center) as a literal globe-lighting model — table.timeTick
+// (0-12, where the "light" currently sits) advances by one every Non-Combat
+// Round. No literal tick mark or needle renders here — the whole Wing
+// background IS the display, and moving the (invisible) needle just changes how that background looks.
 export const TWILIGHT_TICK_COUNT = 13;
 export const TWILIGHT_CENTER_TICK = 6;
-const TWILIGHT_DARK = [13, 10, 34];       // #0D0A22 — Gom's own black-hole dark, deeper than the app's usual ink
-const TWILIGHT_BRIGHT = [243, 238, 255];  // #F3EEFF — the Milk itself: pale, faintly violet, never plain daylight-white
+const TWILIGHT_DARK = [13, 10, 34];       // #0D0A22 — Gom's own black-hole dark
+const TWILIGHT_BRIGHT = [243, 238, 255];  // #F3EEFF — the Milk itself: pale, faintly violet
 
 function mixColor(a, b, t){
   const r = Math.round(a[0] + (b[0] - a[0]) * t);
@@ -28,15 +26,13 @@ function mixColor(a, b, t){
   return `rgb(${r},${g},${bl})`;
 }
 
-// dDd's own instruction: "for opposite, use 26, cause globe physics." 13
-// ticks is odd, so there's no exact integer opposite in 13-space (6.5 isn't
-// a tick). Doubling to a 26-slot circle first fixes that cleanly — every
+// "Opposite" uses 26, not 13 — 13 ticks is odd, so there's no exact integer
+// opposite in 13-space. Doubling to a 26-slot circle first fixes that: every
 // tick's doubled coordinate is even, so its true antipode (+13 in 26-space)
-// always lands on an odd number, i.e. exactly halfway between two OTHER
-// ticks rather than forcing a rounding error onto one side. Brightness then
-// falls off with a cosine curve (real sphere lighting: brightest at the
-// sub-point, darkest at the antipode, smooth in between) — the same "globe
-// physics" idea carried all the way through, not just the opposite-point math.
+// always lands on an odd number — exactly halfway between two other ticks,
+// not a rounding error onto one side. Brightness falls off with a cosine
+// curve (real sphere lighting: brightest at the sub-point, darkest at the
+// antipode, smooth between).
 function twilightColorAt(tick, needleTick){
   const doubledDist = Math.abs(tick * 2 - needleTick * 2);
   const circDist = Math.min(doubledDist, TWILIGHT_TICK_COUNT * 2 - doubledDist); // 0..13
@@ -64,25 +60,24 @@ let lastEvents = [];
 let lastCounterMax = 1;
 
 // A frozen snapshot of what just resolved, shown for the duration of the
-// needle's sweep even though the real data (sequences, Ledger, Play-by-Play)
-// already changed the instant Resolve was clicked — per dDd, the sweep is
-// "for Human benefit," not something real state should ever wait on. Without
-// this, computeStagedEvents() re-derives live off table.sequence every
-// render, which resolveRound() clears synchronously — the sweep ended up
-// animating across an already-empty divider. See freezeSequencerReveal().
+// needle's sweep even though the real data already changed the instant
+// Resolve was clicked — the sweep is purely for the viewer's benefit, not
+// something real state should wait on. Without this, computeStagedEvents()
+// re-derives live off table.sequence every render, which resolveRound()
+// clears synchronously — the sweep would end up animating across an
+// already-empty divider. See freezeSequencerReveal().
 let frozenEvents = null;
 let frozenCounterMax = null;
 let unfreezeTimer = null;
 
 // Every staged action across every real actor — allies (Players + statted
-// Mini-Party + Possessed Enemies, via alliedActorIds) and Enemies (table.
-// enemies minus whichever are currently Possessed, since those already
-// moved to the ally side above) — reduced to just what the divider's marks
-// need: where it lands on the 0-counterMax scale, whose side it's on, and
-// enough detail for the hover popover to describe it. Side is 'self' only
-// for AppState.playerId itself; every other ally is 'ally'; the shape
-// (\ vs /) only distinguishes friendly from hostile, so Self and Ally both
-// render as \, just in different colors — see style-guide.md.
+// Mini-Party + Possessed Enemies) and Enemies (minus whichever are currently
+// Possessed, since those already moved to the ally side) — reduced to just
+// what the divider's marks need: where it lands on the 0-counterMax scale,
+// whose side it's on, and enough detail for the hover popover. Side is
+// 'self' only for AppState.playerId itself; every other ally is 'ally'; the
+// shape (\ vs /) only distinguishes friendly from hostile, so Self and Ally
+// both render as \, just in different colors — see style-guide.md.
 function computeStagedEvents(table, counterMax){
   const events = [];
   function gather(actor, side){
@@ -115,8 +110,8 @@ function computeStagedEvents(table, counterMax){
 // driven by requestAnimationFrame, rather than a CSS @keyframes animation.
 // That's what makes it interactively jumpable: applySweepFrame(t) is a pure
 // function of "how far in are we," so jumping is just changing t and
-// re-applying — no animation state to fight, and no risk of drift between
-// the needle's position and which marks are supposed to be visible yet.
+// re-applying — no animation state to fight, no risk of drift between the
+// needle's position and which marks are supposed to be visible yet.
 let sweep = null; // { startRef } — elapsed is always (now - startRef)
 
 function computeMoments(){
@@ -165,8 +160,8 @@ function startSweep(){
 }
 
 // Jumping only ever moves forward (Moment-jump / skip-to-end are both
-// forward-only per dDd's spec) — re-basing startRef is what lets the rAF
-// loop above just keep going from the new position with no special-casing.
+// forward-only) — re-basing startRef is what lets the rAF loop above just
+// keep going from the new position with no special-casing.
 function jumpSweepTo(elapsedMs){
   if(!sweep) return;
   const clamped = Math.max(0, Math.min(NEEDLE_SWEEP_MS, elapsedMs));
@@ -216,8 +211,7 @@ export function initSequencerScrub(){
 // clear. Snapshots the events, plays the needle+reveal off that snapshot,
 // then un-freezes on a real wall-clock timer (not tied to any animation
 // callback) so the divider reliably reverts to live state exactly when the
-// sweep visually finishes, even if nothing else happens to trigger a
-// re-render in the meantime (or if the sweep got skipped to the end early).
+// sweep visually finishes, even if the sweep got skipped to the end early.
 export function freezeSequencerReveal(table, counterMax){
   frozenEvents = computeStagedEvents(table, counterMax);
   frozenCounterMax = counterMax;
@@ -230,17 +224,16 @@ export function freezeSequencerReveal(table, counterMax){
   startSweep();
 }
 
-// Start-of-Encounter lightning flourish — dDd's spec: a random 0-3 bolts
-// coiling out to the left and 0-3 to the right from the AP circle (never
-// both zero — one side gets forced if the dice come up empty), each one a
-// horizontal midpoint-displacement path biased to jitter vertically rather
-// than horizontally, which is what reads as "coiling around the needle"
+// Start-of-Encounter lightning flourish — a random 0-3 bolts coiling out to
+// the left and 0-3 to the right from the AP circle (never both zero), each
+// one a horizontal midpoint-displacement path biased to jitter vertically
+// rather than horizontally, which reads as "coiling around the needle"
 // rather than a straight strike. Reuses the landing page Lightning box's
-// glow/flicker CSS classes (see css/layout.css) for a consistent look, but
-// the path-building here is its own small copy rather than importing from
-// main.js — main.js's version is explicitly a "no game state" art toy, and
-// this one is wired to a real state transition, so keeping them separate
-// avoids tangling a sandbox module into game logic.
+// glow/flicker CSS classes for a consistent look, but the path-building here
+// is its own small copy rather than importing from main.js — that version is
+// explicitly a "no game state" art toy, and this one is wired to a real
+// state transition, so keeping them separate avoids tangling a sandbox
+// module into game logic.
 const SEQ_SVG_NS = 'http://www.w3.org/2000/svg';
 
 function coiledPoints(x1, y1, x2, y2, depth, displace, out){
@@ -269,12 +262,9 @@ function spawnSequencerBolt(container, circleX, circleY, badgeRadius, dir){
   svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
 
   // Start at the circle's own rim on the strand's own side, not its dead
-  // center — dDd's catch: starting at center reads as passing *through*
-  // the circle rather than emanating from it.
+  // center — starting at center reads as passing *through* the circle rather than emanating from it.
   const originX = circleX + dir * badgeRadius;
   const originY = circleY;
-  // Tripled from the original 0.14-0.44 range per dDd ("at least 3 times
-  // as long") — clamped against the divider's own edges below either way.
   const travel = (w / 2) * (0.42 + Math.random() * 0.9);
   const endX = Math.min(w - 4, Math.max(4, originX + dir * travel));
   const endY = Math.min(h - 2, Math.max(2, originY + (Math.random() - 0.5) * h * 0.6));
@@ -325,8 +315,7 @@ function flourishEncounterStart(){
   const circleY = bRect.top + bRect.height / 2 - cRect.top;
   const badgeRadius = bRect.width / 2;
 
-  // At least 1 per side every time, per dDd ("that way, there are always at
-  // least a few sparks") — up to 3, never 0.
+  // At least 1 per side every time — up to 3, never 0.
   const leftCount = 1 + Math.floor(Math.random() * 3); // 1-3
   const rightCount = 1 + Math.floor(Math.random() * 3); // 1-3
 
@@ -340,11 +329,10 @@ function flourishEncounterStart(){
 
 // Fires flourishEncounterStart() exactly once per genuine false->true
 // transition of table.inEncounter — not per render, and not on page load
-// into an already-live Encounter (wasInEncounter starts null specifically
-// so the very first observation never counts as "just started"). Driven
-// off the real synced state rather than the Start button's own click
-// handler so every connected player sees the flourish, including whoever
-// didn't click Start themselves.
+// into an already-live Encounter (wasInEncounter starts null so the very
+// first observation never counts as "just started"). Driven off the real
+// synced state rather than the Start button's own click handler so every
+// connected player sees the flourish, including whoever didn't click Start themselves.
 let wasInEncounter = null;
 function noteEncounterState(nowInEncounter){
   if(wasInEncounter === false && nowInEncounter === true) flourishEncounterStart();
@@ -360,9 +348,8 @@ function revealAtMs(fracFromRight){
 // The divider's wedge shape never changes — only the tick density behind it,
 // the slashes on top of it, the 5 fixed measurement marks below it, the
 // Blood Drops below that, and the moving needle, all scaled to / gated on
-// the current Encounter (left edge = 0, right edge = counterMax). All of
-// them go blank/hidden outside a live Encounter, same as the badge in the
-// divider's own circle.
+// the current Encounter (left edge = 0, right edge = counterMax). All go
+// blank/hidden outside a live Encounter, same as the badge in the divider's own circle.
 function renderSequencerDivider(table, counterMax, events, replaying){
   const dividerEl = document.getElementById('sequencer-divider');
   const ticksEl = document.getElementById('sequencer-divider-ticks');
@@ -372,9 +359,7 @@ function renderSequencerDivider(table, counterMax, events, replaying){
   const needleEl = document.querySelector('.sequencer-needle');
   const inEncounter = !!(table && table.inEncounter);
   if(needleEl) needleEl.classList.toggle('hidden', !inEncounter);
-  // Scrub cursor (pointer/crosshair) only when there's actually a live
-  // Encounter to scrub — dDd's catch: it was showing all the time, even
-  // with nothing on the divider to click through.
+  // Scrub cursor (pointer/crosshair) only when there's actually a live Encounter to scrub.
   if(dividerEl) dividerEl.classList.toggle('seq-scrubbable', inEncounter);
   if(marksEl) marksEl.classList.toggle('seq-scrubbable', inEncounter);
   if(dropsEl) dropsEl.classList.toggle('seq-scrubbable', inEncounter);
@@ -395,18 +380,14 @@ function renderSequencerDivider(table, counterMax, events, replaying){
     }
   }
 
-  // Slash visibility (2026-08-16, Veil Vision): Player/Ally are always
-  // visible — staged, mid-resolve, always. Enemy is fog-of-war by default:
-  // hidden entirely while staging (unless Veil Vision is on), then reveals
-  // at its own Moment during the resolve sweep — a genuine first appearance,
-  // so it gets the normal seq-reveal fade-in treatment. With Veil Vision on,
-  // Enemy was already visible during staging, so it gets the same
-  // no-vanish, always-visible treatment as Player/Ally instead — dDd's own
-  // "the same rule applies to Enemy Slashes" spec. The seq-reveal class
-  // (and its data-reveal-at) is only ever attached when a slash actually
-  // needs the timed fade-in; everything else renders as a plain always-on
-  // .seq-slash with no reveal gating, so applySweepFrame() (which only
-  // touches .seq-reveal elements) never touches it.
+  // Slash visibility (Veil Vision): Player/Ally are always visible — staged,
+  // mid-resolve, always. Enemy is fog-of-war by default: hidden entirely
+  // while staging (unless Veil Vision is on), then reveals at its own Moment
+  // during the resolve sweep — a genuine first appearance, so it gets the
+  // normal seq-reveal fade-in. With Veil Vision on, Enemy was already
+  // visible during staging, so it gets the same no-vanish treatment as
+  // Player/Ally instead. The seq-reveal class (and its data-reveal-at) is
+  // only ever attached when a slash actually needs the timed fade-in.
   if(slashesEl){
     if(!inEncounter){
       slashesEl.innerHTML = '';
@@ -441,11 +422,10 @@ function renderSequencerDivider(table, counterMax, events, replaying){
     }
   }
 
-  // Blood Drops are an aftermath layer, not a staging preview — dDd: "not
-  // visible in staging," only appearing during the actual resolve sweep,
-  // fading in slowly (see .seq-drop.seq-reveal's own transition in
-  // css/layout.css) at each one's own Moment. Unaffected by Veil Vision —
-  // blood doesn't care whether you could see the intent coming.
+  // Blood Drops are an aftermath layer, not a staging preview — only
+  // appearing during the actual resolve sweep, fading in at each one's own
+  // Moment. Unaffected by Veil Vision — blood doesn't care whether you could
+  // see the intent coming.
   if(dropsEl){
     if(!replaying || !events.length){
       dropsEl.innerHTML = '';
@@ -472,10 +452,9 @@ function renderSequencerDivider(table, counterMax, events, replaying){
 }
 
 // Hover popover — a plain informational tooltip, not true optical
-// magnification (see css/layout.css's comment on .sequencer-hover-popover
-// for why that scope call got made). Shared across the divider/marks/drops
-// elements since they all use the identical 0-counterMax coordinate space
-// at the same width, so one handler works for any of them.
+// magnification. Shared across the divider/marks/drops elements since they
+// all use the identical 0-counterMax coordinate space at the same width, so
+// one handler works for any of them.
 function initSequencerHoverEl(el, popover){
   el.addEventListener('mousemove', e => {
     if(!lastEvents.length) { popover.classList.add('hidden'); return; }
@@ -507,11 +486,9 @@ export function initSequencerHover(){
   });
 }
 
-// The old boxed "Your actions"/"Enemy actions" lane display (#sequencer-shell,
-// a placeholder-or-live box between Blood Drops and the Map) is gone —
-// removed 2026-08-16 (CC5) as redundant bloat once the divider's own
-// slashes + Blood Drops took over showing staged actions, and to condense
-// the screen. This function is now just the divider/badge driver.
+// This function is just the divider/badge driver now — the old boxed
+// "Your actions"/"Enemy actions" lane display is gone, replaced by the
+// divider's own slashes + Blood Drops.
 export function renderSequencer(){
   renderTwilightSky();
   const badge = document.getElementById('sequencer-ap-badge');
@@ -534,12 +511,11 @@ export function renderSequencer(){
     if(table.inEncounter || replaying){
       badge.textContent = String(counterMax);
     }else{
-      // Non-Combat Round (2026-08-21) — the Orb still has a job outside
-      // Combat: showing how many Orders the viewing Player currently has
-      // stacked, waiting on the next Resolve. Inlined rather than importing
-      // js/noncombat.js, which itself imports js/combat.js — that would
-      // circle straight back to this file (combat.js already imports
-      // freezeSequencerReveal from here).
+      // Non-Combat Round: the Orb still has a job outside Combat — showing
+      // how many Orders the viewing Player currently has stacked, waiting on
+      // the next Resolve. Inlined rather than importing noncombat.js, which
+      // itself imports combat.js — that would circle straight back to this
+      // file (combat.js already imports freezeSequencerReveal from here).
       const me = table.players && table.players[AppState.playerId];
       const orderCount = (me && me.orders && me.orders.length) || 0;
       badge.textContent = orderCount ? String(orderCount) : '';
@@ -547,9 +523,9 @@ export function renderSequencer(){
   }
   // The hover popover has to respect the same fog-of-war rule as the
   // slashes themselves — otherwise hovering blank space where a hidden
-  // Enemy slash *would* be still leaks its name/action through the
-  // tooltip. Blood Drops (rendered from the full unfiltered `events`
-  // below) are unaffected, same as their own visibility rule.
+  // Enemy slash *would* be still leaks its name/action through the tooltip.
+  // Blood Drops (rendered from the full unfiltered `events` below) are
+  // unaffected, same as their own visibility rule.
   lastEvents = events.filter(ev => ev.side !== 'enemy' || replaying || AppState.veilVision);
   lastCounterMax = counterMax;
   renderSequencerDivider(table, counterMax, events, replaying);

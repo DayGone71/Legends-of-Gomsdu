@@ -1,11 +1,8 @@
-// The Map's "Craft" Tile popup (2026-08-21, per dDd's spec, followed close):
-// clicking Craft on an occupied Tile shows only the Crafts actually relevant
-// there. Crafter Target Crafts (self-only, e.g. Channel) only show up when
-// the Tile is the Player's own; Crafts targeting another Character (Message,
-// Heart Attack, ...) only show up on someone else's Tile. The old Combat/
-// Non-Combat filtering (only NONCOMBAT_TECHNIQUES offered outside an
-// Encounter) is gone as of 2026-08-23, per dDd — every Craft/Power is
-// offered regardless of Encounter state now.
+// The Map's "Craft" Tile popup: clicking Craft on an occupied Tile shows
+// only the Crafts actually relevant there. Self-only Crafts (e.g. Channel)
+// only show up when the Tile is the Player's own; Crafts targeting another
+// Character (Message, Heart Attack, ...) only show up on someone else's
+// Tile. Every Craft/Power is offered regardless of Encounter state.
 //
 // Deliberately its own module, never imported by js/map.js — techniques.js
 // already imports js/map.js (getDistance/hasLineOfSight), so map.js
@@ -26,12 +23,10 @@ function closeCraftPopup(){
   if(popup) popup.classList.add('hidden');
 }
 
-// Crafter (2026-08-22, per dDd — "when a Character is Active, the Tata
-// should be able to target Characters on the Map with the Tile's 'Craft'
-// popup, just like the Player already can"): the Player outside Tata, or
-// the real Active Character inside it. js/map.js's buildTilePopups only
-// ever emits the Craft button at all when this would resolve to someone
-// real (never The Architect, who has no Stats to Craft with).
+// The Crafter is the Player outside TATA, or the real Active Character
+// inside it. js/map.js's buildTilePopups only emits the Craft button at all
+// when this would resolve to someone real (never The Architect, who has no
+// Stats to Craft with).
 function currentCrafterId(){
   return AppState.tataActive ? AppState.activeCharacterId : AppState.playerId;
 }
@@ -44,10 +39,6 @@ function openCraftPopup(targetId, anchorEl){
   const isSelf = targetId === casterId;
 
   const options = Object.entries(TECHNIQUES).filter(([key, def]) => {
-    // Broadened 2026-08-22, per dDd ("Focus Powers should work through the
-    // click pop up") — same group:"Craft"-only gap already fixed once in
-    // js/dm.js's own craftsKnownBy(), just never reached this second,
-    // separate list-building path either.
     if(def.group !== 'Craft' && def.group !== 'Powers') return false;
     if(!hasTechniqueAccess(me, def)) return false;
     if(!!def.selfOnly !== isSelf) return false;
@@ -69,19 +60,17 @@ function openCraftPopup(targetId, anchorEl){
     btn.onclick = (ev) => {
       ev.stopPropagation();
       if(AppState.tataActive){
-        // Tata (2026-08-22, per dDd) — hands off to the DM's own existing
-        // Essence-menu casting machinery (dmCommitAction etc., js/dm.js)
-        // rather than duplicating its cost/range/sequence logic here; the
-        // Player-only Technique Use panel below assumes AppState.playerId
-        // as the Crafter throughout, which an Active Character isn't.
-        // AppState.actingEnemyId is already kept in lockstep with
-        // activeCharacterId (js/activeCharacter.js's toggleActiveCharacter),
-        // so the DM Panel opens already showing the right Character's own
-        // real Crafts/costs, not a stale or empty menu. openPanel('dm')
-        // collapses every DM action submenu by design (panels.js's own
-        // openPanel, so a previous session's expanded menu doesn't linger)
-        // — has to run BEFORE re-expanding Essence, or the pre-selection
-        // below gets immediately hidden again.
+        // TATA hands off to the DM's existing Essence-menu casting
+        // machinery (dmCommitAction etc., js/dm.js) rather than duplicating
+        // its cost/range/sequence logic here; the Player-only Technique Use
+        // panel below assumes AppState.playerId as the Crafter throughout,
+        // which an Active Character isn't. AppState.actingEnemyId is kept
+        // in lockstep with activeCharacterId (js/activeCharacter.js's
+        // toggleActiveCharacter), so the DM Panel opens already showing the
+        // right Character's real Crafts/costs. openPanel('dm') collapses
+        // every DM action submenu by design (panels.js's openPanel) — has
+        // to run before re-expanding Essence, or the pre-selection below
+        // gets immediately hidden again.
         openPanel('dm');
         dmToggleMenu('essence');
         selectDMTarget(targetId);

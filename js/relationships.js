@@ -1,13 +1,10 @@
-// Emotion Axes editor — Attachment/Desire, per dDd's own naming (2026-08-24:
-// "you can have the Emotion Axes, which are Attachment/Desire"). Used to be
-// its own full Relationships Pillar/Panel (2026-08-21) with its own Glyph
-// Gallery duplicating Information's; retired 2026-08-24 when the 3 Pillars
-// got redesigned into one Glyph-list-driven Personality Panel
-// (js/personality.js) — this module is now just the reusable Axis-editor
-// piece that panel's bottom-quarter Glyph detail renders, per dDd's own
-// Notebook: "Attachment is how fond they are of a piece of Information...
-// Desire is how intently they are pursuing a piece of Information" — both
-// live directly on the Mindeye entry itself, not the Character.
+// Emotion Axes editor — Attachment (how fond a Character is of a piece of
+// Information) and Desire (how intently they're pursuing it), both living
+// directly on the Mindeye entry itself, not the Character. This module is
+// the reusable Axis-editor piece the Personality Panel's (js/personality.js)
+// bottom-quarter Glyph detail renders — it used to be its own full
+// Relationships Pillar/Panel, since folded into the Glyph-list-driven
+// Personality Panel.
 
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
@@ -33,9 +30,8 @@ export function renderAxis(name, leftLabel, rightLabel, field, entry, readOnly) 
       <button class="rel-pole-btn${value === 2 ? ' active' : ''}" data-val="2">${escapeHtml(rightLabel)}</button>
     </div>
   `;
-  // Read-only while inspecting someone else's Character (2026-08-22, per
-  // dDd — "to see what is going on," not to edit it from here) — buttons
-  // still show the real state, they just don't respond to clicks.
+  // Read-only while inspecting someone else's Character — buttons still
+  // show the real state, they just don't respond to clicks.
   if(!readOnly){
     el.querySelectorAll('.rel-pole-btn').forEach(btn => {
       btn.addEventListener('click', () => setAxisValue(entry.id, field, Number(btn.dataset.val)));

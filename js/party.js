@@ -1,8 +1,6 @@
-// Party Panel (2026-08-22) — first real content in the previously-empty
-// "Party" toolbar panel (see reference/ROADMAP.md, Party Panel section).
-// Just Party Facing for now — the panel's other threads (Formations,
-// Movement/Combat Behavior, Stats/Techniques/Progression, AI Logic) are
-// still open [Discuss] items, not built.
+// Party Panel — just Party Facing for now. The panel's other threads
+// (Formations, Movement/Combat Behavior, Stats/Techniques/Progression, AI
+// Logic) are still open [Discuss] items in reference/ROADMAP.md, not built.
 
 import { AppState } from './state.js';
 import { FACING_DIRECTIONS, FACING_DEGREES, stageFacingOrder } from './map.js';
@@ -25,10 +23,10 @@ export function renderPartyPanel(){
   }
 
   const current = me.facing || 'S';
-  // Facing is staged now, not instant (2026-08-22, per dDd) — a queued
-  // 'facing' Order (see js/map.js's stageFacingOrder) doesn't take effect
-  // until the next Resolve, so it's worth surfacing here rather than
-  // leaving the picker looking unchanged after a click.
+  // Facing is staged, not instant — a queued 'facing' Order (see
+  // js/map.js's stageFacingOrder) doesn't take effect until the next
+  // Resolve, so it's worth surfacing here rather than leaving the picker
+  // looking unchanged after a click.
   const pending = (me.orders || []).find(o => o.kind === 'facing');
   const sheet = document.createElement('div');
   sheet.className = 'sheet';

@@ -1,119 +1,140 @@
 # High-Level Goals
 
-Not `ROADMAP.md`. That document is the trenches — live `[Ready]`/`[Discuss]` work,
-one panel and one bug at a time, weeks deep. This is the other altitude: the
-big-picture build order and the "why we're actually doing this" reasoning
-behind it, meant to stay stable for a while and get referred back to, not
-edited every session. Started 2026-08-17, after stepping back from active
-build work for the first real high-level conversation about where the whole
-project is headed.
+Not `ROADMAP.md`. That document is the trenches — live `[Ready]`/`[Discuss]`
+work, one panel and one bug at a time, weeks deep. This is the other
+altitude: the big-picture build order and the "why we're actually doing
+this" reasoning behind it, meant to stay stable for a while and get referred
+back to, not edited every session.
+
+**Written CC2-1 (Cycle 2, Session 1), 2026-08-17** — see [CYCLES.md](CYCLES.md)
+for what Cycle/Session actually mean. **Rewritten 2026-08-25, at Cycle 2's
+own Assessment** — the original had drifted into half-plan, half-diary (4
+dated Addenda bolted onto the bottom, a "state of things" section describing
+a build from over a week before it was last read). This version folds dDd's
+own status pass on every Priority item, given directly at that Assessment,
+into a single current statement instead of a patched-over one.
 
 Cross-reference: [gomsdu-codex.md](gomsdu-codex.md) (the world/themes this is
 all in service of), [dialogue-system.md](dialogue-system.md) (the fuller
-design space item 1-2 below draws from), [style-guide.md](style-guide.md)
-(item 8), [ROADMAP.md](ROADMAP.md) (the tactical layer underneath all of this).
+design space several items below draw from — the full Wimbis pivot and
+Universal Characters Table history live there in dated detail, not
+repeated here), [style-guide.md](style-guide.md) (item 8), [ROADMAP.md](ROADMAP.md)
+(the tactical layer underneath all of this), [CYCLES.md](CYCLES.md) (what
+the current Cycle is actually scoped to do next).
 
 ---
 
-## The state of things, honestly assessed
+## The state of things, as of Cycle 2's Assessment (2026-08-25)
 
-Two projects at very different maturity levels sharing one interface. The
-Codex is a real, load-bearing thematic argument, not flavor text — every
-faction is a different disguise on the same underlying exploitation, and the
-"Player-Facing Reveal" sequence is genuinely sophisticated design. The engine
-underneath (Global Counter combat, Possession, the Chunk/Wounds split) is
-further along than it looks. But as of this writing, the app has **zero
-narrative surface** — no Scene system, no NPC, no dialogue anywhere in `js/`.
-An excellent tactical combat/party table sitting next to a beautiful bible,
-currently unconnected. Everything below is the plan for connecting them.
+The gap this document originally described — a sophisticated Codex sitting
+next to an engine with zero narrative surface — has substantially closed.
+Wimbis is real: a whole `language/` toolchain, a living Glyphic System.
+Personality is real: Heart/Stomach/Head domains, per-Glyph Emotion Axes, a
+working Pursuit/Longing Behavior Queue. Characters are universal: one
+logical space across Players/Enemies/NPCs, with Ally/Enemy correctly scoped
+to Combat only rather than a permanent tag. A real Scene exists and is
+playable — Era 1: Gom. Per dDd's own pass below, most of the original
+9-item order is now Completed or Partially Completed. The honest gap left
+isn't "nothing's connected" anymore — it's the handful of items still
+Started or Partial, plus the process problem named in this same Assessment
+(hardcoding one-off mechanics instead of reusable systems — see
+[ROADMAP.md](ROADMAP.md)'s Architecture/Systemization section) that's now
+the actual gate on what gets picked up next, not any single item below.
 
 ---
 
-## The Priority Order (settled 2026-08-17)
+## The Priority Order
 
-dDd's own ordering for 1–5 and 7; Claude filled the gaps at 6, 8, 9 on request,
-confirmed correct.
+dDd's own ordering for 1–5 and 7; Claude filled the gaps at 6, 8, 9 on
+request, confirmed correct at the time. Status lines are dDd's own pass,
+given directly at Cycle 2's Assessment, 2026-08-25.
 
-**1 — Dialogue System Skeleton.** Before its own Stats exist, decide *how*
-they'll be used — same lesson Combat already learned. dDd's own framing,
-worth preserving verbatim: *"With the Combat, I started by thinking of the
-way heroes in movies were portrayed. Aragorn could slay like 7 orks in 3
-seconds. What the heck was going on with enemies having these ridiculous
-health bars? ... Is it possible to get that sense across while having the
-Player feel pretty much unstoppable amongst all the commotion?"* Dialogue
-needs the equivalent translation pass — Themes into what's actually
-expressible inside HTML/CSS/JS — before anything gets built. **The one Theme
-singled out: Information.** Non-Combat/Personality Stats are about what a
-Character *does* with Information (which is what Axes are, functionally);
-personality develops as a *reaction to* Information. Start there, then work
-backward into the Stats — not the other way around.
+**1 — Dialogue System Skeleton. Status: Completed — WIMBIS.**
+Before its own Stats exist, decide *how* they'll be used — same lesson
+Combat already learned. dDd's own framing, worth preserving verbatim:
+*"With the Combat, I started by thinking of the way heroes in movies were
+portrayed. Aragorn could slay like 7 orks in 3 seconds. What the heck was
+going on with enemies having these ridiculous health bars? ... Is it
+possible to get that sense across while having the Player feel pretty much
+unstoppable amongst all the commotion?"* Dialogue needed the equivalent
+translation pass — Themes into what's actually expressible inside
+HTML/CSS/JS — before anything got built. The path that actually got there
+wasn't the original English Set-Piece/Call-Response engine (superseded —
+see `dialogue-system.md`'s "2026-08-19 to 2026-08-20 — The pivot to
+Wimbis" section) — it's Wimbis, the world's own Language, built as a real
+system first, with English demoted to a translation layer handed to the
+Player. Full history in `dialogue-system.md`'s dated sections, 2026-08-19
+through 2026-08-24 (the file was trimmed 2026-08-25 — it originally also
+covered the superseded English engine itself, cut for the same reason
+`gomsdu-dialogue-mechanics.md` was).
 
-**Addendum, 2026-08-20 — not a change to the order above, a note on what
-"item 1" currently means in practice.** English/human-personality density
-stalled the direct approach (see `dialogue-system.md`'s 2026-08-19/20
-pivot section). Current path: build **Wimbis**, the world's own Language,
-as a real system first — a whole `language/` toolchain and a growing
-Glyphic System now exist — with English as the translation layer handed
-to the player, not the thing being formalized. Still squarely item 1, just
-arrived at from underneath rather than head-on.
+**2 — Personality/Dialogue Stats. Status: Completed — Personality and the
+Axis.** Downstream of 1 by construction. Built: Heart/Stomach/Head as the
+domains Axes attach to, Attachment/Desire as the real per-Glyph Emotion
+Axes, and the full Desire + Longing + Plan + Repeat = Pursuit weighting
+formula driving a working Behavior Queue. Full history in `CHANGELOG.md`'s
+2026-08-21 through 2026-08-24 entries.
 
-**Addendum, 2026-08-19 (later the same day) — the underneath approach paid
-off concretely.** The Arranger's `follow`/`goto`/`wildcard`/`yield` Line
-markers, added for an unrelated exercise, produced a Composition that's
-structurally a branching dialogue/ritual graph — see `dialogue-system.md`'s
-"The Composition format turns out to already be a Call/Response graph."
-Wimbis isn't just a translation layer sitting under future Dialogue work
-anymore; its own grammar can plausibly carry the branch logic directly.
+**3 — NPC Creation. Status: Completed — Characters are universal.** Needs
+somewhere to put the Stats. Resolved by the Universal Characters Table
+(`table.characters`) — per dDd, *"Character, defined: anything with a Stat
+Sheet... applies uniformly to Players, Mini-Party members, Enemies, and
+NPCs — there's no separate 'NPC' data shape, just another Character."* See
+`dialogue-system.md`'s 2026-08-22 and 2026-08-24 sections, and
+`CHANGELOG.md` 2026-08-24 (Yom as the Table's first real tenant).
 
-**Addendum, next session — Wimbis confirmed as Dialogue's actual engine, and
-a near-term attack order set.** Per dDd, following a full synthesis pass
-across every reference doc's open threads: "WIMBIS is the result of all
-that experimentation, the answer to it. It'll have everything to do with
-Dialogue since it's the only way to Communicate in World." Full detail in
-`dialogue-system.md`'s matching dated section. **dDd's own order for what
-gets picked up next: Personality System, then Composition-to-Behavior,
-then the Mechanical Fixes** (this last one is item 5 below — AP-costed
-movement, DM Enemy-movement control, Range Restriction, Neutral
-Characters). Composition-to-Behavior is confirmed real, not speculative:
-"Head to Information (Expressions or Compositions right now). That
-information informs Movement on the Map and choices in Combat (recklessly
-attacking for example)." **`ROADMAP.md` itself is untouched this
-session, deliberately** — per dDd, its live `[Ready]`/`[Discuss]` items
-are on hold pending further discussion, not folded into this reordering.
+**4 — Character refinement + NPC integration. Status: Partially
+Completed.** Needs NPCs to exist first to know what "integration" means
+concretely. Per dDd, 2026-08-25: this item needs a closer read against
+what's actually built before its status can be judged precisely — flagged
+open rather than guessed at.
 
-**2 — Personality/Dialogue Stats.** Downstream of 1 by construction.
+**5 — Minor mechanical fixes. Status: Completed** — per dDd, 2026-08-25,
+"every one of these have been resolved." The 4 items standing between the
+old Map and a Bane-shaped encounter: AP-costed/queued movement, DM control
+over Enemy movement, Range Restriction on Actions (Attack/Block gated by
+Tile adjacency), Neutral Characters. AP-costed movement → Move Orders,
+built 2026-08-21 (see `CHANGELOG.md` same date). **Worth reconciling**:
+`ROADMAP.md`'s DM Panel item E ("nobody can move an Enemy once it
+spawns — not the DM, not anyone") is still listed `[Discuss]`, open as of
+2026-08-25 — flagged here rather than silently marked resolved, since it
+reads like a real gap against "every one of these have been resolved" and
+is worth a quick check next time DM Panel work comes up.
 
-**3 — NPC Creation.** Needs somewhere to put the Stats.
+**6 — Scenes / Narrative Interface. Status: Partially Completed.** The
+assembly layer. Items 1–5 are components; this is the first place they run
+together — text, a real dialogue exchange using the actual Axes/Stats, an
+NPC rendered as one, handing off into Combat on a Range-restricted Map.
+Per dDd, 2026-08-25: the Grid Tile Map is turning out much more flexible
+than first anticipated, and the Narrative itself is planned to work in
+tandem with item 9 (Physics-as-Narrative), not as a separate track. Era 1:
+Gom is the first real instance of this item actually existing in play —
+see `CHANGELOG.md` 2026-08-20/22.
 
-**4 — Character refinement + NPC integration.** Needs NPCs to exist first to
-know what "integration" means concretely.
+**7 — Web Lab development & Experiments. Status: Ongoing** — a longer
+initiative by design, not a race to finish. Parallel/recreational track,
+not competing for priority against 1–6 — the thing that happens *during* a
+break from them, not after them. dDd encourages "lots of creative
+thinking," and the Codex itself hands over plenty of Force/Form
+combinations to draw from. See "The Web Laboratory" section below for the
+full seed list.
 
-**5 — Minor mechanical fixes** — the 4 items standing between the current Map
-and a Bane-shaped encounter: AP-costed/queued movement, DM control over Enemy
-movement, Range Restriction on Actions (Attack/Block gated by Tile
-adjacency), Neutral Characters. Confirmed narrow and self-contained, not an
-architecture fight — Tile-disabling itself is already built.
+**8 — Visual/Art-direction pass. Status: Started.** The current
+ink/parchment/brass look is explicitly flagged in `style-guide.md` as
+never art-directed, "all of it is getting replaced" — real work, but
+nothing upstream depends on it. Per dDd, 2026-08-25: the Mindeye Interface
+(the animated smoke → split → Vesica Piscis → Glyph-box reveal, built
+2026-08-20) is a real example of this pass actually happening, not just
+planned.
 
-**6 — Scenes / Narrative Interface.** The assembly layer. 1–5 are components;
-this is the first place they run together — text, a real dialogue exchange
-using the actual Axes/Stats, an NPC rendered as one, handing off into Combat
-on the now-Range-restricted Map. "Bane" was never a separate priority from
-this — it's what building #6 for the first time looks like.
-
-**7 — Web Lab development & Experiments.** Parallel/recreational track, not
-competing for priority against 1–6 — the thing that happens *during* a break
-from them, not after them. dDd: encourages "lots of creative thinking," and
-the Codex itself hands over plenty of Force/Form combinations to draw from.
-
-**8 — Visual/Art-direction pass.** The current ink/parchment/brass look is
-explicitly flagged in `style-guide.md` as never art-directed, "all of it is
-getting replaced" — real work, but nothing upstream depends on it.
-
-**9 — Physics-as-Narrative fusion.** The eventual payoff of everything above
-it: Possession driving the Lightning box's own strike-rate live, a Scene
-rendering as a tuned storm instead of a paragraph. Correctly last — it needs
-Dialogue, Stats, NPCs, a Scene System to live inside, *and* a mature-enough
-Lab, all at once, before there's anything real to hook it into.
+**9 — Physics-as-Narrative fusion. Status: Started.** The eventual payoff
+of everything above it: Possession driving the Lightning box's own
+strike-rate live, a Scene rendering as a tuned storm instead of a
+paragraph. Per dDd, 2026-08-25: the Mindeye Interface is a working example
+here too — it's the Home Page's own Lightning-box effect, adapted to how a
+Script presents itself on screen. The same piece of art-direction work is
+doing double duty as items 8 and 9 at once — worth noticing as a real
+connection, not a coincidence to resolve.
 
 ---
 
@@ -121,11 +142,12 @@ Lab, all at once, before there's anything real to hook it into.
 
 Landing-page-only right now (`index.html`'s Color Lab, Lightning box, Lava
 box — see `js/main.js`'s `initLightningBox`/`initLavaBox`), explicitly no
-game state. dDd's vision for where this goes: not decoration, but the
-Narrative eventually *presented through* these semi-random forces going off
-— which lines up unusually well with the Codex's own cosmology, where the
-First and Second Wars are literally Lightning-and-Lava acting on each other
-at civilizational scale. The Founding Rule — neither brother creates from
+game state beyond what item 9 above has started connecting. dDd's vision
+for where this goes: not decoration, but the Narrative eventually
+*presented through* these semi-random forces going off — which lines up
+unusually well with the Codex's own cosmology, where the First and Second
+Wars are literally Lightning-and-Lava acting on each other at
+civilizational scale. The Founding Rule — neither brother creates from
 nothing, both act on shared material, Liquid doesn't exist until the two of
 them actually meet — is a real, buildable mechanic if the experiments below
 share one canvas and interact, instead of living in separate boxes.
@@ -174,68 +196,19 @@ a small working model of the Founding Rule itself — which is the most
 
 ---
 
-**Addendum, 2026-08-21 — the Non-Combat Round landed, and it's bigger than
-any single Priority item.** A single session built: Personality's first Axis
-(Intelligence, tied to Mindeye capacity), the Non-Combat Round itself
-(`resolveNonCombatRound()`, the Non-Combat equivalent of Combat's
-`resolveRound()` — "the default state of the Game," per dDd, not a special
-mode), Move Orders (multi-Tile pathing, range preview, a ghost trail) riding
-on top of it, Twilight Milk (the Time Mechanic, a real First/Second-Era sky
-driven by the Sequencer Bar), and Message/Channel becoming genuinely usable
-Non-Combat Techniques. Two things worth naming explicitly:
-- **Move Orders is Priority item 5's "AP-costed/queued movement"** — the
-  first of the 4 Minor Mechanical Fixes, built ahead of where it sat in
-  dDd's own stated attack order (Personality → Composition-to-Behavior →
-  Mechanical Fixes). Not a deviation flagged as a problem — the Non-Combat
-  Round it needed to exist inside wasn't itself on that list at all; picking
-  it up made this piece newly buildable, not out of turn on purpose.
-- **The Non-Combat Round turned out to be connective tissue, not just a
-  Movement feature.** Move, Message, and the Attunement/Recovery tick all
-  now resolve through the exact same mechanism — the first real seam between
-  the tactical engine (Movement, resources) and the Information/Language
-  track (Message delivering into the Mindeye). Worth treating as its own
-  standing piece of architecture going forward, not folded silently into
-  whichever feature happened to need it first.
+## Closing note on this rewrite
 
-**Addendum, 2026-08-22 — Composition-to-Behavior confirmed as the actual
-Combat engine, not just a Movement feature; the Universal Characters Table
-named for the first time.** Full detail in `dialogue-system.md`'s matching
-dated section, triggered by chasing a Techniques-targeting bug all the way
-to its root. The headline: the `computeBehaviors()`/`rollBehavior()` engine
-already built and verified for autonomous Movement (2026-08-22, see
-`CHANGELOG.md`) is confirmed as the same engine meant to drive Combat action
-selection (Fast Attack vs. Block) — both are just differently-memorized
-Glyphs, weighted by Personality, per dDd's own framing. This also reframes
-Ally/Enemy as strictly Combat-scoped rather than a permanent structural
-split, and names the data-model implication directly: one Universal
-Characters Table, not separate Player/Enemy structures — with the actual
-storage shape (separate connected tables vs. a key on one table) an
-explicit, still-open question. Nothing here is scoped for implementation
-yet; it's the foundation the eventual targeting fix (and Combat-via-Behaviors
-work) has to sit on.
-
-## Open, not yet started
-
-- **Dialogue System Skeleton** (item 1) — has a real skeleton standing now,
-  not just design notes. Three companion documents landed and got absorbed
-  (`gomsdu-dialogue-mechanics.md`, `gomsdu-vibe-doc.md`,
-  `gomsdu-influences.md`, all now living in `reference/` alongside this
-  file), formalizing the **Four Pillars — Exchange, Information,
-  Personality, Relationships — with Chemistry as the process connecting
-  them, not a fifth.** Each Pillar now has its own standalone, working
-  prototype: `prototypes/dialogue-line.html` (Exchange — Line, Set Pieces,
-  Snippets, saved Exchanges), `information-pillar.html` (Local/Global kit),
-  `personality-pillar.html` (Heart/Stomach/Head, Pole-Mid-Pole Axes),
-  `relationships-pillar.html` (Temporary→Final, Chemistry Pairs), and
-  `chemistry-pillar.html` (a snapshot dashboard pulling all four together —
-  placeholder data for now, not live-wired). The Set-Piece/Axis grammar
-  itself got real validation, not just internal consistency — see
-  [dialogue-snippets.md](dialogue-snippets.md), a running library of real
-  quotes decomposed into this notation, with genuine emergent overlap
-  surfacing unforced four times across the first six tried. Full detail in
-  [dialogue-system.md](dialogue-system.md)'s "2026-08-17, later that night"
-  and "2026-08-18" sections. Items 2–4 (Stats, NPCs, Character integration)
-  are still genuinely not started as game-integrated systems — though the
-  Personality prototype above is arguably a first concrete stab at item 2's
-  Stats specifically, worth reconciling rather than starting item 2 fresh
-  from nothing.
+The 4 dated Addenda that used to sit below the Priority Order (2026-08-19
+through 2026-08-22 — the Wimbis pivot, the Non-Combat Round landing, and
+Composition-to-Behavior/the Universal Characters Table getting named) have
+been folded into the status lines above instead of kept as appended prose.
+Nothing was lost: full original detail lived in `dialogue-system.md` (the
+Wimbis pivot, Composition-to-Behavior) and `CHANGELOG.md`'s 2026-08-21 and
+2026-08-22 entries (the Non-Combat Round) — just no longer duplicated in a
+document meant to stay stable. Same reasoning for the old "Open, not yet
+started" section, which only ever covered item 1's now-superseded English
+Dialogue Engine prototypes — **that content is now gone from `dialogue-system.md`
+too, cut in a follow-up pass the same day** (1130 lines down to ~400 — per
+dDd, "more than half of that information is useless"). Genuinely retired,
+not relocated — the same "zero consequence" judgment already applied to
+`gomsdu-dialogue-mechanics.md`/`gomsdu-vibe-doc.md`/`dialogue-snippets.md`.

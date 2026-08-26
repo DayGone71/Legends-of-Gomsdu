@@ -27,48 +27,41 @@ export const AppState = {
   // UI-only, never synced
   activePanel: null,
   mapEditMode: false,
-  // TATA toggle (2026-08-20, per dDd) — switches Movement's Tile-click
-  // handling from Player/Party to Non-Player. First pass only wires this
-  // into Movement's own click-detection branch — the fuller "Party becomes
-  // Enemy Tiles" swap is its own separate, not-yet-built scope.
+  // TATA toggle — switches Movement's Tile-click handling from Player/Party
+  // to Non-Player.
   tataActive: false,
-  // Active Character (2026-08-22, per dDd) — which real table.enemies id, if
-  // any, TATA has explicitly made Active; null means the default, The
-  // Architect (see js/activeCharacter.js). Only meaningful while tataActive
-  // is true — outside TATA the Active Character is always just the Player's
-  // own Character this pass, no override exists yet.
+  // Which real table.enemies id, if any, TATA has explicitly made Active;
+  // null means the default, The Architect (see js/activeCharacter.js). Only
+  // meaningful while tataActive is true.
   activeCharacterId: null,
-  // Inspect mode (2026-08-22, per dDd — "clicked by either Player or Tata
-  // to see what is going on with the NPCs") — which Character id, if any,
-  // the Information/Personality/Relationships panels are currently showing
-  // instead of the viewing Player's own. Set from a new NPC Panel row
-  // button, cleared the moment any of those 3 panels is opened normally
-  // (its own toolbar button) — read-only while set, per dDd's own framing
-  // ("to see," not to edit someone else's Character from here).
+  // Which Character id, if any, the Information/Personality/Relationships
+  // panels are currently showing instead of the viewing Player's own. Set
+  // from an NPC Panel row button, cleared the moment any of those 3 panels
+  // is opened normally — read-only while set, since this is for inspecting,
+  // not editing someone else's Character.
   inspectTargetId: null,
-  // Movement (2026-08-20) — which Tile currently has its occupancy popup(s)
-  // showing ({x,y} or null), and which actor (if any) is mid tile-pick
-  // ({ actorId } or null) after confirming "Move?".
+  // Which Tile currently has its occupancy popup(s) showing ({x,y} or
+  // null), and which actor (if any) is mid tile-pick ({ actorId } or null)
+  // after confirming "Move?".
   moveClickTile: null,
   moveSelectMode: null,
-  // Map viewport panning (2026-08-22, per dDd — a fixed VIEWPORT_TILES x
-  // VIEWPORT_TILES window that pans over a bigger table.map via tile-clicker
-  // buttons, not a native/CSS-scrolled full render). {x,y} of the window's
-  // own top-left corner, in real map coordinates; clamped to the map's
-  // bounds on every render (js/map.js's renderMap). Local-only, like
-  // tataActive below — each viewer pans their own window independently.
-  // mapViewHistory is a small undo stack of previous offsets, popped by the
-  // "back" pan-history button.
+  // A fixed VIEWPORT_TILES x VIEWPORT_TILES window that pans over a bigger
+  // table.map via tile-clicker buttons. {x,y} of the window's own top-left
+  // corner, in real map coordinates; clamped to the map's bounds on every
+  // render (js/map.js's renderMap). Local-only, like tataActive — each
+  // viewer pans their own window independently. mapViewHistory is a small
+  // undo stack of previous offsets, popped by the "back" pan-history
+  // button.
   mapViewOffset: { x: 0, y: 0 },
   mapViewHistory: [],
-  // New Game Process (2026-08-20) — which Build keys, if any, the current
-  // Scene restricts Character-panel loading to; recomputed every renderAll()
-  // from AppState.table.scene, see js/scenes.js's SCENES and js/main.js.
+  // Which Build keys, if any, the current Scene restricts Character-panel
+  // loading to; recomputed every renderAll() from AppState.table.scene, see
+  // js/scenes.js's SCENES and js/main.js.
   sceneBuildRestriction: null,
-  // Veil Vision (2026-08-16) — a personal, local-only "see through the fog"
-  // toggle, deliberately not synced to the table: it's meant to feel like
-  // your own vision changing, not a shared DM broadcast, so one player
-  // turning it on must not reveal anything to anyone else connected.
+  // A personal, local-only "see through the fog" toggle, deliberately not
+  // synced to the table: it's meant to feel like your own vision changing,
+  // not a shared DM broadcast, so one player turning it on must not reveal
+  // anything to anyone else connected.
   veilVision: false,
 
   // DM Test panel — per-actor auto-battle config and run state, all local/UI-only

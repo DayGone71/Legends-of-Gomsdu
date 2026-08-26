@@ -30,14 +30,14 @@ export async function loadSession(code){
 
 // Creates or overwrites the state blob for a session code. With no
 // expectedVersion, this is a plain upsert (table creation — see
-// createNewSession below). With an expectedVersion, it's a CONDITIONAL
-// update (2026-08-21, optimistic concurrency — see mutateTable in sync.js):
-// only writes if state's own embedded _version still matches what the
-// caller last read, using PostgREST's JSON-path filter syntax directly on
-// the jsonb column rather than needing a real schema migration for a
-// dedicated version column. Returns {ok, conflict} so the caller can tell
-// "a real error" (conflict:false) apart from "someone else wrote first,
-// please retry" (conflict:true).
+// createNewSession below). With an expectedVersion, it's a conditional
+// update for optimistic concurrency (see mutateTable in sync.js): only
+// writes if state's own embedded _version still matches what the caller
+// last read, using PostgREST's JSON-path filter syntax directly on the
+// jsonb column rather than needing a schema migration for a dedicated
+// version column. Returns {ok, conflict} so the caller can tell "a real
+// error" (conflict:false) apart from "someone else wrote first, please
+// retry" (conflict:true).
 export async function saveSession(code, state, expectedVersion){
   try{
     let query = getClient().from('sessions');
@@ -84,14 +84,11 @@ export function subscribeToSession(code, onChange){
       }
     )
     .subscribe((status, err) => {
-      // Downgraded from console.error 2026-08-24, per dDd noticing it live.
-      // Confirmed by direct test — a write immediately after this fired
-      // still landed and its own realtime echo still came back correctly —
-      // the underlying Phoenix socket reconnects on its own; this callback
-      // firing (status CHANNEL_ERROR/TIMED_OUT, a transient network blip)
-      // doesn't mean the channel actually died, just that it's mid-retry.
-      // console.warn, not error, so it doesn't read as a real problem in
-      // the console when it self-heals a moment later, which it does.
+      // console.warn, not error: this callback firing (status CHANNEL_ERROR/
+      // TIMED_OUT, a transient network blip) doesn't mean the channel
+      // actually died — the underlying Phoenix socket reconnects on its
+      // own, and a write immediately after still lands with its realtime
+      // echo intact.
       if(err) console.warn('[sync] Realtime channel hiccup (status: ' + status + '), reconnecting on its own:', err);
     });
 

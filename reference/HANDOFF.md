@@ -13,6 +13,10 @@ state, not the mid-session snapshot the first version of this file caught.
 
 ## The docs, and what each one is actually for
 
+-   **[ONBOARD.md](ONBOARD.md)** — new 2026-08-25. Not Session state, the
+    *game itself* — what Legends of Gomsdu actually is, mechanically and
+    conceptually, compressed. Read this one first if you're new to the
+    project, before HANDOFF or ROADMAP.
 -   **[ROADMAP.md](ROADMAP.md)** — live planning only. Every `[Ready]`/
     `[Discuss]` item currently open. Check this fresh every session; it's
     edited constantly.
@@ -28,9 +32,15 @@ state, not the mid-session snapshot the first version of this file caught.
     Handoff said; that was true 2026-08-22, not anymore.
 -   **[VISION.md](VISION.md)** — the other altitude, big-picture build
     order, meant to stay stable across sessions.
+-   **[CYCLES.md](CYCLES.md)** — new 2026-08-25. One entry per Cycle
+    (several Sessions capped by an Assessment), written once, never
+    overwritten — unlike this file. Read it if you want to know what
+    changed about *process*, not just what got built.
 -   **[style-guide.md](style-guide.md)** — the tiebreaker for any color/
     design fact.
--   **[scenes.md](scenes.md)** — a running "Script Place" for Scene ideas.
+-   **[scenes.md](scenes.md)** — a running "Script Place" for Scene ideas,
+    First Era only (tightened 2026-08-25, was 429 lines). Second Era has
+    its own file, [scenes-2nd-era.md](scenes-2nd-era.md).
 -   **[dialogue-system.md](dialogue-system.md)** — the fuller Wimbis design
     history. Dense; skim dated section headers. Has a new 2026-08-24
     follow-up closing the loop on 2026-08-22's Universal Characters Table

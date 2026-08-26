@@ -1,26 +1,18 @@
-// Scripts (2026-08-22, per dDd) — "a series of instructions to send to an
-// NPC." Two real, distinct mechanisms live here now:
+// Scripts — "a series of instructions to send to an NPC." Two real, distinct
+// mechanisms live here:
 //
-// 1. `dispatchScript()` — an immediate, uncapped, one-shot send: every
-//    Glyph in the list delivered right now, in order. Useful for direct,
-//    manual dispatch (the disclosed-mutation pattern this whole codebase's
-//    testing already leans on).
-// 2. `assignScript()` / `actor.activeScripts` — real tracked state, per
-//    dDd's own Actor/Target/Action/Outcome breakdown: an ordered list of
-//    Rows (each Row up to 3 Glyphs, matching Message's own cap — a Row
-//    delivers in one Message since dDd confirmed "Horizontal can all be
-//    done at once"), a Target, and how far delivery has gotten. This is
-//    what the Teach Behavior (WIM — js/behaviors.js, resolved in
-//    js/noncombat.js) actually advances, one Row per roll, only moving to
-//    the next Row once the current one's Outcome has landed ("Vertical has
-//    to wait"). Up to 3 Scripts can be active at once per Actor (2026-08-23,
-//    per dDd — "the Character can only have one Script for Plan. Can we
-//    make it 3?"), each its own slot/Target — a single Teach roll still
-//    only advances one Row total, from the first not-yet-complete slot.
-//    Assigning a Script is still a manual, orchestrated act — per dDd:
-//    "We are orchestrating that ourselves... Let's keep that approach" —
-//    Behavior only ever *advances* a Script that's already been assigned,
-//    it never creates one for itself.
+// 1. `dispatchScript()` — an immediate, uncapped, one-shot send: every Glyph
+//    in the list delivered right now, in order.
+// 2. `assignScript()` / `actor.activeScripts` — real tracked state: an
+//    ordered list of Rows (each Row up to 3 Glyphs, matching Message's own
+//    cap — a Row delivers in one Message), a Target, and how far delivery
+//    has gotten. This is what the Teach Behavior (WIM — behaviors.js,
+//    resolved in noncombat.js) actually advances, one Row per roll, only
+//    moving to the next Row once the current one's Outcome has landed. Up
+//    to 3 Scripts can be active at once per Actor, each its own slot/Target
+//    — a single Teach roll still only advances one Row total, from the
+//    first not-yet-complete slot. Assigning a Script is still a manual,
+//    orchestrated act — Behavior only ever *advances* a Script that's already been assigned, it never creates one for itself.
 
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
@@ -29,22 +21,16 @@ import { glyphOptionsHtml } from './techniques.js';
 import { compositionCardHtml } from './information.js';
 
 // Whether a Character actually knows a given Glyph — the gate a real
-// Script/Behavior dispatch will eventually need to respect (a Character
-// shouldn't be able to send a Glyph it doesn't itself know). Not enforced
-// anywhere yet. "Knowing" (2026-08-23, per dDd — the knownGlyphs/mindeye
-// merge) means having a real Mindeye entry for it; see knownGlyphIds() in
-// js/utils.js. The separate knownGlyphs curriculum array this used to read
-// is gone.
+// Script/Behavior dispatch will eventually need to respect. Not enforced
+// anywhere yet. "Knowing" means having a real Mindeye entry for it.
 export function knowsGlyph(actor, glyphId){
   return knownGlyphIds(actor).includes(glyphId);
 }
 
 // Delivers every Glyph in a Script, in order, as that many separate Mindeye
 // entries — same mechanism a multi-Glyph Message already uses, just
-// uncapped. Mutates the table directly and logs one combined Ledger line
-// (not one per Glyph, so a multi-instruction Script reads as one event) —
-// call from inside a mutateTable() callback, same shape every other
-// in-callback helper in this codebase uses.
+// uncapped. Mutates the table directly and logs one combined Ledger line —
+// call from inside a mutateTable() callback.
 export function dispatchScript(table, script){
   const { senderName, targetId, targetName, glyphs } = script;
   (glyphs || []).forEach(g => deliverMindeyeEntry(table, targetId, senderName || 'Someone', g));
@@ -57,28 +43,19 @@ export function dispatchScript(table, script){
   }
 }
 
-// Saved Scripts (2026-08-22, per dDd — "save the Script I gave you
-// originally to a drop down accessible from within the Scripts Panel").
-// Named presets, pre-authored the same plain-object-literal convention
-// [js/character.js](../js/character.js)'s BUILDS and
-// [js/techniques.js](../js/techniques.js)'s TECHNIQUES already use — folded
-// into Assign Script's own picker list (2026-08-23, per dDd: "these should
-// be saved to Assign Script... this should have the Presets already"), not
-// a separate section with its own assign flow anymore.
+// Saved Scripts — named presets, pre-authored the same plain-object-literal
+// convention character.js's BUILDS and techniques.js's TECHNIQUES already
+// use, folded into Assign Script's own picker list.
 //
-// `gomTeachesMovement` is dDd's own 9-Expression Composition handed over
-// this session (verbatim, `reference/CHANGELOG.md` 2026-08-22): Expressions
-// 1 and 3 are empty by design (skipped, not sent as blank Messages); each
+// `gomTeachesMovement` is dDd's own 9-Expression Composition: Expressions 1
+// and 3 are empty by design (skipped, not sent as blank Messages); each
 // remaining Expression's up-to-3 Glyphs becomes one Row/Message here, in
-// dDd's own strict delivery order. **One simplification, flagged rather
-// than hidden**: dDd's own spec bundles Expressions 4+6 together into one
-// Round ("the 2 Message feature") and 7+8+9 into a further one ("All 3
-// Message"), each Round's Messages sent together — the current Teach
-// Behavior (js/noncombat.js) only ever delivers one Row per successful
-// roll, so this preset instead sends all 6 Messages strictly in the same
-// order, just not necessarily landing in the same Round together.
-// Real Round-bundling (multiple Messages per single Teach roll) is a
-// genuinely bigger mechanical change, not something to guess at here.
+// dDd's own strict delivery order. One simplification, flagged rather than
+// hidden: dDd's own spec bundles Expressions 4+6 together into one Round and
+// 7+8+9 into a further one, each Round's Messages sent together — the
+// current Teach Behavior only ever delivers one Row per successful roll, so
+// this preset instead sends all 6 Messages strictly in the same order, just
+// not necessarily landing in the same Round together. Real Round-bundling is a genuinely bigger mechanical change, not guessed at here.
 export const SAVED_SCRIPTS = {
   gomTeachesMovement: {
     name: 'Gom — 9-Expression Composition (Movement + Face)',
@@ -91,13 +68,9 @@ export const SAVED_SCRIPTS = {
       ['WIM', 'KROW', 'KULOG']
     ]
   },
-  // gomTeachesFocus (2026-08-22, per dDd) — a second Composition, same
-  // format/simplification as gomTeachesMovement above (Expressions 1/3/4/6/
-  // 7/9 empty by design and skipped; Expressions 2/5/8 become 3 Rows in
-  // order). Per dDd: "That means Teaching KA and KRO and M." — ties directly
-  // into the new Intelligence-gain mechanic he described the same message
-  // (contemplating KA+KRO+M together in one Round) — see ROADMAP.md's
-  // Personality/Behaviors section for that design, not yet built.
+  // A second Composition, same format/simplification as gomTeachesMovement
+  // above. Ties directly into the Intelligence-gain mechanic (contemplating
+  // KA+KRO+M together in one Round) — see ROADMAP.md's Personality/Behaviors section, not yet built.
   gomTeachesFocus: {
     name: 'Gom — 9-Expression Composition (Focus: KA/KRO/M)',
     rows: [
@@ -109,16 +82,13 @@ export const SAVED_SCRIPTS = {
 };
 
 // Assigns a real, tracked, multi-Round Script onto one of the actor's up to
-// 3 concurrent activeScripts slots (2026-08-23, per dDd — "the Character
-// can only have one Script for Plan. Can we make it 3? 3 in a row" — same
-// cap the manual Row builder already uses per-Script) — the Teach Behavior
-// (js/noncombat.js) is what actually delivers it, one Row per roll, from
-// whichever slot isn't complete yet. `rows` is an array of Glyph-id arrays,
-// each up to 3 (Message's own cap); `targetId`/`targetName` is who receives
-// every Row. Adds a new slot rather than overwriting — up to 3 different
-// Scripts (different Targets, even) can run at once now. Returns false
-// (caller's job to surface it) if all 3 slots are already full. Call from
-// inside a mutateTable() callback, same as dispatchScript above.
+// 3 concurrent activeScripts slots — the Teach Behavior is what actually
+// delivers it, one Row per roll, from whichever slot isn't complete yet.
+// `rows` is an array of Glyph-id arrays, each up to 3; `targetId`/
+// `targetName` is who receives every Row. Adds a new slot rather than
+// overwriting — up to 3 different Scripts (different Targets, even) can run
+// at once. Returns false (caller's job to surface it) if all 3 slots are
+// already full. Call from inside a mutateTable() callback, same as dispatchScript above.
 export function assignScript(actor, { targetId, targetName, rows }){
   if(!actor || !targetId || !rows || !rows.length) return false;
   if(!actor.activeScripts) actor.activeScripts = [];
@@ -127,42 +97,22 @@ export function assignScript(actor, { targetId, targetName, rows }){
   return true;
 }
 
-// --- Script Panel (2026-08-22, per dDd) ---------------------------------
-// "Add a Script Panel button the right side, so I can set the Scripts up."
-// Restructured 2026-08-23, per dDd's own naming/flow cleanup: "'Actor'
-// means Character (the Naming can be streamlined)... Actor was a temporary
-// fix; Actor is simply the Character themselves." Building a Script's Rows
-// also shouldn't be tangled up with picking who to assign it to — "Those
-// [Character/Rows] are part of Assign Script, but in truth it should only
-// be Target and a list of Scripts to Assign. The above stuff should be
-// Write Script, which adds it to Scripts to Assign." Two sheets now instead
-// of one:
-// - Write Script — the Expression builder (reusing js/techniques.js's own
-//   glyphOptionsHtml() rather than duplicating it), all 3 Expressions
-//   always visible per dDd ("may as well be visible at all times, like the
-//   Arranger"). Each Expression's up-to-3 Glyphs stack vertically now
-//   (2026-08-23, reversed from the original horizontal layout — "WIMBIS is
-//   written in 3 rows and 3 columns... Horizontal reading direction is
-//   irrelevant... the clash with the Language Writing is against the
-//   design"), with a live preview (js/information.js's
-//   compositionCardHtml()) so what's being built reads the same way it
-//   will everywhere else. No Character/Target of its own — a Script's
-//   content doesn't belong to anyone until it's actually assigned. Saves
-//   onto t.writtenScripts, a shared, table-persisted pool so every
-//   connected Player sees the same list.
+// --- Script Panel --------------------------------------------------------
+// Two sheets:
+// - Write Script — the Expression builder (reusing techniques.js's own
+//   glyphOptionsHtml() rather than duplicating it), all 3 Expressions always
+//   visible. Each Expression's up-to-3 Glyphs stack vertically, with a live
+//   preview (information.js's compositionCardHtml()) so what's being built
+//   reads the same way it will everywhere else. No Character/Target of its
+//   own — a Script's content doesn't belong to anyone until it's actually
+//   assigned. Saves onto t.writtenScripts, a shared, table-persisted pool so every connected Player sees the same list.
 // - Assign Script — Character (who acts) + Target (who receives) + one
-//   merged picker list (2026-08-23, per dDd: "these should be saved to
-//   Assign Script... this should have the Presets already") combining
-//   SAVED_SCRIPTS (pre-authored) and t.writtenScripts (Player-authored)
-//   into a single list — no separate Saved Scripts section/assign flow
-//   anymore. Every picker card renders via the same shared
-//   compositionCardHtml() component (2026-08-23, per dDd: "a single
-//   Rectangular Button they all use"), reused again for the Active
-//   Scripts status readout below (with its own progress overlay) instead
-//   of a third, divergent plain-text layout.
+//   merged picker list combining SAVED_SCRIPTS (pre-authored) and
+//   t.writtenScripts (Player-authored) into a single list. Every picker card
+//   renders via the same shared compositionCardHtml() component, reused
+//   again for the Active Scripts status readout below (with its own progress overlay).
 // Local-only form state throughout, same pattern every other panel's
-// transient picker state already uses (js/information.js's
-// revealingEntryId, js/relationships.js's selectedEntryId).
+// transient picker state already uses (information.js's revealingEntryId, relationships.js's selectedEntryId).
 let builderActorId = null;
 let builderTargetId = null;
 // Write Script's own local state — 3 fixed Expression slots, no Add/Remove.
@@ -181,14 +131,11 @@ function rowsEqual(a, b){
 }
 
 // Whether charId is *already the recipient* of an in-progress instance of
-// any of the given candidate Row lists (2026-08-23, per dDd: "the Target
-// gets greyed out and is not able to receive the same Script" — read
-// literally as *this* Script, not "has any Script at all," so a Character
-// can still receive a different one). `activeScripts` (up to 3, 2026-08-23)
-// lives on whoever is TEACHING it, not on the recipient — a Living Stone
-// being taught has no field of its own recording that; the only way to
-// know is to check every real Actor's own slots for one whose targetId is
-// charId.
+// any of the given candidate Row lists — read literally as *this* Script,
+// not "has any Script at all," so a Character can still receive a different
+// one. `activeScripts` lives on whoever is TEACHING it, not on the
+// recipient — a Living Stone being taught has no field of its own recording
+// that; the only way to know is to check every real Actor's own slots for one whose targetId is charId.
 function targetAlreadyHasScript(table, charId, candidateRowsList){
   const actors = [...Object.values(table.players || {}), ...Object.values(table.enemies || {})];
   return actors.some(a => (a.activeScripts || []).some(s => s.targetId === charId &&
@@ -196,8 +143,7 @@ function targetAlreadyHasScript(table, charId, candidateRowsList){
 }
 
 // Every pickable Script — Saved (pre-authored) first, then whatever's been
-// Written this session, one merged list (2026-08-23, per dDd — see this
-// file's Script Panel header comment). `rows` arrays are shared references
+// Written this session, one merged list. `rows` arrays are shared references
 // into SAVED_SCRIPTS/t.writtenScripts, never mutated here.
 function allAssignableScripts(table){
   const presets = Object.entries(SAVED_SCRIPTS).map(([key, s]) => ({ id: 'preset:' + key, name: s.name, rows: s.rows }));
@@ -208,11 +154,9 @@ function allAssignableScripts(table){
 function writeScriptSheet(){
   const sheet = document.createElement('div');
   sheet.className = 'sheet';
-  // Expression columns, side by side (2026-08-23) — a real port of
+  // Expression columns, side by side — a real port of
   // language/gomsdu-glyph-arranger.html's own #expressionGrid: up to 3
-  // Expressions as grid COLUMNS, each column's own up-to-3 Glyphs stacked
-  // vertically inside it. Was 3 separate stacked "Expression N" blocks —
-  // the wrong dimension collapsed, per dDd: "why not just make the grid?"
+  // Expressions as grid COLUMNS, each column's own up-to-3 Glyphs stacked vertically inside it.
   const columnsHtml = writeBuilderRows.map((row, r) =>
     '<div class="write-expression-column">' +
       '<div class="write-expression-label">Expression ' + (r + 1) + '</div>' +
@@ -305,10 +249,9 @@ async function assignSelectedScript(){
 }
 
 // Advances builderTargetId to the next Character who doesn't already have
-// *this* Script (2026-08-23, per dDd: "we can more easily give several
-// Characters the same Script") — the just-assigned Target now matches
-// itself, so it's naturally skipped without needing special-casing. Leaves
-// the selection alone if everyone already has it.
+// *this* Script — the just-assigned Target now matches itself, so it's
+// naturally skipped without needing special-casing. Leaves the selection
+// alone if everyone already has it.
 function advanceTargetPastAssigned(candidateRowsList){
   const table = AppState.table;
   const next = allCharacterRoster(table).find(c => c.id !== builderActorId && !targetAlreadyHasScript(table, c.id, candidateRowsList));
@@ -335,11 +278,10 @@ export function renderScriptsPanel(){
   if(!allScripts.some(s => s.id === assignSelectedId)) assignSelectedId = allScripts.length ? allScripts[0].id : null;
   const selected = allScripts.find(s => s.id === assignSelectedId) || null;
 
-  // Target-greying (2026-08-23) — a Character already holding *this exact*
-  // Script (whichever's currently selected above) shows labeled and
-  // dimmed, so it's obvious at a glance who still needs it. Deliberately
-  // NOT `disabled` (found live, per dDd: "they should be visible but
-  // selectable") — a visual cue only, one click to re-assign on purpose.
+  // Target-greying — a Character already holding *this exact* Script
+  // (whichever's currently selected above) shows labeled and dimmed, so
+  // it's obvious at a glance who still needs it. Deliberately NOT
+  // `disabled` — a visual cue only, one click to re-assign on purpose.
   const candidateRowsList = [selected ? selected.rows : null];
   const targetOptionsHtml = (selectedId) => chars.map(c => {
     const already = targetAlreadyHasScript(table, c.id, candidateRowsList);
@@ -373,21 +315,16 @@ export function renderScriptsPanel(){
   });
 }
 
-// Give Memory (2026-08-22, per dDd — found live: "Gom needs the Glyphs
-// already in Memory by the looks of things.") — a real, separate gap from
-// assignScript() above. Behaviors (js/behaviors.js's computeBehaviors()) are
-// driven entirely by an Actor's OWN remembered Glyphs (actor.mindeye), not
-// by activeScripts — Teach only has real weight to roll once WIM itself is
-// in the Actor's own Memory with genuine Desire/Longing behind it. Assigning
-// a Script only decides what gets taught once Teach actually fires; this is
-// the missing "get the Actor into a state where it fires at all" half,
-// previously only reachable via a disclosed-test mutateTable() call. Reuses
-// the same Actor picker as the builder above (js/scripts.js's own
-// builderActorId) — same Actor, same workflow. Delivered `from: 'TATA'`
-// (not the Actor's own name) since this is an out-of-fiction authoring
-// action, not a Message the Actor sent themselves; marked seen immediately,
-// same reasoning js/information.js's inspect-mode Spotlight-skip already
-// uses — this isn't a live "just arrived" moment.
+// Give Memory — a real, separate gap from assignScript() above. Behaviors
+// (behaviors.js's computeBehaviors()) are driven entirely by an Actor's OWN
+// remembered Glyphs (actor.mindeye), not by activeScripts — Teach only has
+// real weight to roll once WIM itself is in the Actor's own Memory with
+// genuine Desire/Longing behind it. Assigning a Script only decides what
+// gets taught once Teach actually fires; this is the missing "get the Actor
+// into a state where it fires at all" half. Reuses the same Actor picker as
+// the builder above. Delivered `from: 'TATA'` (not the Actor's own name)
+// since this is an out-of-fiction authoring action, not a Message the Actor
+// sent themselves; marked seen immediately — this isn't a live "just arrived" moment.
 const ATTACHMENT_LABELS = ['Connected', 'Mid', 'Separated'];
 const DESIRE_LABELS = ['Desirable', 'Mid', 'Undesirable'];
 
@@ -442,8 +379,8 @@ async function addMemory(actorId, sheet){
   renderScriptsPanel();
 }
 
-// `slotIndex` (2026-08-23) — which of the actor's up to 3 activeScripts to
-// clear; each slot gets its own Clear button now instead of one global one.
+// `slotIndex` — which of the actor's up to 3 activeScripts to clear; each
+// slot gets its own Clear button instead of one global one.
 async function clearActiveScript(slotIndex){
   if(!builderActorId || slotIndex == null) return;
   await mutateTable(t => {

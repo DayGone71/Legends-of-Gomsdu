@@ -50,11 +50,6 @@ export async function addEnemy(){
     const id = 'e_' + Math.random().toString(36).slice(2, 8);
     const count = Object.values(t.enemies).filter(e => e.archetype === b.archetype && e.name.indexOf(displayBase) === 0).length + 1;
     const pos = nextEnemyPosition(t);
-    // Record construction now goes through js/character.js's spawnCharacter()
-    // (2026-08-24) — this literal used to hand-copy every field itself, and
-    // had already silently dropped Personality and passiveSpill on separate
-    // real occasions before being fixed; one shared function means that
-    // class of bug can't recur here specifically anymore.
     t.enemies[id] = spawnCharacter(b, { name: displayBase + ' #' + count, num: count });
     t.positions[id] = pos;
     t.log.push({ type: 'system', text: 'An enemy joined the fight: ' + t.enemies[id].name, time: timeNow() });
@@ -107,8 +102,8 @@ export async function saveEncounterAsTemplate(){
   flashHint('dm-encounter-hint', 'Saved "' + name + '" (' + snapshot.length + (snapshot.length === 1 ? ' enemy' : ' enemies') + ')');
 }
 
-// Spawns a saved roster's full set of enemies onto the field at once — additive,
-// so a DM can layer multiple saved templates together instead of it being all-or-nothing.
+// Spawns a saved roster's full set of enemies onto the field at once —
+// additive, so a DM can layer multiple saved templates together instead of it being all-or-nothing.
 export async function loadEncounterTemplate(){
   const select = document.getElementById('dm-encounter-loader');
   const name = select && select.value;
@@ -158,37 +153,27 @@ export function renderDMEnemyPicker(){
   });
 }
 
-// NPC list (2026-08-20, per dDd — "a way of seeing all the Character Sheets
-// of all the NPCs at the Table"). Every live table.enemies entry, each row
-// opening the same read-only showCharacterView() popup the Roster's own
-// avatars already use — no new viewer, just a new way to reach the existing
-// one for entities that don't otherwise have a clickable avatar anywhere.
-// Distinct from the DM's own "Acting As" picker just above: that one selects
-// who the DM stages actions as; this one is pure lookup, open to anyone at
-// the Table, not DM-gated.
+// NPC list — every live table.enemies entry, each row opening the same
+// read-only showCharacterView() popup the Roster's own avatars use. Distinct
+// from the DM's own "Acting As" picker just above: that one selects who the
+// DM stages actions as; this one is pure lookup, open to anyone at the Table.
 // containerId defaults to the toolbar's own NPCs panel, but the same data +
-// markup also drives View 2's TATA-mode "Characters" pane (2026-08-20, per
-// dDd — "Characters and the NPCs Panel are the same thing really... Tata
-// sees it all") — same list, same click-to-view-sheet either way, just
-// mounted in a second place. See renderView2Mode() in js/main.js.
+// markup also drives View 2's TATA-mode "Characters" pane — same list, same
+// click-to-view-sheet either way, just mounted in a second place (see renderView2Mode() in main.js).
 export function renderNpcList(containerId){
   const el = document.getElementById(containerId || 'npc-list');
   if(!el) return;
-  // Yom first (2026-08-24, per dDd: "he should stay in the NPC List as the
-  // first Character") — the Universal Characters Table's own roster,
-  // ahead of the ordinary Enemy roster. enemyRoster() itself stays
-  // untouched (Combat's resolveRound() reads table.enemies directly; Yom
-  // was never meant to become a Combat participant just by being listable).
+  // Yom first — the Universal Characters Table's own roster, ahead of the
+  // ordinary Enemy roster. enemyRoster() itself stays untouched (Combat's
+  // resolveRound() reads table.enemies directly; Yom was never meant to
+  // become a Combat participant just by being listable).
   const rows = [...charactersRoster(AppState.table), ...enemyRoster(AppState.table)];
   if(!rows.length){ el.innerHTML = '<div class="log-empty">No NPCs at the Table yet.</div>'; return; }
 
-  // Active Character (2026-08-22, per dDd) — "A Character has to be made
-  // Active directly, via the NPC Panel or TATA Ledger." Both surfaces
-  // already share this one render function (the toolbar NPC Panel and View
-  // 2's TATA-mode Characters list, see js/main.js's renderView2Mode), so
-  // adding the button here covers both at once. TATA-only — outside TATA
-  // the Active Character is always just the Player's own Character, no
-  // button needed.
+  // Both surfaces (toolbar NPC Panel and View 2's TATA-mode Characters list)
+  // share this one render function, so adding the Make-Active button here
+  // covers both at once. TATA-only — outside TATA the Active Character is
+  // always just the Player's own Character, no button needed.
   el.innerHTML = rows.map(r => {
     const e = r.entity;
     const id = r.id;
@@ -196,18 +181,14 @@ export function renderNpcList(containerId){
     const activeBtn = AppState.tataActive
       ? '<button class="npc-active-btn' + (isActive ? ' active' : '') + '" data-active-id="' + id + '">' + (isActive ? 'Active' : 'Make Active') + '</button>'
       : '';
-    // Inspect buttons (2026-08-22, per dDd — "clicked by either Player or
-    // Tata to see what is going on with the NPCs") — always present,
-    // unlike Make Active above; opens Information/Personality/Relationships
-    // scoped to this NPC instead of the viewing Player's own Character
-    // (AppState.inspectTargetId, read below by all three panels).
+    // Inspect buttons — always present, unlike Make Active above; opens
+    // Information/Personality/Relationships scoped to this NPC instead of
+    // the viewing Player's own Character (AppState.inspectTargetId, read below by all three panels).
     const inspectBtns = ['information', 'personality', 'relationships'].map(panel =>
       '<button class="npc-inspect-btn" data-inspect-panel="' + panel + '" data-inspect-id="' + id + '">' + panel[0].toUpperCase() + panel.slice(1) + '</button>'
     ).join('');
-    // Shadow Possession Link badge (2026-08-23, per dDd — "Gom just needs a
-    // list of NPCs he is possessing," repurposing this same NPC List rather
-    // than building a separate panel). Shows whenever the viewing Player
-    // holds a Link with this NPC, regardless of TATA state.
+    // Shadow Possession Link badge — shows whenever the viewing Player holds
+    // a Link with this NPC, regardless of TATA state.
     const myLink = e.shadowLinkedBy && e.shadowLinkedBy.includes(AppState.playerId);
     const linkBadge = myLink ? '<span class="npc-link-badge" title="Shadow Possession Link active">&#128279; Linked</span>' : '';
     return '<div class="npc-list-item' + (r.dead ? ' defeated' : '') + '" data-id="' + id + '">' +
@@ -220,8 +201,8 @@ export function renderNpcList(containerId){
   el.querySelectorAll('.npc-list-item').forEach(row => {
     row.onclick = (ev) => {
       if(ev.target.closest('.npc-active-btn') || ev.target.closest('.npc-inspect-btn')) return;
-      // resolveEntityRef, not a raw table.enemies lookup (2026-08-24) —
-      // this row can now be Yom, who lives in table.characters.
+      // resolveEntityRef, not a raw table.enemies lookup — this row can now
+      // be Yom, who lives in table.characters.
       showCharacterView(resolveEntityRef(AppState.table, row.dataset.id));
     };
   });
@@ -237,11 +218,11 @@ export function renderNpcList(containerId){
       ev.stopPropagation();
       AppState.inspectTargetId = btn.dataset.inspectId;
       openPanel(btn.dataset.inspectPanel);
-      // openPanel() only toggles which panel is visible — it doesn't re-run
-      // the Information/Personality/Relationships render functions (those
-      // only fire from main.js's renderAll(), on a real table mutation).
+      // openPanel() only toggles which panel is visible — it doesn't
+      // re-render the Information/Personality/Relationships content (that
+      // only happens from main.js's renderAll(), on a real table mutation).
       // Without this, the panel would open showing whatever it last
-      // rendered (the Player's own data) instead of the NPC just set above.
+      // rendered instead of the NPC just set above.
       triggerRender();
     };
   });
@@ -262,8 +243,7 @@ export function selectActingEnemy(id){
 }
 
 // Double-click the Acting As chip to toggle it as its own target (e.g. to
-// test Execution/self-effects) — added alongside the Player-side Ally
-// Targeting work, 2026-08-16. A second double-click clears it.
+// test Execution/self-effects). A second double-click clears it.
 export function toggleActingSelfTarget(id){
   const enemy = AppState.table && AppState.table.enemies && AppState.table.enemies[id];
   if(!enemy || isDeathWounded(enemy)) return;
@@ -284,18 +264,18 @@ export function renderDMCounters(){
   const hpEl = document.getElementById('dm-hitpercent-display');
   if(!wEl || !aEl) return;
   if(!enemy){
-    wEl.textContent = '\u2014'; aEl.textContent = '\u2014';
-    if(fEl) fEl.textContent = '\u2014';
-    if(fcEl) fcEl.textContent = '\u2014';
-    if(ctrlEl) ctrlEl.textContent = '\u2014';
-    if(hpEl) hpEl.textContent = '\u2014';
+    wEl.textContent = '—'; aEl.textContent = '—';
+    if(fEl) fEl.textContent = '—';
+    if(fcEl) fcEl.textContent = '—';
+    if(ctrlEl) ctrlEl.textContent = '—';
+    if(hpEl) hpEl.textContent = '—';
   }else{
     wEl.textContent = (enemy.wounds ?? 0) + '/' + (enemy.woundsMax ?? 0);
     aEl.textContent = (enemy.apSpent || 0) + '/' + (enemy.ap ?? 0);
     if(fEl) fEl.textContent = (enemy.flow ?? 0) + '/' + (enemy.flowMax ?? 0);
     if(fcEl) fcEl.textContent = ((enemy.focus || 0) - (enemy.focusSpent || 0)) + '/' + (enemy.focus ?? 0);
     if(ctrlEl) ctrlEl.textContent = (enemy.control ?? 0) + ' (base action: ' + apCostForControl(enemy.control || 0, 1) + ' AP)';
-    if(hpEl) hpEl.textContent = (enemy.flow > 0) ? '\u2014' : (enemy.hitPercent ?? 1).toFixed(0) + '%';
+    if(hpEl) hpEl.textContent = (enemy.flow > 0) ? '—' : (enemy.hitPercent ?? 1).toFixed(0) + '%';
   }
 
   const fastBtn = document.getElementById('dm-attack-fast-btn');
@@ -303,9 +283,9 @@ export function renderDMCounters(){
   const focusBtn = document.getElementById('dm-attack-focus-btn');
   const control = enemy ? (enemy.control || 0) : 0;
   if(enemy){
-    if(fastBtn) fastBtn.textContent = 'Fast \u2014 ' + apCostForControl(control, 1) + ' AP';
-    if(strongBtn) strongBtn.textContent = 'Strong \u2014 ' + apCostForControl(control, 2) + ' AP';
-    if(focusBtn) focusBtn.textContent = 'Focus Attack \u2014 ' + apCostForControl(control, 2) + ' AP + 1 Focus';
+    if(fastBtn) fastBtn.textContent = 'Fast — ' + apCostForControl(control, 1) + ' AP';
+    if(strongBtn) strongBtn.textContent = 'Strong — ' + apCostForControl(control, 2) + ' AP';
+    if(focusBtn) focusBtn.textContent = 'Focus Attack — ' + apCostForControl(control, 2) + ' AP + 1 Focus';
   }
   if(focusBtn) focusBtn.classList.toggle('hidden', !(enemy && (enemy.focus || 0) > 0));
 
@@ -317,18 +297,10 @@ export function renderDMCounters(){
   dmRenderToggleStates();
 }
 
-// Which Crafts AND Powers (any column, per dDd \u2014 Gom needs Focus Powers
-// reachable here specifically so he can cast Empower) the acting Enemy
-// actually knows \u2014 gated by category access (defaults to granted, same as
-// the Player-side Techniques Panel) and by actually having the resource
-// stat above 0, same visibility rule the old flat Lightning/Lava buttons
-// used. Found 2026-08-22, per dDd (\"why can't he use Focus Powers?\"): this
-// only ever looked at group:\"Craft\" \u2014 Empower's own group is \"Powers\",
-// so it (and every other Powers-group Technique \u2014 Wound, Possess,
-// Resonance) was structurally unreachable from this menu for ANY Enemy,
-// techniqueAccess notwithstanding. dmCommitAction() below already handles
-// any TECHNIQUES entry generically (cost/range/LOS by key, not by group),
-// so broadening this is a real fix, not a narrow Empower-only patch.
+// Which Crafts AND Powers (any column — Gom needs Focus Powers reachable
+// here so he can cast Empower) the acting Enemy actually knows — gated by
+// techniqueAccess and by actually having the resource stat above 0, same
+// visibility rule the old flat Lightning/Lava buttons used.
 function craftsKnownBy(actor){
   return Object.entries(TECHNIQUES).filter(([, def]) => {
     if(def.group !== 'Craft' && def.group !== 'Powers') return false;
@@ -340,25 +312,20 @@ function craftsKnownBy(actor){
   });
 }
 
-// The DM Panel's Essence menu, per dDd: "when clicked it, should show all
-// the Crafts a Character knows" \u2014 replaces the old flat Lightning/Lava
-// 8-AP placeholder buttons with the acting Enemy's real named Crafts,
+// The DM Panel's Essence menu — shows the acting Enemy's real named Crafts,
 // reusing the same TECHNIQUES data and cost/target/range plumbing the
-// Player-side Techniques Panel already uses (see techniques.js).
+// Player-side Techniques Panel uses.
 function renderDMEssenceMenu(crafts){
   const el = document.getElementById('dm-menu-essence');
   if(!el) return;
   if(!crafts.length){ el.innerHTML = ''; return; }
   el.innerHTML = crafts.map(([key, def]) =>
     '<button class="btn-ghost btn-small' + (AppState.dmPendingCraftKey === key ? ' toggled' : '') +
-    '" data-craft="' + key + '">' + escapeHtml(def.name) + ' \u2014 ' + costText(def.costs) + '</button>'
+    '" data-craft="' + key + '">' + escapeHtml(def.name) + ' — ' + costText(def.costs) + '</button>'
   ).join('');
-  // Message's Glyph picker (2026-08-21, per dDd \u2014 picking what Message to
-  // send as an Enemy was "pretty awkward," always defaulting to RO/OR). Same
-  // Directions/Other picker the Player-facing Technique Use panel uses,
-  // reused directly (js/techniques.js's glyphOptionsHtml()) rather than
-  // rebuilt \u2014 so Acting As Gom gets exactly the same real choice Moving him
-  // already has, not a cruder DM-only version of it.
+  // Message's Glyph picker — same Directions/Other picker the Player-facing
+  // Technique Use panel uses, reused directly rather than rebuilt, so Acting
+  // As Gom gets exactly the same real choice Moving him already has.
   if(AppState.dmPendingCraftKey === 'message'){
     el.innerHTML += '<div class="field"><label>Glyphs (up to 3, sent together)</label>' +
       '<select id="dm-glyph-select-1">' + glyphOptionsHtml(false) + '</select>' +
@@ -370,14 +337,9 @@ function renderDMEssenceMenu(crafts){
   });
 }
 
-// Now the canonical "everybody" roster (2026-08-22, per dDd's Lists
-// consolidation) — every Player, their Mini-Party, AND every Enemy, not
-// just the Player side. Real fix, not cosmetic: this was Player-only ever
-// since it was written (flagged in ROADMAP.md's Techniques Panel section),
-// silently inconsistent with today's own "targetSide should not even exist
-// really, all Characters have to be able to be targeted" call — an Enemy
-// acting via the DM Panel can now actually target another Enemy here, same
-// as everywhere else.
+// The canonical "everybody" roster — every Player, their Mini-Party, AND
+// every Enemy. An Enemy acting via the DM Panel can target another Enemy
+// here, same as everywhere else.
 export function renderDMTargetRange(){
   const el = document.getElementById('dm-target-range');
   if(!el) return;
@@ -461,15 +423,15 @@ export function dmRenderToggleStates(){
   const counterBtn = document.getElementById('dm-block-counter-btn');
   const baseCost = apCostForControl(control, 1);
   if(generalBtn){
-    generalBtn.textContent = 'General Block \u2014 ' + baseCost + ' AP';
+    generalBtn.textContent = 'General Block — ' + baseCost + ' AP';
     generalBtn.classList.toggle('toggled', AppState.dmPendingBlockKind === 'general');
   }
   if(targetBtn){
-    targetBtn.textContent = 'Target Block \u2014 ' + baseCost + ' AP';
+    targetBtn.textContent = 'Target Block — ' + baseCost + ' AP';
     targetBtn.classList.toggle('toggled', AppState.dmPendingBlockKind === 'target');
   }
   if(counterBtn){
-    counterBtn.textContent = 'Counter \u2014 +' + baseCost + ' AP';
+    counterBtn.textContent = 'Counter — +' + baseCost + ' AP';
     counterBtn.classList.toggle('toggled', AppState.dmPendingCounter);
     counterBtn.disabled = !AppState.dmPendingBlockKind;
     counterBtn.classList.toggle('disabled', !AppState.dmPendingBlockKind);
@@ -522,8 +484,7 @@ export async function dmCommitAction(){
     const myPos = resolvePositionRef(AppState.table, AppState.actingEnemyId);
     const targetPos = resolvePositionRef(AppState.table, AppState.dmSelectedTargetId);
     if(myPos && targetPos){
-      // Shadow Possession Link bypasses Range (2026-08-23) — same rule as
-      // the Player's own Technique Use panel, js/techniques.js.
+      // Shadow Possession Link bypasses Range — same rule as the Player's own Technique Use panel.
       const linked = target.shadowLinkedBy && target.shadowLinkedBy.includes(AppState.actingEnemyId);
       const dist = getDistance(myPos, targetPos);
       if(!linked && dist > def.range){ showBannerError('Target is out of Range (' + dist + ' > ' + def.range + ').'); return; }
@@ -557,13 +518,11 @@ export async function dmCommitAction(){
     a.lightningSpent = (a.lightningSpent || 0) + (entry.lightningCost || 0);
     a.lavaSpent = (a.lavaSpent || 0) + (entry.lavaCost || 0);
     if(entry.flowCost) a.flow = Math.max(0, (a.flow || 0) - entry.flowCost);
-    // Message/Channel's actual effects DON'T land here anymore (2026-08-22,
-    // per dDd: "Every Action should resolve on turns... Combat or
-    // Non-Combat, same thing") — this only stages the entry now, same as
-    // every other technique. Resolution happens in js/combat.js's
-    // resolveRound() (when an Encounter is running) or js/noncombat.js's
-    // resolveNonCombatRound() (when it isn't, since this staging tool has
-    // no Encounter gate at all) — both walk this same `sequence` array.
+    // Message/Channel's actual effects don't land here — this only stages
+    // the entry, same as every other technique. Resolution happens in
+    // combat.js's resolveRound() (Encounter running) or noncombat.js's
+    // resolveNonCombatRound() (this staging tool has no Encounter gate at
+    // all) — both walk this same `sequence` array.
     t.log.push({ type: 'system', text: a.name + ' stages ' + describeAction(entry) + (entry.targetName ? (' on ' + entry.targetName) : ''), time: timeNow() });
   });
 }

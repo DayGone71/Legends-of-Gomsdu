@@ -1,20 +1,15 @@
-// The Personality Panel — unified 2026-08-24, per dDd, after "we can
-// actually rethink the entire interface... Information, Personality, and
-// Relationships don't really need to be so intensely separated." One
-// Glyph-list-driven layout replacing what used to be 3 separate Pillars
-// (Information/Personality/Relationships), each duplicating its own Glyph
-// Gallery. dDd's own spec, close to verbatim:
+// The Personality Panel — one Glyph-list-driven layout replacing what used
+// to be 3 separate Pillars (Information/Personality/Relationships), each
+// duplicating its own Glyph Gallery.
 //   Left:   a Glyph list (Memory-state Filters above it), grouped by the
-//           Variety Categories (Directions/Targets/Actions/Ideas),
-//           stacking vertically.
+//           Variety Categories (Directions/Targets/Actions/Ideas), stacking vertically.
 //   Right:  Behavior Information (incl. the Active Plan) / Personality
 //           Stats / Relationship details, stacked.
 //   Bottom: detail on whichever Glyph is currently highlighted (Emotion
 //           Axes, notes on how it affects an Axis, associated Crafts/
 //           Powers) — clicking a Glyph on the left highlights it.
-// "All the Math should be visible... so I can see what is going on" — the
-// Behavior section shows Desire/Longing/Pursuit broken out, not just a
-// rolled percentage.
+// "All the Math should be visible" — the Behavior section shows
+// Desire/Longing/Pursuit broken out, not just a rolled percentage.
 
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
@@ -34,9 +29,8 @@ function inspecting(){
   return !!AppState.inspectTargetId;
 }
 
-// Memory filter (2026-08-24) — which single Category (if any) the left
-// Glyph list is narrowed to. Local UI state, same pattern as
-// information.js's own originExpanded/selectedGlyphEntryId.
+// Which single Category (if any) the left Glyph list is narrowed to.
+// Local UI state, same pattern as information.js's own originExpanded/selectedGlyphEntryId.
 let memoryFilter = null;
 const MEMORY_FILTERS = ['Fleeting', 'Retained', 'Known', 'Perfected'];
 
@@ -79,29 +73,24 @@ async function toggleTeachMode(){
   });
 }
 
-// Plan (2026-08-24, redone per dDd) — no longer a settings list; it's now 3
-// Expression slots the Character is actively trying to fulfill. dDd's own
-// examples: `WIM KROW` ("I Teach them") down to `KROW WIM KROW` ("they
-// Teach them") — each Expression can be 2 or 3 Glyphs. Role isn't fixed by
-// slot position — it's read off each Glyph's own Variety (js/information.js's
-// varietyOf()): an Actions-variety Glyph (WIM/S/BA/...) is the Behavior; a
-// Targets-variety Glyph (KROW/GOM/...) is a Character reference,
-// disambiguated inline with a "who does this represent?" picker next to it.
-// Deliberately NOT wired into Behavior resolution yet — the "huge Weight"/
-// Behavior Queue piece and the literacy/misunderstanding layer are both
-// bigger, separate builds (see ROADMAP.md's AP-draining Behavior loop
-// item); this just gets Plan real, storable, editable state.
+// Plan: 3 Expression slots the Character is actively trying to fulfill —
+// e.g. `WIM KROW` ("I Teach them") down to `KROW WIM KROW` ("they Teach
+// them"), 2 or 3 Glyphs each. Role isn't fixed by slot position — it's read
+// off each Glyph's own Variety (information.js's varietyOf()): an
+// Actions-variety Glyph is the Behavior; a Targets-variety Glyph is a
+// Character reference, disambiguated inline with a "who does this
+// represent?" picker next to it. Deliberately not wired into Behavior
+// resolution yet — the AP-draining Behavior loop and the literacy/
+// misunderstanding layer are both bigger, separate builds; this just gets Plan real, storable, editable state.
 //
 // Slot interaction is a real port of language/gomsdu-glyph-arranger.html's
-// own popup mechanic (2026-08-24, per dDd's correction — "I explicitly
-// said Glyph Arranger," not Write Script's always-visible selects, which
-// is where the "always defaults to RO" bug came from: slot 0 there never
-// gets an empty option, so an untouched select just shows the browser's
-// own first-in-list default while the real stored value stays null).
-// A slot starts blank; clicking it (`openPlanSlot`, local-only UI state,
-// same pattern as memoryFilter above) swaps it for a real `<select>` —
-// choosing a Glyph or `<select>`'s own blur (Cancel, no change) both close
-// it back to a plain icon/blank box.
+// own popup mechanic, not Write Script's always-visible selects (that's
+// where the "always defaults to RO" bug came from: slot 0 there never gets
+// an empty option, so an untouched select just shows the browser's own
+// first-in-list default while the real stored value stays null). A slot
+// starts blank; clicking it (`openPlanSlot`, local-only UI state, same
+// pattern as memoryFilter above) swaps it for a real `<select>` — choosing a
+// Glyph or the select's own blur (Cancel, no change) both close it back to a plain icon/blank box.
 const PLAN_ROWS = 3, PLAN_SLOTS = 3;
 let openPlanSlot = null; // { r, s } — which Plan slot currently shows its picker
 function emptyPlan(){
@@ -138,14 +127,14 @@ function queueOf(me){
   return me.behaviorQueue || [];
 }
 
-// Commit (2026-08-24, per dDd) — a Character's own declaration that a given
-// Expression is real intent, not just a draft mid-edit. Toggling it flags
-// (or unflags) that Expression's Behavior Glyph(s) for the Plan weight
-// (js/behaviors.js's PLAN_WEIGHT), then regenerates the whole Behavior
-// Queue via fillBehaviorQueue() — a real weighted-random autofill across
-// every remembered Glyph, not just this Expression's own. Slot edits above
-// still save live either way; Commit only ever changes which Glyphs are
-// Plan-flagged and re-rolls the Queue from scratch off the current state.
+// Commit: a Character's own declaration that a given Expression is real
+// intent, not just a draft mid-edit. Toggling it flags (or unflags) that
+// Expression's Behavior Glyph(s) for the Plan weight (behaviors.js's
+// PLAN_WEIGHT), then regenerates the whole Behavior Queue via
+// fillBehaviorQueue() — a real weighted-random autofill across every
+// remembered Glyph, not just this Expression's own. Slot edits above still
+// save live either way; Commit only changes which Glyphs are Plan-flagged
+// and re-rolls the Queue from scratch off the current state.
 async function togglePlanCommit(r){
   const id = AppState.inspectTargetId || AppState.playerId;
   await mutateTable(t => {
@@ -175,12 +164,10 @@ function planExpressionColumnHtml(selfId, plan, r){
     const glyphId = plan.rows[r][s];
     const slotHtml = planSlotHtml(plan, r, s);
     if(!glyphId || varietyOf(glyphId) !== 'targets'){
-      // Reserved, invisible spacer (2026-08-24, per dDd — "the left 3 Rows
-      // are not lined up") — the 3 Expression columns are independent flex
-      // stacks, so a ref-select appearing in one but not another used to
-      // push that column's Commit button out of line with its neighbors.
-      // Every slot now always claims the same height whether or not it
-      // actually needs the picker.
+      // Reserved, invisible spacer — the 3 Expression columns are
+      // independent flex stacks, so a ref-select appearing in one but not
+      // another used to push that column's Commit button out of line with
+      // its neighbors. Every slot now always claims the same height whether or not it needs the picker.
       return slotHtml + '<div class="write-ref-select plan-ref-spacer" aria-hidden="true"></div>';
     }
     const refId = plan.refs[r + '-' + s] ?? selfId;
@@ -229,11 +216,9 @@ function planHtml(me){
     '</div>';
 }
 
-// Behavior Queue display (2026-08-24, per dDd) — chips flow like the Active
-// Character Display's own Name+Stats line (js/activeCharacter.js,
-// `.active-char-stats{display:contents}`): a compact flow of items, 3 per
-// line by the Queue's own 3-Glyphs-per-Expression shape. Always all 3 rows
-// (per dDd: "no reason for More/Less Queue — just keep it 3 Rows").
+// Behavior Queue display — chips flow like the Active Character Display's
+// own Name+Stats line: a compact flow of items, 3 per line by the Queue's
+// own 3-Glyphs-per-Expression shape. Always all 3 rows.
 function behaviorQueueHtml(me){
   const queue = queueOf(me);
   const slotsHtml = Array.from({ length: BEHAVIOR_QUEUE_CAP }).map((_, i) => {
@@ -250,17 +235,13 @@ function behaviorTermHtml(name, value){
   return '<span class="behavior-term"><span class="behavior-term-name">' + name + '</span><span class="behavior-term-value">' + value + '</span></span>';
 }
 
-// Behaviors — "All the Math should be visible" (2026-08-24, per dDd) — each
-// Glyph row now shows Desire, Longing, and the Pursuit they combine into
-// (behaviors.js's computeBehaviors() already computed all 3, `desire` newly
-// exposed there today), not just the final rolled percentage. A second row
-// (2026-08-24, per dDd) breaks that same math down further: Desire +
-// Longing + Plan + Repeat = Pursuit. Plan is real now (js/behaviors.js's
-// PLAN_WEIGHT, +25 whenever this Glyph is part of a Committed Plan
-// Expression) and folded into Pursuit itself. Repeat stays a flat 0 here —
-// it's a -1-per-repeat penalty that only exists mid-fill (js/behaviors.js's
-// fillBehaviorQueue()), so it has nothing meaningful to show on this
-// static, pre-fill snapshot.
+// Each Glyph row shows Desire, Longing, and the Pursuit they combine into,
+// not just the final rolled percentage. A second row breaks that math down
+// further: Desire + Longing + Plan + Repeat = Pursuit. Plan is real
+// (behaviors.js's PLAN_WEIGHT, +25 whenever this Glyph is part of a
+// Committed Plan Expression) and folded into Pursuit itself. Repeat stays a
+// flat 0 here — it's a -1-per-repeat penalty that only exists mid-fill
+// (behaviors.js's fillBehaviorQueue()), nothing to show on this static, pre-fill snapshot.
 function behaviorsHtml(me){
   const categories = computeBehaviors(me);
 
@@ -367,24 +348,18 @@ function statsHtml(me, readOnly){
   `;
 }
 
-// Relationship details (2026-08-24) — the Character's own PERSONAL
-// Relationship Axes, per dDd: "there are going to be Relationship Axis that
-// are Personal to the Character, influencing how they react to stuff they
-// receive... their Personalities are meant to interpret that via
-// Personality Stats and Mechanisms." Real, not-yet-designed mechanic —
-// distinct from Attachment/Desire (the Emotion Axes, per-Glyph, shown in
-// the bottom detail panel instead) — deliberately a real labeled
-// placeholder, not faked content.
+// The Character's own PERSONAL Relationship Axes — real, not-yet-designed
+// mechanic, distinct from Attachment/Desire (the Emotion Axes, per-Glyph,
+// shown in the bottom detail panel instead) — a real labeled placeholder, not faked content.
 function relationshipDetailsHtml(){
   return '<div class="stat-header">Relationship Details</div>' +
     '<div class="log-empty">Not designed yet — these are personal Relationship Axes for the Character itself (distinct from the Emotion Axes below, which are per-Glyph), influencing how they interpret what they receive.</div>';
 }
 
-// Bottom-quarter Glyph detail (2026-08-24) — whichever Glyph is currently
-// selected in the left column (information.js's own selection state).
-// Emotion Axes (Attachment/Desire) reuse relationships.js's renderAxis()
-// exactly as the old Relationships Pillar did; Crafts/Powers association
-// and axis-effect notes are both real fields with nothing behind them yet.
+// Bottom-quarter Glyph detail — whichever Glyph is currently selected in the
+// left column (information.js's own selection state). Emotion Axes
+// (Attachment/Desire) reuse relationships.js's renderAxis() exactly as the
+// old Relationships Pillar did; Crafts/Powers association and axis-effect notes are both real fields with nothing behind them yet.
 function glyphDetailHtml(container, readOnly){
   const entryId = getSelectedGlyphEntryId();
   const entry = entryId && myMindeye().find(e => e.id === entryId);

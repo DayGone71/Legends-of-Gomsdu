@@ -7,31 +7,21 @@ import { MAX_MINI_PARTY } from './possession.js';
 
 // Data-driven so adding a new Technique later is just a new entry — no new
 // staging/undo/cost-checking code needed, the engine below is generic over
-// whatever `costs` a Technique lists. Engine built 2026-08-16; loads from
-// data/techniques.json (2026-08-16, same night, alongside Character
-// Templates) instead of a hardcoded literal, so it can be authored in bulk
-// via the same spreadsheet pipeline as Characters. Effects are text-only for
-// now (not mechanically resolved) except Separation's Map Obstacle, which is
-// simple/deterministic enough to actually implement. Top-level await: this
-// module won't finish evaluating until the fetch resolves — nothing that
-// imports TECHNIQUES can run before it's real data.
-// Each entry gets its own key threaded onto itself (2026-08-24) — the one
-// change needed so hasTechniqueAccess() below can look a Character's
-// techniqueAccess up by the Technique's own id, now that access is granted
-// per-Technique instead of per-category (see the field's own JSON, e.g.
-// data/characters.json's "seed": true) — no call site needs to change to
-// pass the key through separately.
+// whatever `costs` a Technique lists. Loads from data/techniques.json instead
+// of a hardcoded literal, authored in bulk via the spreadsheet pipeline (see
+// tools/). Effects are text-only for now except Separation's Map Obstacle,
+// which is simple/deterministic enough to actually implement. Top-level
+// await: nothing that imports TECHNIQUES can run before it's real data.
+// Each entry gets its own key threaded onto itself so hasTechniqueAccess()
+// below can look a Character's techniqueAccess up by the Technique's own id.
 const TECHNIQUES_RAW = await fetch('/data/techniques.json').then(r => r.json());
 export const TECHNIQUES = Object.fromEntries(
   Object.entries(TECHNIQUES_RAW).map(([key, def]) => [key, { ...def, key }])
 );
 
-// Message's Glyph picker (2026-08-21, per dDd) — its own independent fetch
-// of the Glyphic System, same pattern js/information.js already uses (no
-// shared loader module for this yet). Sorted into Category groups; only
-// Directions has real content right now, per dDd — "Other" is every
-// remaining Glyph in the file, labeled by its own id since most don't have
-// a plain-English name yet.
+// Message's Glyph picker — its own independent fetch of the Glyphic System.
+// Sorted into Category groups; only Directions has real content right now —
+// "Other" is every remaining Glyph, labeled by its own id since most don't have a plain-English name yet.
 let GLYPH_DATA = null;
 try {
   const glyphRes = await fetch('/language/gomsdu-glyphic-system.json');
@@ -46,26 +36,17 @@ const DIRECTION_GLYPHS = [
   { id: 'KO', label: 'KO — Right' }
 ];
 
-// Movement Category (2026-08-22, per dDd) — SUU (Stop), KULOG (Wander), and
-// KALAG (Face) read as Movement Commands the same way the 4 Directions do,
-// even though none of them is itself a compass direction — grouped into the
-// same "Movement" optgroup below rather than left in the flat "Other"
-// catch-all, so a Script/Message author can actually find them.
+// SUU (Stop), KULOG (Wander), and KALAG (Face) read as Movement Commands the
+// same way the 4 Directions do, even though none is itself a compass
+// direction — grouped into the same "Movement" optgroup rather than the flat "Other" catch-all.
 const MOVEMENT_EXTRA_IDS = ['SUU', 'KULOG', 'KALAG'];
 
 const RESOURCE_LABELS = { ap: 'AP', focus: 'Focus', flow: 'Flow', lightning: 'Lightning', lava: 'Lava' };
 
-// Technique Lists (2026-08-24, per dDd — "techniqueAccess also needs to be
-// by individual Craft and Power, true/false, not all-or-nothing like that")
-// — was category-level (Flow Powers/Focus Powers/Lightning Crafts/Lava
-// Crafts, one boolean covering every Technique in it); now one explicit
-// boolean per real Technique key (data/characters.json). Mastery/Seed folds
-// into the same flat lookup now too — data alone decides who has it (only
-// Yom's Build sets seed:true) — no special-cased column check needed
-// anymore. A Character with NO techniqueAccess object at all still defaults
-// fully open (Mini-Party members, saved custom templates — untouched by
-// today's pass); a Character that HAS one but omits a specific key defaults
-// closed, matching the new explicit-per-Technique spirit.
+// One explicit boolean per real Technique key (data/characters.json), not
+// category-level. A Character with NO techniqueAccess object defaults fully
+// open (Mini-Party members, saved custom templates); one that HAS an object
+// but omits a specific key defaults closed.
 export function hasTechniqueAccess(actor, def){
   const access = actor && actor.techniqueAccess;
   if(!access) return true;
@@ -73,10 +54,9 @@ export function hasTechniqueAccess(actor, def){
 }
 
 // Flow isn't a per-round "spent" pool like AP/Focus — it's the actor's real,
-// persistent Flow, same value combat damage already drains and Recovery
-// rebuilds. Lightning/Lava get a new per-round spent pool, same shape as focusSpent.
-// Exported — dm.js's own Craft staging (the DM Panel's Essence menu) reuses
-// this against an Enemy actor, same field shape as a Player.
+// persistent Flow, same value combat damage drains and Recovery rebuilds.
+// Lightning/Lava get a per-round spent pool, same shape as focusSpent.
+// Exported — dm.js's own Craft staging reuses this against an Enemy actor.
 export function remaining(actor, resource){
   if(resource === 'flow') return actor.flow || 0;
   if(resource === 'ap') return (actor.ap || 0) - (actor.apSpent || 0);
@@ -92,24 +72,18 @@ export function costText(costs){
 
 let currentTechniqueKey = null;
 
-// Which pool a Technique's target picker draws from — every real Character
-// at the table, Player or Enemy (2026-08-22, per dDd: "targetSide should not
-// even exist really, all Characters have to be able to be targeted by all
-// Crafts and Powers" — crafterTargetPoolIds() in js/utils.js is the one
-// place that decision lives; selfOnly-flagged Techniques are the one real
-// exception, handled separately in js/craftPopup.js).
+// Every real Character at the table is targetable — crafterTargetPoolIds()
+// in utils.js is the one place that decision lives; selfOnly-flagged
+// Techniques are the one exception, handled in craftPopup.js.
 function targetPoolIds(table, def){
   return crafterTargetPoolIds(table, AppState.playerId, def.targetSide);
 }
 
-// `presetTargetId` (2026-08-22) — js/craftPopup.js's Map hand-off used to
-// set tu-target's value *after* this function returned, which silently
-// never refreshed anything that reads the Target at open-time (found live
-// while building Influence's own picker below, which needs a real Target
-// to know whose Mindeye/pending Messages to offer) — assigning .value in
-// JS doesn't fire a real 'change' event, so nothing downstream ever knew.
-// Setting it in here instead, before anything reads it, fixes that
-// structurally rather than patching around it with a synthetic event.
+// `presetTargetId` is set here, before anything reads tu-target — assigning
+// .value directly doesn't fire a real 'change' event, so setting it inline
+// (rather than after the fact) is what lets Influence's own picker (below)
+// know the right Target from the moment this panel opens via craftPopup.js's
+// Map hand-off.
 export function openTechniqueUse(key, presetTargetId){
   const def = TECHNIQUES[key];
   if(!def) return;
@@ -135,11 +109,9 @@ export function openTechniqueUse(key, presetTargetId){
         const pos = resolvePositionRef(table, id);
         let suffix = '', disabled = '';
         if(myPos && pos && table.map){
-          // Shadow Possession Link (2026-08-23, per dDd) — "0 Range works on
-          // anything with a Current." A target already linked to this Player
-          // ignores Range entirely on every Technique, not just Current
-          // itself; only the very first ignition (no Link yet) needs real
-          // proximity.
+          // Shadow Possession Link: "0 Range works on anything with a
+          // Current." A target already linked to this Player ignores Range
+          // on every Technique, not just Current itself — only the very first ignition needs real proximity.
           const linked = entity.shadowLinkedBy && entity.shadowLinkedBy.includes(AppState.playerId);
           const dist = getDistance(myPos, pos);
           if(!linked && dist > def.range){ suffix = ' (out of Range: ' + dist + ')'; disabled = 'disabled'; }
@@ -150,10 +122,8 @@ export function openTechniqueUse(key, presetTargetId){
     : '<option value="">No Characters to target</option>';
   if(presetTargetId && targets.some(t => t.id === presetTargetId)) targetSelect.value = presetTargetId;
 
-  // Message's Glyph picker (2026-08-21, up to 3 at once as of 2026-08-22 per
-  // dDd — the first draft of sending a Script's-worth of instructions in one
-  // go) — only Message needs it; every other Technique keeps the field
-  // hidden. Slot 1 is required (no empty option), slots 2/3 are optional.
+  // Message's Glyph picker — only Message needs it, up to 3 Glyphs at once.
+  // Slot 1 is required, slots 2/3 are optional.
   const glyphField = document.getElementById('tu-glyph-field');
   if(key === 'message' && GLYPH_DATA){
     glyphField.classList.remove('hidden');
@@ -164,10 +134,7 @@ export function openTechniqueUse(key, presetTargetId){
     glyphField.classList.add('hidden');
   }
 
-  // Influence's own picker (2026-08-22, per dDd, after playtesting — "The
-  // Influence Craft needs a way to be able to select: Information a
-  // Character already knows [or] Information a Character is going to know
-  // (via Message Staging)"). Depends on which Target is picked, so it
+  // Influence's own picker depends on which Target is picked, so it
   // refreshes on tu-target's own change — re-set here (not additive) since
   // openTechniqueUse can run again for a different Technique.
   const influenceField = document.getElementById('tu-influence-field');
@@ -186,13 +153,12 @@ export function openTechniqueUse(key, presetTargetId){
   openPanel('technique-use');
 }
 
-// Influence's "which Information" picker (2026-08-22, per dDd) — Glyphs the
-// Target already has in their real Mindeye, grouped separately from Glyphs
-// currently staged-but-undelivered to them via a pending Message
-// (js/utils.js's pendingMessageGlyphs) — "Information can be delivered
-// already preloaded with bias." Resolution (js/noncombat.js/js/combat.js)
-// runs Influence strictly after Message deliveries land the same Round, so
-// picking a pending Glyph here reliably finds a real Mindeye entry by then.
+// Influence's "which Information" picker — Glyphs the Target already has in
+// their real Mindeye, grouped separately from Glyphs currently
+// staged-but-undelivered via a pending Message ("Information can be
+// delivered already preloaded with bias"). Resolution runs Influence
+// strictly after Message deliveries land the same Round, so picking a
+// pending Glyph here reliably finds a real Mindeye entry by then.
 function influenceGlyphOptionsHtml(table, targetId){
   const target = resolveEntityRef(table, targetId);
   const known = [...new Set(((target && target.mindeye) || []).map(e => e.glyph).filter(Boolean))];
@@ -206,15 +172,12 @@ function influenceGlyphOptionsHtml(table, targetId){
 
 // Shared Directions/Other optgroup markup for Message's Glyph picker — used
 // by the Player-facing Technique Use panel above and the DM's own Essence
-// menu (js/dm.js), so "Acting As" an Enemy gets the exact same picker
-// instead of always sending the RO/OR default.
-// `includeEmpty` (2026-08-22, per dDd — Message now sends up to 3 Glyphs at
-// once) adds a leading "— none —" option, for the 2nd/3rd optional picker
-// slots; the 1st slot stays required, same as before.
-// `selectedValue` (2026-08-23, per dDd — the Script builder shouldn't wipe
-// itself on every re-render) lets a caller pre-select an option instead of
-// always defaulting to the first one. Optional — every existing caller
-// passing just `includeEmpty` behaves exactly as before.
+// menu, so "Acting As" an Enemy gets the exact same picker.
+// `includeEmpty` adds a leading "— none —" option for the 2nd/3rd optional
+// picker slots; the 1st slot stays required.
+// `selectedValue` lets a caller pre-select an option instead of always
+// defaulting to the first one (the Script builder shouldn't wipe itself on
+// every re-render) — optional, every other caller behaves as before.
 export function glyphOptionsHtml(includeEmpty, selectedValue){
   if(!GLYPH_DATA) return '';
   const sel = (id) => id === selectedValue ? ' selected' : '';
@@ -233,9 +196,9 @@ export function glyphOptionsHtml(includeEmpty, selectedValue){
     '</optgroup>';
 }
 
-// Anybody can stage any Technique — no ownership/unlock gating (per dDd:
-// "for Testing purposes") — but the resource cost itself still has to be
-// affordable, same as every other staged Combat action.
+// Anybody can stage any Technique — no ownership/unlock gating (for
+// testing purposes) — but the resource cost still has to be affordable, same
+// as every other staged Combat action.
 export async function stageTechnique(){
   const def = TECHNIQUES[currentTechniqueKey];
   if(!def) return;
@@ -257,18 +220,13 @@ export async function stageTechnique(){
     if(!influenceGlyph){ showBannerError('Pick which Information to Influence first.'); return; }
   }
 
-  // Non-Combat Round (2026-08-21, per dDd) — every Technique is stageable
-  // outside an Encounter through the same stage-then-resolve Order flow Move
-  // uses (js/noncombat.js's resolveNonCombatRound()), not the AP-tracked
-  // Combat sequence below. The old NONCOMBAT_TECHNIQUES allow-list (2026-08-23,
-  // per dDd: "close the distinction between Combat and Non-Combat Techniques/
-  // Powers... it doesn't do anything on the front-end") is gone — a
+  // Every Technique is stageable outside an Encounter through the same
+  // stage-then-resolve Order flow Move uses (noncombat.js's
+  // resolveNonCombatRound()), not the AP-tracked Combat sequence below. A
   // Technique with no real Non-Combat resolution logic just logs the same
-  // "not yet mechanically resolved" placeholder Combat already falls back to
-  // (js/noncombat.js's processOrders), instead of being blocked outright.
-  // Non-Combat doesn't scale to AP, per dDd, so AP costs are skipped
-  // entirely here; every other resource cost is still charged immediately
-  // at staging, same as Combat.
+  // "not yet mechanically resolved" placeholder Combat falls back to.
+  // Non-Combat doesn't scale to AP, so AP costs are skipped here; every
+  // other resource cost is still charged immediately at staging, same as Combat.
   if(!AppState.table.inEncounter){
     for(const [resource, amount] of Object.entries(def.costs)){
       if(resource === 'ap') continue;
@@ -289,19 +247,12 @@ export async function stageTechnique(){
         actor.orders.push({ id: genId(), kind: 'channel' });
         t.log.push({ type: 'system', text: (actor.name || 'Someone') + ' orders a Channel', time: timeNow() });
       }else if(currentTechniqueKey === 'influence'){
-        // Influence (2026-08-22, per dDd) — carries which Glyph/Axis/
-        // Direction to adjust. Resolved strictly after Message deliveries
-        // land the same Round (js/noncombat.js's processOrders), so a Glyph
-        // picked from "Pending (staged Message)" reliably finds a real
-        // Mindeye entry by the time this runs.
+        // Resolved strictly after Message deliveries land the same Round, so
+        // a Glyph picked from "Pending (staged Message)" reliably finds a real Mindeye entry by then.
         actor.orders.push({ id: genId(), kind: 'influence', targetId, targetName: target.name, glyph: influenceGlyph, axis: influenceAxis, direction: influenceDirection });
         t.log.push({ type: 'system', text: (actor.name || 'Someone') + ' orders Influence on ' + target.name + ' (' + influenceGlyph + ')', time: timeNow() });
       }else{
-        // Generic Non-Combat Order (2026-08-22, per dDd) — every other
-        // Technique stages the same way. This used to be a hard if/else
-        // between exactly Message and Channel — adding Empower without
-        // generalizing it would have silently pushed a wrong-shaped
-        // Channel-style order instead.
+        // Generic Non-Combat Order — every other Technique stages the same way.
         actor.orders.push({ id: genId(), kind: currentTechniqueKey, targetId, targetName: target.name });
         t.log.push({ type: 'system', text: (actor.name || 'Someone') + ' orders ' + def.name + ' on ' + target.name, time: timeNow() });
       }
@@ -318,8 +269,7 @@ export async function stageTechnique(){
   const myPos = AppState.table.positions && AppState.table.positions[AppState.playerId];
   const targetPos = resolvePositionRef(AppState.table, targetId);
   if(myPos && targetPos){
-    // Shadow Possession Link bypasses Range — see the matching note in
-    // openTechniqueUse above.
+    // Shadow Possession Link bypasses Range — see the matching note in openTechniqueUse above.
     const linked = target.shadowLinkedBy && target.shadowLinkedBy.includes(AppState.playerId);
     const dist = getDistance(myPos, targetPos);
     if(!linked && dist > def.range){ showBannerError('Target is out of Range (' + dist + ' > ' + def.range + ').'); return; }
@@ -341,13 +291,11 @@ export async function stageTechnique(){
       targetId, targetName: target.name, targetLabel: def.name.slice(0, 2).toUpperCase(),
       apCost: def.costs.ap || 0, focusCost: def.costs.focus || 0,
       flowCost: def.costs.flow || 0, lightningCost: def.costs.lightning || 0, lavaCost: def.costs.lava || 0,
-      // Message's Glyphs ride along on the entry itself now (2026-08-22, per
-      // dDd: "Messages shouldn't arrive as Information until the Resolve")
-      // — delivery moved to resolveRound() (js/combat.js), matching how
-      // Non-Combat's own Message Order already deferred correctly.
+      // Message's Glyphs ride along on the entry itself — delivery happens
+      // in resolveRound(), matching how Non-Combat's own Message Order
+      // already deferred correctly.
       glyphs: currentTechniqueKey === 'message' ? glyphIds : undefined,
-      // Influence's own picked Glyph/Axis/Direction (2026-08-22) — same
-      // "resolved after Message lands" deferral, in resolveRound().
+      // Influence's own picked Glyph/Axis/Direction — same "resolved after Message lands" deferral, in resolveRound().
       influenceGlyph: currentTechniqueKey === 'influence' ? influenceGlyph : undefined,
       influenceAxis: currentTechniqueKey === 'influence' ? influenceAxis : undefined,
       influenceDirection: currentTechniqueKey === 'influence' ? influenceDirection : undefined
@@ -371,9 +319,9 @@ export function initTechniquesUI(){
   document.getElementById('btn-tu-stage').addEventListener('click', stageTechnique);
 }
 
-// Greys out + crosses through any Technique whose category the current
-// Player's Character doesn't have access to, per dDd's spec — call on every
-// render so it stays live as Create-a-Character's toggles change.
+// Greys out + crosses through any Technique the current Player's Character
+// doesn't have access to — call on every render so it stays live as
+// Create-a-Character's toggles change.
 export function renderTechniquesPanel(){
   const me = AppState.table && AppState.table.players[AppState.playerId];
   document.querySelectorAll('.tech-item[data-technique]').forEach(btn => {

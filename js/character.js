@@ -7,17 +7,11 @@ import { possessorGridHtml, miniPartyGridHtml, wirePossessorMiniPartyClicks } fr
 import { showCharacterView } from './characterView.js';
 import { FACING_DEFAULT } from './map.js';
 
-// Species (2026-08-16): the immutable structural defaults a Character starts
-// from — Death Wounds (z, the wound count that kills — NOT the same thing as
-// Obliteration, which is reserved for every Body Part going false, see
-// utils.js), Body Part count, which Tier 5 entity(ies) occupy the sandwich
-// model's top row and on which side (see Party System item C in the
-// roadmap), and the stat Caps readStatsFromSheet clamps to. Every existing
-// BUILDS entry/Cap was already tuned toward General Humanoids without saying
-// so — this makes that explicit instead of assumed. Caps for the three new
-// species are rough placeholders scaled off their Death Wounds/Body numbers,
-// dDd's own call ("I don't have concrete numbers for that yet either") —
-// tune freely, same treatment as Shadow Possession's thresholds.
+// Species: the immutable structural defaults a Character starts from — Death
+// Wounds (z, the wound count that kills — NOT Obliteration, which is every
+// Body Part going false), Body Part count, which Tier 5 entity(ies) occupy
+// the sandwich model's top row and on which side, and the stat Caps
+// readStatsFromSheet clamps to.
 export const SPECIES = {
   humanoid: {
     name: 'Humanoid', // General Humanoids: Human, Dwarf, Elf, Ork
@@ -44,27 +38,21 @@ export const SPECIES = {
     caps: { ap: [0, 150], flow: [0, 85], recovery: [0, 70], power: [0, 85], quickness: [0, 50], resilience: [0, 85], lightning: [0, 10], lava: [0, 10], focus: [0, 10], control: [0, 10], attunement: [0, 10] }
   },
   rock: {
-    name: 'Rock', // The Living Stone's actual Species — see gomsdu-codex.md's "Making the Living Stone"; "Living Stone" itself is the archetype/flavor name, per creator
-    deathWounds: 10, bodyParts: 1, // corrected, per creator — not the Humanoid-standard 6
-    tier5: { left: 'gom', right: null }, // "recognize only Gom as their Creator" — no Kulkrow connection at all
-    caps: { ap: [0, 100], flow: [0, 50], recovery: [0, 50], power: [0, 50], quickness: [0, 50], resilience: [0, 50], lightning: [0, 10], lava: [0, 10], focus: [0, 10], control: [0, 10], attunement: [0, 10] } // per creator, "can stay for now"
+    name: 'Rock', // the Living Stone's actual Species — "Living Stone" is the archetype/flavor name
+    deathWounds: 10, bodyParts: 1,
+    tier5: { left: 'gom', right: null }, // recognize only Gom as their Creator — no Kulkrow connection
+    caps: { ap: [0, 100], flow: [0, 50], recovery: [0, 50], power: [0, 50], quickness: [0, 50], resilience: [0, 50], lightning: [0, 10], lava: [0, 10], focus: [0, 10], control: [0, 10], attunement: [0, 10] }
   },
   microSingularity: {
-    name: 'Micro-Singularity', // Gom's (and Kulkrow's) own Species — see gomsdu-codex.md Cosmology, "a tiny White Orb"
-    deathWounds: 10, bodyParts: 1, // corrected 2026-08-23, per creator — same treatment as Rock: "Gom should also only have 1 Body Part, cause of his Species," not the Humanoid-standard 6
+    name: 'Micro-Singularity', // Gom's (and Kulkrow's) own Species
+    deathWounds: 10, bodyParts: 1,
     tier5: { left: null, right: null }, // doesn't apply to Gom/Kulkrow themselves
-    // attunement corrected 2026-08-23, per creator — Gom's real sheet runs Attunement 100; the old
-    // [0,10] cap (copied from Humanoid) silently clamped it down to 10 on any sheet save.
-    caps: { ap: [0, 100], flow: [0, 50], recovery: [0, 50], power: [0, 50], quickness: [0, 50], resilience: [0, 50], lightning: [0, 10], lava: [0, 10], focus: [0, 10], control: [0, 10], attunement: [0, 100] }
+    caps: { ap: [0, 100], flow: [0, 50], recovery: [0, 50], power: [0, 50], quickness: [0, 50], resilience: [0, 50], lightning: [0, 10], lava: [0, 10], focus: [0, 10], control: [0, 10], attunement: [0, 100] } // Attunement uncapped-ish — Gom's own sheet runs 100
   }
 };
 
-// Species is no longer Player-selectable (2026-08-20, per dDd — "should just
-// be a very small flavor text item"): #ch-species is a hidden input, still
-// carrying the real key everything else here reads, with a plain <span>
-// alongside it showing the human-readable name. Call this any time
-// #ch-species's own value gets set programmatically (loadBuild,
-// renderCharacterSheet) so the two never drift apart.
+// #ch-species is a hidden input carrying the real key; this syncs the visible
+// display span alongside it. Call any time the value is set programmatically.
 function updateSpeciesDisplay(){
   const key = document.getElementById('ch-species').value || 'humanoid';
   const display = document.getElementById('ch-species-display');
@@ -72,36 +60,21 @@ function updateSpeciesDisplay(){
 }
 
 // Bakes a species' deathWounds/body defaults into a Character's own literal
-// (this codebase's established pattern is full denormalization — every
-// Character carries its own copy of every stat, nothing is looked up live
-// off a shared template at runtime) rather than repeating them by hand on
-// every entry. `speciesKey` may be null/unrecognized (Stray Dog, Sandworm —
-// see BUILDS below) — those entries just skip species/deathWounds/body
-// entirely and fall back to utils.js's DEATH_WOUNDS_DEFAULT at combat time.
+// (full denormalization — every Character carries its own copy of every
+// stat). speciesKey may be null/unrecognized (Stray Dog, Sandworm) — those
+// skip species/deathWounds/body and fall back to DEATH_WOUNDS_DEFAULT at combat time.
 function withSpecies(speciesKey, stats){
   const sp = SPECIES[speciesKey];
   if(!sp) return { ...stats };
   return { species: speciesKey, deathWounds: sp.deathWounds, body: new Array(sp.bodyParts).fill(true), ...stats };
 }
 
-// Control and Attunement default to 0 on every existing build — meaning nothing
-// about current AP costs changes for them. Only a character explicitly set to
-// Control 10 gets the "every action costs 1 AP" effect (see combat.js/dm.js).
-// Wounds (x) starts at 0 — the real x/y model counts UP from uninjured toward
-// woundsMax (y, the personal Down threshold), not down from a depleting pool.
-// Defaults to a Living Stone (2026-08-20, per dDd) rather than a generic
-// Humanoid — every new Character, table-creator or later joiner alike,
-// starts as a real, fully-statted Living Stone matching the "living-stone"
-// Build exactly, not just a Species tag on old placeholder numbers. Per
-// dDd: a joining Player doesn't get a say in the table's Scene (only
-// whoever created it does — see js/scenes.js), so giving them a real
-// default identity outright, rather than a blank Humanoid, is what makes
-// that "join mid-Scene" edge case simple instead of needing its own
-// Scene-aware join logic. archetype stays blank on purpose — the existing
-// "genuinely new Character" auto-open of Create-a-Character (see
-// enterTable() in main.js) keys off that, so a joiner still gets the
-// familiar prompt to personalize their Role text even though their stats
-// already work.
+// Wounds (x) starts at 0 — counts UP toward woundsMax (y), not down from a
+// depleting pool. Every new Character defaults to a real, fully-statted
+// Living Stone (not a blank Humanoid) — a joining Player doesn't get a say in
+// the table's Scene, so this makes "join mid-Scene" simple. archetype stays
+// blank on purpose — that's what gates Create-a-Character's auto-open (see
+// enterTable() in main.js).
 export function blankCharacter(name){
   const b = BUILDS['living-stone'];
   if(b){
@@ -113,28 +86,16 @@ export function blankCharacter(name){
     });
   }
   // Defensive fallback only — BUILDS finishes loading (top-level await)
-  // before this module is even importable, so 'living-stone' is always
-  // real by the time blankCharacter() is actually called.
+  // before this module is importable, so 'living-stone' is always real by call time.
   return withSpecies('rock', { name, archetype: '', wounds: 0, woundsMax: 1, ap: 0, flow: 0, flowMax: 0, recovery: 0, power: 0, quickness: 0, resilience: 1, lightning: 1, lava: 0, focus: 0, control: 0, attunement: 1, life: 1, apSpent: 0, focusSpent: 0, sequence: [], possessors: [], miniParty: [], facing: FACING_DEFAULT });
 }
 
-// Character Templates (2026-08-16) — BUILDS now loads from data/characters.json
-// instead of a hardcoded literal, specifically so it can be authored in bulk
-// via a spreadsheet (reference/README or ROADMAP has the pipeline) instead of
-// hand-edited JS. Enemy Power/Flow values are canon, straight from
-// reference/Power.txt's stat table; everything else on each entry isn't
-// specified there yet, so these are reasonable placeholders scaled to each
-// creature's tier, meant to be tuned once the Power brackets get rebuilt for
-// real. Each JSON row only needs to carry what actually varies — `wounds`
-// (always starts 0, a fresh Build is uninjured), `flow` (mirrors flowMax),
-// `apSpent`/`focusSpent`/`sequence` (always empty/0 for a fresh Build) all
-// get filled in here rather than repeated in every row. A row's `species`
-// (null for Stray Dog/Sandworm, which don't fit any of the four defined
-// species yet — a "Beast" species or similar is still open) drives
-// `deathWounds`/`body` via withSpecies, same as blankCharacter above.
-// Top-level await: this module (and anything importing it — dm.js, ledger.js,
-// main.js) won't finish evaluating until the fetch resolves, which is exactly
-// what's wanted — nothing should render a Build picker before BUILDS is real.
+// BUILDS loads from data/characters.json (authored in bulk via a spreadsheet
+// — see tools/) instead of a hardcoded literal. Each JSON row only carries
+// what actually varies; wounds/flow/apSpent/focusSpent/sequence get filled in
+// here. Top-level await: this module (and anything importing it) won't
+// finish evaluating until the fetch resolves — nothing should render a Build
+// picker before BUILDS is real.
 const CHARACTERS_DATA = await fetch('/data/characters.json').then(r => r.json());
 export const BUILDS = Object.fromEntries(
   Object.entries(CHARACTERS_DATA).map(([key, row]) => {
@@ -143,17 +104,9 @@ export const BUILDS = Object.fromEntries(
   })
 );
 
-// spawnCharacter() (2026-08-24, per dDd) — the one shared way any Character
-// (NPC, Enemy, Yom, and eventually the Player too) gets built from a Build
-// template, replacing 4 near-identical hand-copied literals (js/combat.js's
-// spawnBuildAt, js/dm.js's addEnemy, js/scenes.js's spawnNpc and spawnYom).
-// Those had already silently dropped a new BUILDS field on spawn 3 separate
-// times before today (species/personality, then mindeye, then passiveSpill —
-// spawnBuildAt specifically was still missing personality AND mindeye
-// entirely) — one function now means one place to update, not three-going-
-// on-four. Doesn't touch table.positions or the naming/counting logic
-// ("Gom #1", etc.) — those stay the caller's job, since they depend on
-// what's already on the table, which this function has no business knowing.
+// The one shared way any Character (NPC, Enemy, Yom) gets built from a Build
+// template. Doesn't touch table.positions or naming/counting — those depend
+// on what's already on the table, which this function has no business knowing.
 export function spawnCharacter(build, overrides = {}){
   if(!build) return null;
   return {
@@ -171,10 +124,8 @@ export function spawnCharacter(build, overrides = {}){
   };
 }
 
-// Only fills the form fields — doesn't save. Picking a build used to call
-// scheduleSave() immediately, which meant just browsing the dropdown silently
-// overwrote whoever was the live active character. Now it's a preview: nothing
-// becomes real until "Make Active Character" (or a manual field edit) commits it.
+// Only fills the form fields — doesn't save. A preview: nothing becomes real
+// until "Make Active Character" (or a manual field edit) commits it.
 export function loadBuild(key){
   if(!key) return;
   let b;
@@ -204,22 +155,13 @@ export function loadBuild(key){
   document.getElementById('ch-life').value = b.life ?? 1;
 }
 
-// Populates the Player/Custom-bracketing optgroups of both build pickers
-// from BUILDS itself (2026-08-16) — now that BUILDS loads from
-// data/characters.json instead of a hardcoded literal, a static HTML option
-// list would silently miss anything a spreadsheet edit adds. Call once at
-// startup, before populateSavedCharacterDropdowns (below) fills in the
-// separate "Custom" optgroup.
+// Populates the Player/Custom-bracketing optgroups of both build pickers from
+// BUILDS itself. Call once at startup, before populateSavedCharacterDropdowns.
 //
-// Category is free text (2026-08-16, generalized) — dDd's spreadsheet isn't
-// limited to "player"/"enemy", he tags Characters however he wants
-// (civilian, rogue, animal, imperial, ...) to organize the list. "player" is
-// still special-cased as its own optgroup (Create-a-Character only — the DM
-// spawn picker never shows it, same as before), but every other distinct
-// Category value present in BUILDS gets its own dynamically-labeled optgroup
-// in both pickers, inserted right before the "Custom" (saved-character)
-// group. Old dynamic groups are removed and rebuilt each call so the list
-// never drifts from whatever's actually in BUILDS.
+// Category is free text — every distinct Category value present in BUILDS
+// gets its own dynamically-labeled optgroup (rebuilt each call so the list
+// never drifts from BUILDS). "player" stays special-cased as Create-a-
+// Character's own optgroup; the DM spawn picker never shows it.
 function labelForCategory(category){
   return category.charAt(0).toUpperCase() + category.slice(1);
 }
@@ -242,12 +184,9 @@ export function populateBuildDropdowns(){
   if(chLoader) chLoader.querySelectorAll('[data-dynamic-category], [data-scene-restricted]').forEach(el => el.remove());
   if(chPlayer) chPlayer.innerHTML = '';
 
-  // Scene restriction (2026-08-20, per dDd — Era 1: "the only Character
-  // Sheets available should be Gom and Living Stone... they don't need a
-  // Header Category"). Flat options, no optgroup, inserted right before the
-  // "Custom" anchor same as the dynamic category groups below would be.
-  // Only the Character panel's own loader is restricted — the DM's spawn
-  // picker stays showing everything regardless of Scene.
+  // Scene restriction (e.g. Era 1: only Gom/Living Stone) — flat options, no
+  // optgroup. Only the Character panel's own loader is restricted; the DM's
+  // spawn picker always shows everything.
   const restriction = AppState.sceneBuildRestriction;
   if(restriction){
     const anchor = document.getElementById('ch-build-saved-group');
@@ -278,7 +217,7 @@ export function populateBuildDropdowns(){
 
 // Rebuilds the "Custom" optgroups in both the sheet's build loader and the DM's
 // spawn picker. Called on entering a table and right after a new save, since
-// localStorage has no live-update event to hook into automatically.
+// localStorage has no live-update event to hook into.
 export function populateSavedCharacterDropdowns(){
   const saved = getSavedCharacters();
   const names = Object.keys(saved).sort();
@@ -293,35 +232,21 @@ export function populateSavedCharacterDropdowns(){
   if(dmGroup) dmGroup.innerHTML = optionsHtml;
 }
 
-// Technique Lists (2026-08-16) — per-Character access at the category level
-// (Flow Powers/Focus Powers/Lightning Crafts/Lava Crafts), matching
-// techniques.js's TECHNIQUES entries' existing group/column pairing. Keys
-// double as the `ch-tech-<key>` checkbox id suffix.
+// Per-Character access at the category level (Flow Powers/Focus Powers/
+// Lightning Crafts/Lava Crafts). Keys double as the `ch-tech-<key>` checkbox id suffix.
 export const TECHNIQUE_CATEGORIES = ['flowPowers', 'focusPowers', 'lightningCrafts', 'lavaCrafts'];
 
 // Reads the sheet's fields into a stats object, clamped to each stat's real
-// Species Cap now (character.js's SPECIES — every Cap used to be a flat
-// number, quietly tuned toward General Humanoids; now genuinely per-Species).
-// Wounds (x) is clamped 0-deathWounds, deathWounds (z) itself and the Body
-// array both come straight from the chosen Species — deathWounds is
-// species-fixed by design (not independently sheet-editable), and Body has
-// no per-part mechanics yet so it's simplest to just regenerate a fresh
-// all-true array on every save rather than track edits to it.
+// Species Cap. Wounds (x) clamps 0-deathWounds; deathWounds (z) and Body come
+// straight from the chosen Species (not independently sheet-editable).
 function readStatsFromSheet(){
   const speciesKey = document.getElementById('ch-species').value || 'humanoid';
   const sp = SPECIES[speciesKey] || SPECIES.humanoid;
   const flowVal = clampInt(parseInt(document.getElementById('ch-flow').value || '0', 10), sp.caps.flow[0], sp.caps.flow[1]);
-  // techniqueAccess deliberately NOT read from the sheet's own checkboxes
-  // here (2026-08-24) — those still reflect the old 4-category model
-  // (TECHNIQUE_CATEGORIES below), which no longer matches how access is
-  // actually checked (js/techniques.js's hasTechniqueAccess(), per-Technique
-  // now). Omitting the key entirely means saveCharacter()'s {...me,
-  // ...sheetStats} spread leaves the real per-Technique object (set by
-  // js/character.js's own spawnCharacter() at spawn time) alone, same as
-  // mindeye/personality already survive a sheet save today — writing a
-  // stale 4-key object here would silently zero out every real Technique's
-  // access instead (hasTechniqueAccess() would find the object present but
-  // none of its keys matching a real Technique, denying everything).
+  // techniqueAccess deliberately NOT read here — the sheet's checkboxes are
+  // the old 4-category model, which no longer matches per-Technique access.
+  // Omitting the key leaves the real object (set at spawn time) alone rather
+  // than overwriting it with a stale one that would deny every real Technique.
   return {
     archetype: document.getElementById('ch-archetype').value.trim(),
     species: speciesKey,
@@ -362,12 +287,9 @@ export function scheduleSave(){
   saveDebounce = setTimeout(() => { saveDebouncePending = false; saveCharacter(); }, 700);
 }
 
-// Wired to each sheet field's blur. If a debounced save is still pending, leave
-// it alone — that save's own post-write render (see saveCharacter) will pick
-// this field up correctly once it fires, and rendering here first would read
-// back the pre-edit value and hand it to that pending save, discarding what was
-// just typed. If nothing's pending, there's nothing to lose, so sync immediately
-// instead of waiting for some unrelated future edit to trigger a render.
+// Wired to each sheet field's blur. If a debounced save is still pending,
+// leave it alone — rendering here first would read back the pre-edit value
+// and hand it to that pending save. If nothing's pending, sync immediately.
 export function syncFieldOnBlur(){
   if(!saveDebouncePending) renderCharacterSheet();
 }
@@ -377,21 +299,13 @@ export function syncFieldOnBlur(){
 export async function saveCharacter(hintText, announce){
   const me = AppState.table.players[AppState.playerId] || {};
   const sheetStats = readStatsFromSheet();
-  // The sheet's Flow field is a single "rating" number (flowMax); the current,
-  // possibly mid-combat Flow value is preserved rather than reset by unrelated
-  // edits, and just clamped down if the new max is now lower than it.
+  // The sheet's Flow field is a single "rating" (flowMax); the current,
+  // possibly mid-combat Flow value is preserved, just clamped if the new max is lower.
   const prevFlow = me.flow != null ? me.flow : sheetStats.flowMax;
-  // Rewritten 2026-08-23 — found live while fixing the Glyph Memory merge:
-  // this used to replace t.players[id] wholesale from *only* sheetStats plus
-  // a hand-picked list of exceptions (apSpent/focusSpent/sequence/hitPercent/
-  // possessors/miniParty/joinOrder/departed), each added reactively after
-  // being "found live" losing a field on save. mindeye, personality,
-  // shadowLinks, maintainingEmpower, facing, orders, lightningSpent, and
-  // lavaSpent were never added to that list — every one of them was silently
-  // wiped by any sheet save, autosave included. Spreading `me` first and
-  // layering the sheet's own fields on top means every runtime field the
-  // sheet doesn't own survives by construction — a *future* new one doesn't
-  // need its own hand-added exception here.
+  // Spreading `me` first and layering the sheet's own fields on top means
+  // every runtime field the sheet doesn't own (mindeye, personality,
+  // shadowLinks, facing, etc.) survives by construction — a future new field
+  // doesn't need its own hand-added exception here.
   const updated = {
     ...me,
     ...sheetStats,
@@ -402,10 +316,7 @@ export async function saveCharacter(hintText, announce){
   const ok = await mutateTable(t => {
     t.players[AppState.playerId] = updated;
     // Only the explicit "Make Active Character" commit announces itself — the
-    // ambient autosave-on-edit would otherwise spam the Ledger on every keystroke.
-    // Structured (not flat text) so the Ledger can render it as a tiered block —
-    // a flat "X became the active character" line gives no sign of *what* X
-    // became (archetype, rename), reading identically to a plain join/leave.
+    // ambient autosave would otherwise spam the Ledger on every keystroke.
     if(announce){
       t.log.push({
         type: 'character-active', time: timeNow(),
@@ -415,24 +326,19 @@ export async function saveCharacter(hintText, announce){
     }
   });
   if(ok) flashHint('save-hint', hintText || 'Saved'); else flashHint('save-hint', 'Could not save', true);
-  // Don't wait on the realtime round-trip to show the (possibly clamped) value
-  // that was just written — mutateTable already updated AppState.table in
-  // memory, so this reflects it immediately. Still skips whichever field, if
-  // any, the user is actively typing in right now.
+  // Don't wait on the realtime round-trip — mutateTable already updated
+  // AppState.table in memory. Still skips whichever field the user is actively typing in.
   renderCharacterSheet();
 }
 
-// The explicit commit action: "Make Active Character" saves immediately
-// (skipping the debounce) so loading/editing a build only becomes your live
-// character when you deliberately say so.
+// The explicit commit action: saves immediately (skipping the debounce) so
+// loading/editing a build only becomes your live character when you deliberately say so.
 export async function makeActiveCharacter(){
   await saveCharacter('Made the active character', true);
 }
 
-// Populates the sheet's fields from live state. Whichever single field the user
-// is actively typing in is left alone — everything else refreshes normally, so
-// a correction (e.g. a clamped stat) landing while you're mid-edit elsewhere in
-// the form isn't stuck showing a stale value until some unrelated field changes.
+// Populates the sheet's fields from live state. Whichever field the user is
+// actively typing in is left alone.
 export function renderCharacterSheet(){
   const me = AppState.table && AppState.table.players[AppState.playerId];
   if(!me) return;
@@ -461,11 +367,9 @@ export function renderCharacterSheet(){
   setIfNotActive('ch-attunement', me.attunement ?? 0);
   setIfNotActive('ch-life', me.life ?? 1);
 
-  // Category-level checkboxes only — techniqueAccess itself moved to
-  // per-Technique granularity 2026-08-24 (js/techniques.js's
-  // hasTechniqueAccess()). This sheet UI is dormant along with the rest of
-  // Create-a-Character (per dDd: on hold until Second Era) rather than
-  // updated to match; left as-is, not actively relied on right now.
+  // Category-level checkboxes only — techniqueAccess moved to per-Technique
+  // granularity. This sheet UI is dormant along with the rest of
+  // Create-a-Character (on hold until Second Era).
   TECHNIQUE_CATEGORIES.forEach(key => {
     const el = document.getElementById('ch-tech-' + key);
     if(el && el !== active) el.checked = me.techniqueAccess ? (me.techniqueAccess[key] ?? true) : true;
@@ -480,15 +384,9 @@ export function renderCharacterSheet(){
   if(whoName) whoName.textContent = me.name || '—';
 }
 
-// Duplicated Add-Possessor/Add-Mini-Party flow (2026-08-16) — same engine as
-// the Roster's (possession.js's addPossessor/addMiniPartyMember, unchanged),
-// just always targeting the current Player's own record rather than an
-// arbitrary one, so Create-a-Character can generate a whole family —
-// Character + Mini-Party + Possessors — in one sitting. Per dDd: this is
-// what actually makes populating a Tile with 5 Characters practical, since
-// Characters are meant to cluster together anyway. DM-side (an Enemy
-// generated with its own Possessors/Mini-Party) is explicitly out of scope
-// for this pass — dm.js's addEnemy has no equivalent yet.
+// Same engine as the Roster's addPossessor/addMiniPartyMember, just always
+// targeting the current Player's own record, so Create-a-Character can
+// generate a whole family in one sitting. DM-side equivalent doesn't exist yet.
 let chAddPartyKind = null; // 'possessor' | 'miniparty'
 
 function chShowAddPartyFields(kind){
@@ -517,9 +415,8 @@ async function chConfirmAddPartyMember(){
   chAddPartyKind = null;
 }
 
-// Wires the Create-a-Character panel's own Add-Party instance — a separate
-// set of element ids from the Roster's shared add-party-fields, so the two
-// don't fight over the same hidden/shown state.
+// Wires Create-a-Character's own Add-Party instance — separate element ids
+// from the Roster's shared fields, so the two don't fight over hidden/shown state.
 export function initCreateCharacterPartyUI(){
   const buildOptions = Object.entries(BUILDS).map(([key, b]) => '<option value="' + key + '">' + b.archetype + '</option>').join('');
   document.getElementById('ch-add-party-build').innerHTML = '<option value="">&mdash; blank &mdash;</option>' + buildOptions;
@@ -529,9 +426,8 @@ export function initCreateCharacterPartyUI(){
 }
 
 // Renders the current Player's own Possessor/Mini-Party grids inside
-// Create-a-Character — same shared renderer the Roster and the read-only
-// Character Sheet use (possessionView.js), just always scoped to
-// AppState.playerId.
+// Create-a-Character — same shared renderer the Roster and read-only
+// Character Sheet use, just always scoped to AppState.playerId.
 export function renderCreateCharacterParty(){
   const me = AppState.table && AppState.table.players[AppState.playerId];
   const possessorEl = document.getElementById('ch-possessor-grid');

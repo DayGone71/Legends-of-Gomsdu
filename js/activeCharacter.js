@@ -1,35 +1,21 @@
-// Active Character (2026-08-22, per dDd) — first pass. The real unifying
-// principle behind Possession/Mini-Party control/TATA is that every
-// Character functions identically; Active Character is just which one a
-// Player is currently acting as. This pass only covers the TATA half —
-// "we don't need to worry about direct control of Mini-Party or Possessed
-// Characters in this pass." Outside TATA (the normal state of the Game),
-// the Active Character is always just the Player's own Character; no
-// switching UI exists for that yet. The DM Panel's own separate Acting-As/
-// Essence-menu machinery (js/dm.js) is untouched by this pass — per dDd,
-// "the DM stuff will get folded in [to DM Test Panel] when it's logical,"
-// not this pass. This module is purely additive: a new display + a new
-// toggle, not yet wired into what Combat/Movement/Craft actions operate on.
+// Every Character functions identically; Active Character is just which one
+// a Player is currently acting as. Outside TATA, the Active Character is
+// always just the Player's own Character — no switching UI exists for that.
+// The DM Panel's own separate Acting-As/Essence-menu machinery (js/dm.js) is
+// a distinct concept for now.
 
 import { AppState } from './state.js';
 import { escapeHtml, isDeathWounded } from './utils.js';
 import { BUILDS } from './character.js';
 
-// Yom replaces the old placeholder (2026-08-23, per dDd — "TATA is kind of
-// wack... we could have Yom be the default Active Character, instead of
-// using the Architect Adversary placeholder"). TATA itself stood for "The
-// Architect and The Adversary" (see reference/dialogue-system.md's Naming
-// note), flagged as needing a rename since 2026-08-15.
-//
-// As of 2026-08-24, Yom is a real Character in the new Universal Characters
-// Table (table.characters — see js/scenes.js's spawnYom()), not just a
-// display template — resolveActiveCharacter() below reads his real,
-// persisted record. He appears on the Map alone the instant a Scene loads
-// (spawnYom()/loadScene()), then vanishes once a real Player actually
-// arrives (seedScene()) — never targetable/interactable there in between,
-// but a genuine Character the rest of the time, listable/inspectable from
-// the NPC Panel same as anyone else. yomDisplayCharacter() below only ever
-// fires now as a last-resort fallback, for the rare case nothing has
+// Yom is the TATA default (was a placeholder, now a real Character in the
+// Universal Characters Table — table.characters, see js/scenes.js's
+// spawnYom()). resolveActiveCharacter() below reads his real, persisted
+// record. He appears on the Map alone the instant a Scene loads, then
+// vanishes once a real Player arrives — never targetable/interactable there
+// in between, but a genuine Character the rest of the time, listable/
+// inspectable from the NPC Panel same as anyone else. yomDisplayCharacter()
+// below only fires as a last-resort fallback, for the rare case nothing has
 // created him yet (no Scene ever loaded this Table).
 function yomDisplayCharacter(){
   const b = BUILDS.yom;
@@ -42,18 +28,12 @@ function yomDisplayCharacter(){
   };
 }
 
-// Toggle, per dDd's exact spec: clicking a Character's "Make Active" button
-// switches straight to them if someone else (or nobody) was Active; clicking
-// the SAME Character's button again drops Direct Control back to The
-// Architect default, rather than requiring a separate "deactivate" control.
-//
-// Kept in lockstep with AppState.actingEnemyId (2026-08-22) — the DM
-// Panel's own, older "Acting As" concept ([js/dm.js](../js/dm.js)), so
-// whichever Character becomes Active is also who Attack/Block/Essence
-// already treat as the Crafter, with zero duplicated logic. A real step
-// toward "the DM stuff folds in" rather than the two concepts drifting
-// apart — not the full merge, just this one becoming the source of truth
-// for both wherever they'd otherwise disagree.
+// Clicking a Character's "Make Active" button switches straight to them if
+// someone else (or nobody) was Active; clicking the SAME Character's button
+// again drops back to the default, rather than needing a separate
+// "deactivate" control. Kept in lockstep with AppState.actingEnemyId (the DM
+// Panel's own "Acting As" concept, js/dm.js) so whichever Character becomes
+// Active is also who Attack/Block/Essence treat as the Crafter.
 export function toggleActiveCharacter(id){
   AppState.activeCharacterId = (AppState.activeCharacterId === id) ? null : id;
   AppState.actingEnemyId = AppState.activeCharacterId;
@@ -74,18 +54,14 @@ export function resolveActiveCharacter(){
 
   const id = AppState.activeCharacterId;
   const enemy = id && table.enemies && table.enemies[id];
-  // Universal Characters Table (2026-08-24) — Yom (and whoever else lands
-  // there later) checked separately from Enemies, not merged into the same
-  // lookup: he was never meant to become a Combat participant just by
-  // being Active-able.
+  // Yom (and whoever else lands in table.characters) is checked separately
+  // from Enemies, not merged into the same lookup — he was never meant to
+  // become a Combat participant just by being Active-able.
   const universal = id && !enemy && table.characters && table.characters[id];
   const found = enemy || universal;
   if(!found || isDeathWounded(found)){
-    // Dead/removed since being made Active — fall back to the default
-    // rather than a display pointing at nothing. The default is now Yom's
-    // own real, persisted record (table.characters.yom) — yomDisplayCharacter()
-    // survives only as a last-resort fallback for the (now rare) case where
-    // no Scene has ever been loaded, so he doesn't exist yet at all.
+    // Dead/removed since being made Active — fall back to Yom's real,
+    // persisted record rather than a display pointing at nothing.
     if(id){ AppState.activeCharacterId = null; AppState.actingEnemyId = null; }
     const realYom = table.characters && table.characters.yom;
     return { name: 'Yom', side: 'yom', character: realYom || yomDisplayCharacter() };
@@ -93,15 +69,11 @@ export function resolveActiveCharacter(){
   return { name: found.name || (enemy ? 'Enemy' : 'Character'), side: enemy ? 'enemy' : 'yom', character: found };
 }
 
-// The Map Panel's new Active Character card (2026-08-22, per dDd — "In the
-// Map Panel, under the 3 buttons, we should have an Active Character
-// display. It shows Avatar, Name, and Key Stats"). Key Stats: Wounds, AP,
-// Focus, Control, plus Lightning/Lava/Attunement (added 2026-08-22 after
-// playtesting — dDd: "Lava and Lightning should appear on Active Character
-// Panel" / "Attunement should appear on Active Character Panel") — Lava and
-// Lightning only render when the Character actually has any (Living Stones
-// have neither; Gom has both), matching the same "don't show a stat that
-// isn't real for this Character" convention Combat's own Focus button uses.
+// The Map Panel's Active Character card: Avatar, Name, and Key Stats
+// (Wounds, AP, Focus, Control, plus Lightning/Lava/Attunement). Lightning
+// and Lava only render when the Character actually has any (Living Stones
+// have neither; Gom has both) — same "don't show a stat that isn't real for
+// this Character" convention Combat's own Focus button uses.
 export function renderActiveCharacterDisplay(){
   const el = document.getElementById('active-character-display');
   if(!el) return;
@@ -125,10 +97,8 @@ export function renderActiveCharacterDisplay(){
     '</div>';
   }
 
-  // Placeholder row (2026-08-24, per dDd — "add another Row... 7 square
-  // Placeholder buttons"). No spec yet for what they'll actually do —
-  // inert squares, same "reserve the space now, wire it up later" pattern
-  // as the Map Grid's own buffer-track work earlier this session.
+  // 7 inert placeholder squares — no spec yet for what they'll do, reserving
+  // the space now.
   const placeholderRow = '<div class="active-char-placeholder-row">' +
     '<div class="active-char-placeholder-btn"></div>'.repeat(7) +
   '</div>';
@@ -143,12 +113,11 @@ export function renderActiveCharacterDisplay(){
     '</div>' +
     placeholderRow;
 
-  // Width scaled to the Map Grid, minus its first and last column
-  // (2026-08-24, per dDd) — read live off the real rendered grid rather
-  // than hardcoding today's HALF_TILE value, so this keeps matching if the
-  // Grid's own edge-column sizing ever changes again. renderMap() always
-  // runs immediately before this in renderAll() (js/main.js), so #map-grid
-  // is already laid out with real geometry by the time this reads it.
+  // Width scaled to the Map Grid, minus its first and last column — read
+  // live off the rendered grid rather than a hardcoded value, so this stays
+  // correct if the Grid's edge-column sizing changes. renderMap() always
+  // runs immediately before this in renderAll(), so #map-grid is already
+  // laid out by the time this reads it.
   const mapGrid = document.getElementById('map-grid');
   if(mapGrid){
     const colWidths = getComputedStyle(mapGrid).gridTemplateColumns.split(' ').map(parseFloat);

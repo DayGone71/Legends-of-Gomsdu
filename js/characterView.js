@@ -16,15 +16,14 @@ const TECHNIQUE_CATEGORY_LABELS = {
 
 // Universal read-only "quick snapshot of stats" — same panel for a real
 // player, an enemy, or a lightweight Possessor/Mini-Party stub (which may
-// only have a name and no stats at all yet). Renamed "Character Sheet"
-// (2026-08-16, was "Character View") and rebuilt as the two-column reference
-// layout Create-a-Character now mirrors — Right = the hard numbers, Left =
+// only have a name and no stats at all yet). Two-column layout, the same
+// one Create-a-Character mirrors — Right = the hard numbers, Left =
 // Species/Possessors/Mini-Party. `ownerId` is only meaningful for a real
 // top-level Player (needed so its own Possessor/Mini-Party grids can
 // data-player-id correctly) — omitted for Possessor/Mini-Party stub views,
 // which have no possessors/miniParty of their own to render beyond the
-// ambient Gom/Kulkrow default anyway. Equipment and Buffs stay pure
-// placeholders below the columns — no Equipment/Buffs data model exists yet.
+// ambient Gom/Kulkrow default. Equipment and Buffs stay pure placeholders
+// below the columns — no Equipment/Buffs data model exists yet.
 export function showCharacterView(charLike, ownerId){
   if(!charLike) return;
   document.getElementById('cv-name').textContent = charLike.name || 'Unnamed';

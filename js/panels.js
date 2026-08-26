@@ -3,40 +3,26 @@ import { closeMapPopups } from './map.js';
 
 const PANEL_IDS = ['character', 'combat', 'dm', 'dmtest', 'character-view', 'stats', 'techniques', 'party', 'npcs', 'technique-use', 'help', 'information', 'personality', 'relationships', 'scripts'];
 
-// The 3 Pillars merged into one Panel (2026-08-24, per dDd — "merge
-// Information, Personality, and Relationships into one Panel. They should
-// all look basically the same as they do right now, just in 3 separate
-// columns for one Panel"). Only #panel-information exists in the DOM now
-// (index.html) — 'personality'/'relationships' still work as names every
-// existing caller (toolbar buttons, dm.js's NPC-inspect buttons, etc.) can
-// keep passing unchanged, they just resolve to the same real panel instead
-// of their own. Kept as an alias layer rather than touching every call
-// site — the three names still mean something different (which column a
-// caller conceptually wants), just not which DOM element opens anymore.
+// The 3 Pillars (Information/Personality/Relationships) render as one merged
+// Panel, 3 columns wide. Only #panel-information exists in the DOM —
+// 'personality'/'relationships' still work as names every existing caller
+// can keep passing unchanged, they just resolve to the same real panel. Kept
+// as an alias layer rather than touching every call site — the three names
+// still mean something different (which column a caller conceptually
+// wants), just not which DOM element opens.
 const PANEL_ALIASES = { personality: 'information', relationships: 'information' };
 function realPanelId(name){ return PANEL_ALIASES[name] || name; }
 
-// Moved here from js/main.js (2026-08-23) so js/scenes.js can use it too,
-// without a circular import (main.js already imports from both this file
-// and scenes.js). See its new loadScene() usage — per dDd, watching a real
-// Scene load: "it looks like all the Logic happens after the Map loads. The
-// Camera adjust, the Characters Spawn. It looks like they are racing and
-// winner is random... having a mandatory 1 second 'load' screen? All that
-// stuff happens... then presented visually?" — several sequential
-// mutateTable() calls (spawn NPCs, create the Player Character, seed
-// Mindeye/Personality, set Facing) each re-render as they land, and the
-// camera doesn't get centered until after all of them — so the Map visibly
-// renders several times at the wrong (default) camera position before ever
-// showing the right one. #loading is now a real full-screen blocking
-// overlay (css/base.css's .loading-row), not just an inline hint, so
-// wrapping a whole async sequence in showLoading(true)/(false) actually
-// hides the in-between churn instead of just leaving it visible underneath.
-// Fades out instead of an instant cut (2026-08-24, per dDd's own spec: "The
-// Loading Screen is timed to fade away as the Player fades in"). .hidden
-// itself (display:none !important) can't transition — nothing to animate
-// once a property goes to none — so .loading-fade-out drives a real opacity
-// transition (css/base.css) first, and .hidden only lands ~500ms later,
-// once the fade has actually finished, instead of snapping away mid-fade.
+// #loading is a real full-screen blocking overlay (css/base.css's
+// .loading-row) — wrapping a whole async Scene-load sequence in
+// showLoading(true)/(false) hides the in-between churn of several
+// sequential mutateTable() calls (spawn NPCs, create the Player Character,
+// seed Mindeye/Personality, set Facing) each re-rendering as they land,
+// before the camera is centered on the final state. Fades out instead of an
+// instant cut: .hidden (display:none !important) can't transition — nothing
+// to animate once a property goes to none — so .loading-fade-out drives a
+// real opacity transition first, and .hidden only lands ~500ms later, once
+// the fade has actually finished.
 let loadingHideTimer = null;
 export function showLoading(v){
   const el = document.getElementById('loading');
@@ -61,13 +47,12 @@ function collapseActionMenus(prefix){
 
 export function openPanel(name){
   if(!PANEL_IDS.includes(name)) return;
-  // Fixed 2026-08-22, per dDd — the Map's own popups (Move/Suggest/Craft and
-  // the Occupant List) were persisting behind whichever Panel just opened.
-  // A direct call here, not reliant on the click that opened this Panel
-  // actually bubbling to document — several Panel-opening buttons
-  // (js/craftPopup.js's craft-list-item, for one) call ev.stopPropagation()
-  // first for unrelated reasons, which silently defeated the document-level
-  // dismiss listener (js/map.js's initMapPopupDismiss) for exactly this case.
+  // Direct call, not reliant on the click that opened this Panel bubbling to
+  // document — several Panel-opening buttons (js/craftPopup.js's
+  // craft-list-item, for one) call ev.stopPropagation() first for unrelated
+  // reasons, which would otherwise defeat the document-level dismiss
+  // listener (js/map.js's initMapPopupDismiss) and leave the Map's own
+  // popups (Move/Suggest/Craft, Occupant List) persisting behind the Panel.
   closeMapPopups();
   AppState.activePanel = realPanelId(name);
   if(name === 'combat') collapseActionMenus('');

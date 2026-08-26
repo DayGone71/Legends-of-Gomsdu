@@ -27,17 +27,13 @@ function showLandingError(msg){
 }
 function clearLandingError(){ document.getElementById('landing-error').classList.add('hidden'); }
 
-// TATA View 2 swap (2026-08-20, dDd's spec) — "Pressing Tata swaps Party
-// and the Ledger, essentially." Player mode: Party (left) + Ledger (right,
-// headed "Party Ledger"). TATA mode: Ledger moves to the left (headed "Tata
-// Ledger", mirrored — see .persistent-grid.tata-active in css/layout.css)
-// and Characters (same table.enemies data as the toolbar's NPCs panel, per
-// dDd — "Characters and the NPCs Panel are the same thing really") takes
-// the right slot, also mirrored. Each of the three panels also gets a slow,
-// faint colored glow identifying the current mode — six combinations
-// (Player; TATA non-Combat; TATA in-Combat), see the .glow-* classes in
-// css/panels.css. Called from renderAll() every render, since it depends on
-// both AppState.tataActive and table.inEncounter.
+// TATA View 2 swap: Player mode shows Party (left) + Ledger (right, headed
+// "Party Ledger"). TATA mode moves Ledger to the left (mirrored) and
+// Characters (same table.enemies data as the NPCs panel) to the right, also
+// mirrored. Each panel gets a slow, faint colored glow identifying the
+// current mode — six combinations (Player; TATA non-Combat; TATA in-Combat),
+// see the .glow-* classes in css/panels.css. Called from renderAll() every
+// render, since it depends on both AppState.tataActive and table.inEncounter.
 function renderView2Mode(persistentGrid){
   if(!persistentGrid) return;
   const tata = AppState.tataActive;
@@ -61,7 +57,7 @@ function renderView2Mode(persistentGrid){
   }
 
   const ledgerHeader = document.getElementById('ledger-header');
-  if(ledgerHeader) ledgerHeader.textContent = tata ? 'Yom Ledger' : 'Party Ledger'; // label only, 2026-08-23 — see index.html's tata-toggle rename
+  if(ledgerHeader) ledgerHeader.textContent = tata ? 'Yom Ledger' : 'Party Ledger';
 
   renderNpcList('characters-list');
 }
@@ -73,9 +69,8 @@ function renderAll(){
     handleRemovedFromTable();
     return;
   }
-  // New Game Process (2026-08-20) — nothing below the Sequencer Divider is
-  // visible until a Scene is loaded (t.scene set); Load a Scene itself is
-  // only usable by whoever created the Table, per dDd.
+  // Nothing below the Sequencer Divider is visible until a Scene is loaded;
+  // Load a Scene itself is only usable by whoever created the Table.
   const sceneLoaded = !!AppState.table.scene;
   const battleReport = document.querySelector('.battle-report-line');
   const mapRow = document.querySelector('.map-row');
@@ -94,16 +89,12 @@ function renderAll(){
   renderCharacterSheet();
   renderCreateCharacterParty();
   renderTechniquesPanel();
-  // Moved off the retired toolbar-information button (2026-08-24) onto
-  // toolbar-personality, the one surviving entry point into the unified
-  // Personality Panel — the "new Information arrived" pulse still needs a
-  // home.
+  // toolbar-personality is the one surviving entry point into the unified
+  // Personality Panel — the "new Information arrived" pulse lives here.
   const infoBtn = document.getElementById('toolbar-personality');
   if(infoBtn) infoBtn.classList.toggle('pulsing-gom', hasUnseenMindeye());
-  // Information/Personality/Relationships collapsed into one render call
-  // (2026-08-24) — js/personality.js's renderPersonalityPanel() now owns
-  // the whole unified layout, including what used to be Information's own
-  // Glyph Gallery and Relationships' own Axis editor.
+  // Information/Personality/Relationships are one merged Panel now —
+  // personality.js's renderPersonalityPanel() owns the whole unified layout.
   renderPersonalityPanel();
   renderPartyPanel();
   renderCombatCounters();
@@ -126,10 +117,9 @@ function renderAll(){
 }
 registerRenderCallback(renderAll);
 
-// Veil Vision — local-only, see js/state.js. Flips the flag and re-renders
-// everything it touches (Sequencer's Enemy-slash staging visibility, the
-// Roster's Shadow Possessors) in one pass, same as toggleMapEditMode()'s
-// button-class pattern.
+// Veil Vision — local-only. Flips the flag and re-renders everything it
+// touches (Sequencer's Enemy-slash staging visibility, the Roster's Shadow
+// Possessors) in one pass.
 function toggleVeilVision(){
   AppState.veilVision = !AppState.veilVision;
   const btn = document.getElementById('veil-vision-toggle');
@@ -147,7 +137,7 @@ async function handleCreate(){
   AppState.playerId = genId();
   const initial = {
     code, createdAt: Date.now(),
-    createdBy: AppState.playerId, // New Game Process (2026-08-20) — only whoever created the Table can Load a Scene, per dDd; a later joiner never gets that choice.
+    createdBy: AppState.playerId, // only the creator can Load a Scene; a later joiner never gets that choice
     log: [{ type: 'system', text: name + ' created the table', time: timeNow() }],
     players: {}, enemies: {},
     inEncounter: false,
@@ -181,19 +171,13 @@ async function handleJoin(){
   await mutateTable(t => {
     t.players[AppState.playerId] = blankCharacter(name);
     // Explicit join-order timestamp, not reliance on Object key insertion
-    // order (2026-08-17, dDd's "Player Order in Party is scuffed" note) —
-    // insertion order *should* already be stable, but concurrent writes on
-    // this table's whole-row-overwrite persistence (see reference/ROADMAP.md,
-    // Networking & Sync) can scramble it. A stamped, sortable field survives
-    // that regardless of how the underlying object gets rebuilt on a write.
+    // order — concurrent writes on this table's whole-row-overwrite
+    // persistence can scramble it; a stamped, sortable field survives that.
     t.players[AppState.playerId].joinOrder = Date.now();
-    // Position (2026-08-23) — only assigned here as a bare fallback when the
-    // Table has no real Scene with Spawn List data yet (Dev mode, or no
-    // Scene picked at all). A joining Player entering an already-active real
-    // Scene gets their own Spawn List slot from seedScene() instead, called
-    // right after from enterTable() below — this used to unconditionally
-    // drop every joiner at the map's own {0,y} corner regardless of the
-    // Scene, the exact Multiplayer Scene-spawn gap ROADMAP.md flagged.
+    // Position: only assigned here as a bare fallback when the Table has no
+    // real Scene with Spawn List data yet (Dev mode, or no Scene picked at
+    // all). A joining Player entering an already-active real Scene gets
+    // their own Spawn List slot from seedScene() instead, called right after from enterTable() below.
     const scene = SCENES[t.scene];
     if(!scene || !(scene.npcSpawns || scene.playerSpawns)){
       if(!t.positions) t.positions = {};
@@ -214,49 +198,37 @@ async function enterTable(code){
   populateSavedCharacterDropdowns();
   populateSavedEncounterDropdown();
 
-  // Home > Legends > Main Game (2026-08-23, per dDd — "we jump to Game
-  // Screen after making Table but it should be Home > Legends > Main Game").
-  // The Table's own creator lands on the Legends screen (Scene picker)
-  // instead of a mostly-empty Main Game screen whenever no Scene is loaded
-  // yet; anyone else — a joining Player, or a rejoin once a Scene already
-  // exists — goes straight to Main Game, since only the creator can Load a
-  // Scene at all (t.createdBy, the same gate the in-Table "Load a Scene"
-  // dropdown already uses) — showing a non-creator an unusable picker would
-  // just be confusing. Picking a Legend (index.html's .legends-scene-btn,
-  // wired below) swaps back to Main Game itself once loadScene() runs.
+  // Home > Legends > Main Game: the Table's own creator lands on the Legends
+  // screen (Scene picker) whenever no Scene is loaded yet; anyone else — a
+  // joining Player, or a rejoin once a Scene already exists — goes straight
+  // to Main Game, since only the creator can Load a Scene at all. Picking a
+  // Legend (.legends-scene-btn, wired below) swaps back to Main Game once loadScene() runs.
   const sceneLoaded = !!(AppState.table && AppState.table.scene);
   const isCreator = AppState.table && AppState.table.createdBy === AppState.playerId;
   document.getElementById('screen-legends').classList.toggle('hidden', sceneLoaded || !isCreator);
   document.getElementById('screen-table').classList.toggle('hidden', !sceneLoaded && isCreator);
 
-  // Seed (2026-08-23, per dDd) — "the same thing could happen [on] Refreshing;
-  // this just occurs behind the screen for the joining Player, 'creating' the
-  // World State of the Game." Idempotent (js/scenes.js's seedScene() no-ops
-  // if this Player's already positioned and the Scene's NPCs already exist),
-  // so this is safe to run on every join AND every plain rejoin/hard-refresh,
-  // not just a fresh Scene pick — same showLoading() gate loadScene() itself
-  // uses, so a joiner never sees their own spawn happen live.
+  // Seed runs behind the screen for a joining/rejoining Player too,
+  // "creating" the World State for them. Idempotent (seedScene() no-ops if
+  // this Player's already positioned and the Scene's NPCs already exist), so
+  // safe on every join AND every plain rejoin/hard-refresh — same
+  // showLoading() gate loadScene() itself uses, so a joiner never sees their own spawn happen live.
   showLoading(true);
   await seedScene();
   centerMapView();
   showLoading(false);
   renderAll();
-  // Only auto-open for a genuinely new Character (no archetype set yet) —
-  // was unconditional, which reopened Create-a-Character on every reload of
-  // an already-set-up Character too. Found 2026-08-17, see ISSUES.md.
-  // Also gated on scene === 'dev' (2026-08-20, per dDd) — a Scene like Era 1
-  // already hands the joining Player a fully-statted Living Stone (see
-  // js/scenes.js), so there's nothing left to fill in; the sheet popping up
-  // uninvited is just noise there. A scene-less freshly-created Table (scene
-  // still unset — nothing below the Sequencer Divider is visible yet either,
-  // see renderAll()) shouldn't show it either, only Dev's freeform default.
+  // Only auto-open for a genuinely new Character (no archetype set yet), and
+  // only in Dev — a real Scene like Era 1 already hands the joining Player a
+  // fully-statted Living Stone, so the sheet popping up uninvited there is
+  // just noise. A scene-less freshly-created Table shouldn't show it either.
   const me = AppState.table && AppState.table.players[AppState.playerId];
   if(me && !me.archetype && AppState.table.scene === 'dev') openPanel('character');
 }
 
-// Fires when this tab's own player record is gone from the synced table — left
-// from another tab/window, or removed by the DM. Without this, a stale tab keeps
-// showing "You are X" and will keep posting chat/actions under a ghost identity.
+// Fires when this tab's own player record is gone from the synced table —
+// left from another tab/window, or removed by the DM. Without this, a stale
+// tab keeps showing "You are X" and posting chat/actions under a ghost identity.
 function handleRemovedFromTable(){
   forgetMe();
   disconnect();
@@ -268,9 +240,8 @@ function handleRemovedFromTable(){
 async function leaveTable(){
   if(AppState.table && AppState.table.players[AppState.playerId]){
     const name = AppState.table.players[AppState.playerId].name || 'Someone';
-    // Departed, not deleted (2026-08-17, dDd's ask) — the record (and their
-    // Possessors/Mini-Party) stays, greyed out in the Roster (renderRoster()
-    // in ledger.js), rather than vanishing outright.
+    // Departed, not deleted — the record (and their Possessors/Mini-Party)
+    // stays, greyed out in the Roster, rather than vanishing outright.
     await mutateTable(t => {
       t.players[AppState.playerId].departed = true;
       t.log.push({ type: 'system', text: name + ' left the table', time: timeNow() });
@@ -300,9 +271,8 @@ function copyCode(){
 // ---------- Wiring ----------
 // Color Laboratory — a landing-page-only art experiment, no game state
 // involved. Two ways to drive the one Experiment patch, kept in sync: the
-// slider (one HSL hue at a fixed 65%/55% saturation/lightness, for a quick
-// scrub roughly as vivid as the settled bands above it) and a typed hex
-// code (exact color, any saturation/lightness — the slider just jumps to
+// slider (one HSL hue at a fixed 65%/55% saturation/lightness) and a typed
+// hex code (exact color, any saturation/lightness — the slider just jumps to
 // its nearest hue so both controls always agree on where they landed).
 function hslToHex(h, s, l){
   s /= 100; l /= 100;
@@ -350,17 +320,14 @@ function initColorLab(){
   if(!slider || !patch || !value || !hexInput) return;
 
   // Single-select among the palette patches — clicking one clears whichever
-  // else was highlighted. The Experiment patch highlights independently of
-  // that group. Whenever both are highlighted at once, the palette patch's
-  // color is overwritten to the Experiment color, live — see applyIfBoth(),
-  // called both from clicks and from every Experiment color change, so it
-  // keeps tracking for as long as the pairing holds.
+  // else was highlighted. The Experiment patch highlights independently.
+  // Whenever both are highlighted at once, the palette patch's color is
+  // overwritten to the Experiment color live — see applyIfBoth(), called
+  // from clicks and from every Experiment color change.
   let selected = null;
 
   // Keeps a row's Gradient column honest — rebuilt from whatever its own
-  // three patches currently show, not the row's original hardcoded stops,
-  // so overwriting a Primary/Secondary/Highlight patch actually shows up
-  // in the blended (or hard-stopped, for Self/Ally/Enemy) bar next to it.
+  // three patches currently show, not the row's original hardcoded stops.
   function rebuildGradient(patchEl){
     const row = patchEl.closest('.color-lab-row');
     const band = row && row.querySelector('.color-lab-band');
@@ -422,13 +389,12 @@ function initColorLab(){
   fromSlider();
 }
 
-// Lightning box — another landing-page-only art experiment, no game state.
+// Lightning box — a landing-page-only art experiment, no game state.
 // Recursive midpoint-displacement is the classic way to fake a lightning
 // bolt: start with a straight line from A to B, repeatedly bisect each
 // segment and nudge the new midpoint sideways by a shrinking random amount.
 // Fewer/larger nudges (low depth, high displacement) reads jagged and
-// violent; more/smaller nudges reads fine and crackly — randomizing both
-// per bolt is most of what makes each one feel distinct.
+// violent; more/smaller nudges reads fine and crackly.
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 function jaggedPoints(x1, y1, x2, y2, depth, displace, out){
@@ -463,8 +429,7 @@ function spawnLightningBolt(box, targetX, targetY, intensityFactor){
   const startY = Math.max(0, targetY - reach);
 
   // The Intensity knob shifts each random range's floor/ceiling rather than
-  // fixing a value outright — bolts stay unique at any knob setting, just
-  // calmer or more violent on average.
+  // fixing a value outright — bolts stay unique at any knob setting, just calmer or more violent on average.
   const intensity = (0.4 + intensityFactor * 1.6) * (0.7 + Math.random() * 0.6); // jaggedness
   const depth = 4 + Math.floor(Math.random() * 3); // 4-6 subdivisions
   const mainPoints = buildJaggedPath(startX, startY, targetX, targetY, depth, 16 * intensity);
@@ -498,7 +463,7 @@ function spawnLightningBolt(box, targetX, targetY, intensityFactor){
   }
 
   svg.appendChild(g);
-  const dur = 480 + Math.random() * 520; // 480-1000ms, "quick... with varied time"
+  const dur = 480 + Math.random() * 520; // 480-1000ms
   svg.style.setProperty('--bolt-dur', dur.toFixed(0) + 'ms');
   box.appendChild(svg);
 
@@ -507,10 +472,9 @@ function spawnLightningBolt(box, targetX, targetY, intensityFactor){
 }
 
 // A software-knob convention: dragging vertically changes the value
-// (up = increase), rather than tracking the cursor's angle around the
-// knob's center — the usual choice in real audio/lighting-console UIs,
-// since it stays controllable even when the drag leaves the knob's own
-// small hit area. Pointer Events cover mouse and touch the same way.
+// (up = increase), rather than tracking cursor angle around the knob's
+// center — stays controllable even when the drag leaves the knob's own small
+// hit area. Pointer Events cover mouse and touch the same way.
 function initKnob(el, valueEl, opts){
   const min = opts.min, max = opts.max;
   let value = opts.initial;
@@ -555,7 +519,7 @@ function initLightningBox(){
   // Self-rescheduling setTimeout rather than setInterval so each gap can be
   // jittered around the Frequency knob's base rate — a fixed-interval storm
   // reads mechanical, a jittered one reads like actual weather. Frequency
-  // and Intensity are both read fresh on every strike, so dragging a knob
+  // and Intensity are read fresh on every strike, so dragging a knob
   // mid-storm changes the next bolt immediately, not after a restart.
   let autoTimer = null;
   function scheduleNext(){
@@ -592,16 +556,14 @@ function initLightningBox(){
 // Lava box — a small real-time particle simulation, not scripted animation.
 // Four magma stops (Deep/Mid/High/Glow) form one continuous "heat" gradient;
 // every blob starts at heat 1 (freshly molten, brightest) and cools toward 0
-// over its lifetime, with color interpolated from that same gradient every
-// frame — that's what makes a blob visibly drift from yellow through orange
-// to deep red as it ages, not a fixed per-blob color. Buoyancy is tied to
-// the same heat value (hot rises, faking magma being less dense; as it cools
-// buoyancy fades and gravity wins), which is the actual mechanism behind
-// "splotches forming and sinking" — nothing scripts that directly, it falls
-// out of the physics. Layering ("colors moving over and under each other")
-// likewise isn't scripted — blobs are drawn coolest-first each frame, so
-// which blob covers which shifts naturally as their heat (and therefore
-// draw order) changes over time.
+// over its lifetime, color interpolated from that gradient every frame —
+// that's what makes a blob visibly drift from yellow through orange to deep
+// red as it ages, not a fixed per-blob color. Buoyancy is tied to the same
+// heat value (hot rises, faking magma being less dense; as it cools buoyancy
+// fades and gravity wins) — the actual mechanism behind "splotches forming
+// and sinking," nothing scripts that directly. Layering isn't scripted
+// either — blobs draw coolest-first each frame, so which blob covers which
+// shifts naturally as their heat (and draw order) changes over time.
 const MAGMA_STOPS = [
   { t: 0, c: [0x8F, 0x15, 0x15] },   // Deep Magma
   { t: 0.33, c: [0xE8, 0x3D, 0x0C] }, // Mid Magma
@@ -655,14 +617,13 @@ function initLavaBox(){
     };
   }
 
-  // No up/down at all — a symmetric random walk (vx/vy both jitter the same
-  // way) instead of gravity+buoyancy, confined to this blob's own vent's
-  // circular pool. Hitting the pool's edge reflects the velocity off the
-  // boundary's normal, then adds fresh randomness on top, so the bounce
-  // reads as "basically random," not a clean billiard-ball ricochet.
-  // Cooling/fading are still two separate timers (see below) — that's what
-  // makes a blob visibly sit there, spent and dark, before it fades, rather
-  // than cooling and vanishing in the same instant.
+  // No up/down at all — a symmetric random walk instead of
+  // gravity+buoyancy, confined to this blob's own vent's circular pool.
+  // Hitting the pool's edge reflects the velocity off the boundary's normal,
+  // then adds fresh randomness, so the bounce reads as basically random, not
+  // a clean billiard-ball ricochet. Cooling/fading are two separate timers —
+  // that's what makes a blob visibly sit there, spent and dark, before it
+  // fades, rather than cooling and vanishing in the same instant.
   function updateBlob(b, dt){
     b.age += dt;
     b.heat = Math.max(0, 1 - b.age / 420);
@@ -791,10 +752,8 @@ function wireEvents(){
   document.querySelectorAll('.scene-menu-item').forEach(btn => {
     btn.addEventListener('click', () => loadScene(btn.dataset.scene));
   });
-  // Legends screen (2026-08-23) — same action as the in-Table dropdown just
-  // above, just the first-time entry point, so it swaps straight to Main
-  // Game itself rather than going through enterTable()'s own Legends-vs-Table
-  // check again (that check only matters once, right after connecting).
+  // Legends screen — same action as the in-Table dropdown just above, just
+  // the first-time entry point, so it swaps straight to Main Game itself.
   document.querySelectorAll('.legends-scene-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.getElementById('screen-legends').classList.add('hidden');
@@ -810,20 +769,15 @@ function wireEvents(){
   document.getElementById('toolbar-techniques').addEventListener('click', () => togglePanel('techniques'));
   document.getElementById('toolbar-party').addEventListener('click', () => togglePanel('party'));
   document.getElementById('toolbar-npcs').addEventListener('click', () => togglePanel('npcs'));
-  // Inspect mode (2026-08-22) — this toolbar button always means "show my
-  // own Character," so it resets AppState.inspectTargetId back to null
-  // first; the NPC Panel's own Information/Personality/Relationships row
-  // buttons (js/dm.js) are what set it, deliberately not reset here.
-  // renderAll() (not just togglePanel()) because these panels only
-  // re-render their content from a real table mutation otherwise — without
-  // it, switching back from inspecting an NPC would open showing that NPC's
-  // stale content until the next unrelated table change.
-  // The 3 Pillars now share one merged Panel (2026-08-24) — Information's
-  // and Relationships' own toolbar buttons retired (per dDd: "can leave the
-  // Game Screen now"), Personality alone still opens it. js/panels.js's
-  // realPanelId() aliasing means openPanel('information')/('relationships')
-  // still work fine for callers other than a toolbar button (js/dm.js's NPC
-  // Panel row buttons, in particular).
+  // Inspect mode: this toolbar button always means "show my own Character,"
+  // so it resets AppState.inspectTargetId first; the NPC Panel's own
+  // Information/Personality/Relationships row buttons (dm.js) are what set
+  // it, deliberately not reset here. renderAll() (not just togglePanel())
+  // because these panels only re-render their content from a real table
+  // mutation otherwise. The 3 Pillars share one merged Panel now —
+  // Information's/Relationships' own toolbar buttons are retired; Personality
+  // alone still opens it (panels.js's realPanelId() aliasing keeps
+  // openPanel('information')/('relationships') working for other callers, like dm.js's NPC Panel row buttons).
   document.getElementById('toolbar-personality').addEventListener('click', () => { AppState.inspectTargetId = null; togglePanel('personality'); renderAll(); });
   document.getElementById('toolbar-help').addEventListener('click', () => togglePanel('help'));
   document.getElementById('panel-close-character').addEventListener('click', closePanel);
@@ -903,10 +857,9 @@ function wireEvents(){
   document.getElementById('tata-toggle').addEventListener('click', toggleTata);
   document.getElementById('map-select-cancel').addEventListener('click', cancelMoveSelect);
 
-  // Party: Add AI Party Member (Possessor / Mini-Party Character) — see the
-  // "sandwich" model in reference/ROADMAP.md, Party System item C. Per-player
-  // trigger buttons are wired inside renderRoster itself (they're recreated
-  // every render); this just wires the shared one-instance form parts.
+  // Party: Add AI Party Member (Possessor / Mini-Party Character). Per-player
+  // trigger buttons are wired inside renderRoster itself (recreated every
+  // render); this just wires the shared one-instance form parts.
   initAddPartyMemberUI();
   initTechniquesUI();
   renderPersonalityPanel();
@@ -928,16 +881,8 @@ function wireEvents(){
     AppState.playerId = remembered.playerId;
     const ok = await connectToSession(remembered.code);
     if(ok && AppState.table.players[remembered.playerId]){
-      // enterTable() manages its own showLoading() gate end-to-end now
-      // (2026-08-23, once it started calling seedScene() too) — it only
-      // closes the gate itself once the camera is actually centered on the
-      // real result, so nothing further is needed here. Was a real ordering
-      // bug before that: this used to call showLoading(false) *before*
-      // enterTable() (and its camera-centering) had run at all, letting a
-      // rejoin's first, uncentered {0,0}-offset render slip out — the real
-      // "every new session or refresh" bug per dDd, not the loadScene()
-      // race in js/scenes.js (fixed the same day), which only ever fired on
-      // an active in-session Scene switch, not a plain page rejoin.
+      // enterTable() manages its own showLoading() gate end-to-end — it only
+      // closes it once the camera is actually centered on the real result, so nothing further is needed here.
       await enterTable(remembered.code);
       return;
     }

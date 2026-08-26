@@ -4,59 +4,40 @@ import { escapeHtml, isDeathWounded, isDown, alliedActorIds, resolvePositionRef,
 import { showCharacterView } from './characterView.js';
 import { toggleActiveCharacter } from './activeCharacter.js';
 
-// 14x14 (was 9x9) — 2026-08-17, dDd's View 1 spec: Tiles shrunk and the grid
-// deliberately made bigger than fits the visible area without scrolling
-// ("it's fine to break the 9x9 we have"). Picked as a reasonable first-pass
-// size, not a precisely-derived number — revisit if it reads as too big/small
-// once seen live.
 const DEFAULT_WIDTH = 14;
 const DEFAULT_HEIGHT = 14;
 
-// Fixed Map viewport (2026-08-20, dDd's ask — "it should be designed to
-// always have 7x7 as the view, instead of shrinking or expanding"). TILE_SIZE
-// is a flat px constant now (see renderMap's gridTemplateColumns), the same
-// at every map size and every screen width. VIEWPORT_TILES caps how many
-// Tiles actually render at once, regardless of the real map.width/height —
-// a 7x7 Era 1 map fits with nothing left over, a 24x30 sandbox pans a
-// VIEWPORT_TILES x VIEWPORT_TILES window across the rest (2026-08-22, per
-// dDd — tile-clicker pan buttons, see panMap() below, not native/CSS scroll
-// over a fully-rendered grid; that's also what retired the scrollbar-gutter
-// measuring this file used to do here — nothing ever scrolls anymore).
+// Fixed Map viewport: TILE_SIZE is a flat px constant, same at every map size
+// and screen width. VIEWPORT_TILES caps how many Tiles render at once
+// regardless of the real map.width/height — a 7x7 Scene fits with nothing
+// left over, a larger sandbox pans a VIEWPORT_TILES x VIEWPORT_TILES window
+// across the rest via the tile-clicker pan buttons (panMap() below) — nothing
+// scrolls natively.
 const TILE_SIZE = 44;
 export const VIEWPORT_TILES = 7;
 const TILE_GAP = 2; // matches #map-grid's own CSS `gap:2px` in css/panels.css
 
-// width/height now optional (2026-08-20, per dDd's New Game Process —
-// different Scenes want different Map sizes: Era 1 is 7x7, Era 2/3 default
-// to 7x10). Omitting either falls back to the original 14x14 Dev size.
+// width/height optional — different Scenes want different Map sizes; omitting either falls back to 14x14.
 export function defaultMap(width, height){
   const w = width || DEFAULT_WIDTH, h = height || DEFAULT_HEIGHT;
   return {
     width: w,
     height: h,
-    // 1 = traversable (white), 0 = blocked (black). Flat array, row-major.
-    tiles: new Array(w * h).fill(1),
-    // Cosmetic-only (2026-08-16, see reference/ROADMAP.md's Chunk Mechanic):
-    // how many "Chunks" have scattered onto each Tile from Characters that
-    // died of Death Wounds there. Capped per addChunksAt below. No gameplay
-    // effect yet — purely feeds the pink Tile-coloring gradient in renderMap.
-    // (Credited on Death as the current proxy — true Obliteration, every Body
-    // Part gone, is a separate not-yet-built check; see utils.js.)
+    tiles: new Array(w * h).fill(1), // 1 = traversable (white), 0 = blocked (black)
+    // Cosmetic-only pool: how many "Chunks" have scattered onto each Tile
+    // from Characters that died of Death Wounds there. No gameplay effect
+    // yet — feeds the pink Tile-coloring gradient in renderMap.
     chunks: new Array(w * h).fill(0),
-    // Lava Tile-State (2026-08-23, Kulkrow's First Era Crafts — see
-    // reference/ROADMAP.md's Possession & Kulkrow Direct Control): 0 none,
-    // 1 Lava, 2 Molten Lava, 3 Cooled Lava. Advances one stage per Round via
-    // tickLavaTiles below — deliberately simple ("just to validate
-    // Mechanic," per dDd), not tuned. Separation/Infuse both require the
-    // Molten stage (2); Cooled (3) is a resting state, doesn't revert further yet.
+    // Lava Tile-State (Kulkrow's First Era Crafts): 0 none, 1 Lava, 2 Molten
+    // Lava, 3 Cooled Lava. Advances one stage per Round via tickLavaTiles.
+    // Separation/Infuse both require the Molten stage; Cooled is resting, doesn't revert further yet.
     lava: new Array(w * h).fill(0)
   };
 }
 
 // Kulkrow's Lava Tile-State tick — advances every non-zero Tile one stage
-// (Lava -> Molten -> Cooled) once per Round; Cooled Tiles hold. Called from
-// the same end-of-round tick as Recovery/Attunement (combat.js's
-// resolveRound, noncombat.js's resolveNonCombatRound).
+// once per Round; Cooled Tiles hold. Called from the same end-of-round tick
+// as Recovery/Attunement.
 export function tickLavaTiles(table){
   if(!table.map || !table.map.lava) return;
   const lava = table.map.lava;
@@ -65,11 +46,9 @@ export function tickLavaTiles(table){
   }
 }
 
-// Spill (2026-08-23, Kulkrow's own passive Craft, per dDd — "always active;
-// it can't be stopped and costs nothing. Every Round, 2 Tiles around
-// Kulkrow turn into Lava Tiles"). Mirrors the existing Separation Craft's
-// left/right adjacency (see combat.js's resolveRound), just both sides
-// instead of one directional pick.
+// Spill — Kulkrow's own passive Craft, always active, can't be stopped, costs
+// nothing. Every Round, 2 Tiles around Kulkrow turn into Lava Tiles. Mirrors
+// Separation's own left/right adjacency, both sides instead of one directional pick.
 export function applySpillAt(table, x, y){
   if(!table.map) return;
   const size = table.map.tiles.length;
@@ -84,53 +63,34 @@ function tileIndex(map, x, y){
   return y * map.width + x;
 }
 
-// Facing (2026-08-22, per dDd's Movement System spec) — the direction a
-// Character is actually facing, independent of Movement. Degrees are
-// clockwise from North (0deg) — matches css/panels.css's .facing-triangle,
-// which points up (North) unrotated and rotates via the --facing-deg custom
-// property. FACING_DEGREES keeps all 8 values even though only 4 are
-// exposed below — cheap to keep ready, no reason to throw the diagonals away.
+// Facing: the direction a Character is actually facing, independent of
+// Movement. Degrees are clockwise from North (0deg) — matches
+// css/panels.css's .facing-triangle. FACING_DEGREES keeps all 8 values even
+// though only 4 are exposed below — cheap to keep ready.
 export const FACING_DEGREES = { N: 0, NE: 45, E: 90, SE: 135, S: 180, SW: 225, W: 270, NW: 315 };
-// Cardinal-only for now (2026-08-22, per dDd, after seeing it live): diagonal
-// Movement is 8-directional, but diagonal *Facing* never existed for the
-// Living Stone — real 8-directional Facing waits for Second Era development.
-// Swap this back to all 8 keys of FACING_DEGREES when that starts; nothing
-// else here needs to change, FACING_DEGREES already has them.
+// Cardinal-only for now — diagonal Movement is 8-directional, but diagonal
+// Facing never existed for the Living Stone. Real 8-directional Facing waits
+// for Second Era.
 export const FACING_DIRECTIONS = ['N', 'E', 'S', 'W'];
-// Faces the viewer ("down" on screen) by default — the usual top-down
-// convention for a Character with no Facing chosen yet.
-export const FACING_DEFAULT = 'S';
+export const FACING_DEFAULT = 'S'; // faces the viewer ("down" on screen) by default
 
-// Player/NPC Triangle colors (2026-08-22) — Ally-Cyan and Enemy-Yellow,
-// both already confirmed in reference/style-guide.md's Enemy/Ally/Self
-// section; reused here rather than minting new hues, per that doc's own
-// rule ("before introducing a new UI color, check it against this whole
-// list first"). "NPC" doesn't have its own data bucket yet — table.enemies
-// is the same data the NPCs Panel already shows (see js/dm.js's
-// renderNpcList) — so NPC Triangles reuse the Enemy hue for now. A real
-// hostile-vs-friendly-NPC split, if it's ever needed, should vary border
-// style rather than spend a fourth hue, matching the style guide's own
-// stated pattern for splitting a category further.
+// Player/NPC Triangle colors — Ally-Cyan and Enemy-Yellow, confirmed in
+// style-guide.md's Enemy/Ally/Self section. "NPC" has no data bucket of its
+// own yet — table.enemies is the same data the NPCs Panel shows — so NPC
+// Triangles reuse the Enemy hue.
 const FACING_COLOR_PLAYER = '#22D3EE'; // Ally-Cyan
 const FACING_COLOR_NPC = '#F5C518'; // Enemy-Yellow
 
 // Which absolute Cardinal a Direction Glyph reads as, independent of a
-// Character's own current Facing (per dDd, the same "Cardinal-Direction
-// meanings independent of Facing" the Movement-Glyphs-to-Map-Actions thread
-// already established). Used by the Face Behavior (js/behaviors.js/
-// js/noncombat.js — "Character can face any direction they know") to turn a
-// Character's known Glyphs (js/utils.js's knownGlyphIds) into the real set
-// of directions they can face.
+// Character's own current Facing. Used by the Face Behavior (behaviors.js/
+// noncombat.js) to turn a Character's known Glyphs into the real set of
+// directions they can face.
 export const DIRECTION_GLYPH_CARDINAL = { 'RO / OR': 'N', 'KO': 'E', 'OP / PO': 'S', 'OK': 'W' };
 
-// The actual mutation — sets actorId's own Facing, and per dDd's spec,
-// propagates it to their Mini-Party too ("changing a Character's own Facing
-// also updates their Mini-Party's Facing" — matching the existing
-// sandwich-model precedent of a Group moving/acting together). A Possessed
-// member (sourceEnemyId) is skipped, same exclusion tileOccupancy uses
-// above — it's a real Enemy entity with its own independent Facing, not a
-// passenger on this Character's. Pure — operates on a draft table already
-// inside a mutateTable() callback; callers own the actual mutation/render.
+// Sets actorId's own Facing and propagates it to their Mini-Party too
+// (matches the sandwich-model precedent of a Group moving/acting together).
+// A Possessed member is skipped — it's a real Enemy with its own independent
+// Facing. Pure — operates on a draft table already inside a mutateTable() callback.
 export function applyFacing(t, actorId, direction){
   const actor = resolveEntityRef(t, actorId);
   if(!actor) return;
@@ -138,12 +98,8 @@ export function applyFacing(t, actorId, direction){
   (actor.miniParty || []).forEach(mp => { if(!mp.sourceEnemyId) mp.facing = direction; });
 }
 
-// Staged, not instant (2026-08-22, per dDd: "Every Action should resolve on
-// turns. Nothing should happen immediately in Game... Combat or Non-Combat,
-// same thing"). Facing used to apply the moment the Party Facing button was
-// clicked — now it queues a real Order, same shape as Move/Message/Channel,
-// and js/noncombat.js's resolveNonCombatRound() is what actually calls
-// applyFacing() above, at Resolve.
+// Staged, not instant — queues a real Order, same shape as Move/Message/
+// Channel; noncombat.js's resolveNonCombatRound() is what actually calls applyFacing() at Resolve.
 export async function stageFacingOrder(actorId, direction){
   if(!FACING_DEGREES.hasOwnProperty(direction)) return;
   await mutateTable(t => {
@@ -155,19 +111,17 @@ export async function stageFacingOrder(actorId, direction){
   });
 }
 
-// Movement is 8-directional (matches the Map's compass) — orthogonal or
-// diagonal, one Tile at a time. Range/sight-gating stays Manhattan-only
-// (getDistance below) — dDd wants those to stay two different rulesets,
-// not have this change ripple into how Range gets counted.
+// Movement is 8-directional (matches the Map's compass); Range/sight-gating
+// stays Manhattan-only (getDistance below) — two deliberately different rulesets.
 function isAdjacent(a, b){
   const dx = Math.abs(a.x - b.x), dy = Math.abs(a.y - b.y);
   return Math.max(dx, dy) === 1;
 }
 
 // Alphanumeric Tile key: columns count down left-to-right (width..1), rows
-// count down top-to-bottom (letter for row 0, descending — e.g. a 9-row map
-// reads I..A). Purely a reference label for talking about a Tile at the
-// table ("they're standing on 9I") — doesn't affect tileIndex/positions math.
+// count down top-to-bottom (letter for row 0, descending). Purely a
+// reference label for talking about a Tile ("they're standing on 9I") —
+// doesn't affect tileIndex/positions math.
 function columnLabel(map, x){
   return String(map.width - x);
 }
@@ -178,37 +132,19 @@ export function tileKey(map, x, y){
   return columnLabel(map, x) + rowLabel(map, y);
 }
 
-// Manhattan distance between two Tile positions — the "how far apart are
-// two Characters" the game needs to know, ahead of attacks eventually being
-// distance-based. Matches the same orthogonal-only movement isAdjacent uses,
-// and per dDd's own worked example (a pure 2-diagonal step reads as 4, not
-// 2) — diagonals aren't a shortcut, they sum like everything else.
-// Callers look positions up via table.positions[id] themselves — a Mini-Party
-// member has no id of its own here, it's simply its Player's own position.
+// Manhattan distance between two Tile positions. Matches isAdjacent's
+// orthogonal-only movement — diagonals aren't a shortcut, they sum like everything else.
 export function getDistance(posA, posB){
   if(!posA || !posB) return null;
   return Math.abs(posA.x - posB.x) + Math.abs(posA.y - posB.y);
 }
 
-// Occupancy at a single Tile, split the way both movement-blocking and
-// line-of-sight-blocking below need it: "down" is anyone not Active (Down or
-// Dead of Death Wounds, either side — a corpse pile doesn't care whose corpses), and
-// living Characters are split by side since blocking is Friend/Foe-aware
-// (2026-08-16, per dDd) — only movement always starts from a Player's own
-// click, so "ally" always means "another Player," "enemy" always means an
-// Enemy. **Corrected 2026-08-17** — Mini-Party members now count too. dDd's
-// own clarification, after this being missed twice: the Ally-crowding effect
-// ("Shield") and Ally Movement Blocking are the same thing, not two — "3
-// Allied Characters" always meant the Player Character, other Party
-// Characters sharing the Tile, AND all their Mini-Party Characters, not just
-// top-level Players. A statted-or-not Mini-Party member still physically
-// occupies the Tile even without combat stats to track, so it counts here
-// regardless (an un-statted stub's isDown() naturally reads false — no
-// wounds data means "not Down" by construction, so it correctly counts as
-// active without special-casing). Possessed Mini-Party members are excluded
-// here (sourceEnemyId) — they're a real Enemy entity with their own
-// position, already counted once via the main loop below; counting them
-// again here would double them up.
+// Occupancy at a single Tile: "down" is anyone not Active (Down or Death-
+// Wounded, either side — a corpse pile doesn't care whose corpses), living
+// Characters split by side since blocking is Friend/Foe-aware. Mini-Party
+// members count too (a statted-or-not member still physically occupies the
+// Tile). Possessed Mini-Party members are excluded here (sourceEnemyId) —
+// they're a real Enemy entity already counted once via the main loop below.
 function tileOccupancy(table, x, y){
   let down = 0, activeAllies = 0, activeEnemies = 0;
   Object.entries(table.positions || {}).forEach(([id, pos]) => {
@@ -227,18 +163,11 @@ function tileOccupancy(table, x, y){
   return { down, activeAllies, activeEnemies };
 }
 
-// Sight-gating (2026-08-16, per dDd's worked example on the live map): a
-// Technique's Range isn't just "distance <= N" — a blocked Tile anywhere on
-// the straight line between caster and target cuts off everything beyond it,
-// even tiles that would otherwise be well within Range. A wall *behind* the
-// caster (not on the line to this particular target) has no effect — this is
-// a per-target raycast, not "there's a wall somewhere nearby so watch out."
-// Bresenham's line algorithm walks the actual Tile path between the two
-// points; the caster's own Tile is never checked (you're not blocked by
-// standing where you stand), everything after it is.
-// Extended 2026-08-16: a Tile crammed with 5+ Active Characters blocks sight
-// through it too, same as a real Obstacle Tile — "they're taking up so much
-// space," per dDd — so this now takes the whole table, not just the map.
+// Sight-gating: a Technique's Range isn't just "distance <= N" — a blocked
+// Tile anywhere on the straight line between caster and target cuts off
+// everything beyond it. A per-target raycast (Bresenham's line algorithm),
+// not "there's a wall somewhere nearby" — the caster's own Tile is never checked.
+// A Tile crammed with 5+ Active Characters blocks sight through it too, same as a real Obstacle.
 const LOS_CROWD_THRESHOLD = 5;
 export function hasLineOfSight(table, from, to){
   const map = table.map;
@@ -258,36 +187,24 @@ export function hasLineOfSight(table, from, to){
   }
 }
 
-// Dead enemies (Death Wounds reached) stay in this list (with a `dead` flag)
-// rather than disappearing on their own — a corpse doesn't vanish from the Map,
-// only the DM's explicit "Clear the dead" (dm.js) actually removes it.
-// Players are never deleted from table.players at all, so they already stayed
-// visible; this just brings enemies in line with that.
+// Dead enemies stay in this list (with a `dead` flag) rather than
+// disappearing — a corpse doesn't vanish on its own, only the DM's explicit
+// "Clear the dead" removes it. Players are never deleted from table.players at all.
 function allEntities(table){
   const out = {};
   Object.entries(table.players || {}).forEach(([id, p]) => { out[id] = { name: p.name || 'Unnamed', dead: isDeathWounded(p), facing: p.facing || FACING_DEFAULT, side: 'player', empowered: !!(p.empoweredBy && p.empoweredBy.length) }; });
   Object.entries(table.enemies || {}).forEach(([id, e]) => { out[id] = { name: e.name || 'Enemy', dead: isDeathWounded(e), facing: e.facing || FACING_DEFAULT, side: 'enemy', empowered: !!(e.empoweredBy && e.empoweredBy.length) }; });
-  // Universal Characters Table (2026-08-24) — currently just Yom, briefly
-  // positioned alone on a freshly-loaded Scene's Map before a real Player
-  // arrives (see js/scenes.js's spawnYom()/seedScene()).
+  // Universal Characters Table — currently just Yom, briefly positioned alone
+  // on a freshly-loaded Scene's Map before a real Player arrives.
   Object.entries(table.characters || {}).forEach(([id, c]) => { out[id] = { name: c.name || 'Character', dead: isDeathWounded(c), facing: c.facing || FACING_DEFAULT, side: 'yom', empowered: false }; });
   return out;
 }
 
-// Crowding-based movement block (2026-08-16, refined same day per dDd
-// watching the Map live — distinct from the black Obstacle tiles below): a
-// soft, occupancy-driven obstacle, not a hard one, and unlike a real Obstacle
-// Tile it never affects line of sight on its own (occupancy has its own,
-// separate LoS effect above at a higher threshold). Two ways in:
-//   - 5+ Down Characters on the Tile (either side, corpses and Down alike —
-//     a pile is a pile) blocks moving IN. Moving OUT is never blocked by this
-//     at all (handleTileClick only ever checks the *destination* Tile) — per
-//     dDd, a Character who wipes out the other 4 occupants of a Tile can
-//     still walk away afterward.
-//   - 3+ living Enemies-of-the-mover blocks moving IN — this one is
-//     Friend/Foe-aware. Allies never contribute to this block no matter how
-//     many are on the Tile (dDd's own example: "3 Allies and 2 Enemies is
-//     possible, or 4 Enemies 1 Ally as well").
+// Crowding-based movement block — a soft, occupancy-driven obstacle, distinct
+// from the hard black Obstacle Tiles, and unlike a real Obstacle it never
+// affects line of sight on its own. Two ways in: 5+ Down Characters (either
+// side) blocks moving IN (moving OUT is never blocked by this). 3+ living
+// Enemies-of-the-mover blocks moving IN — Friend/Foe-aware, Allies never contribute.
 const DOWN_BLOCK_THRESHOLD = 5;
 const ACTIVE_CROWD_THRESHOLD = 3; // also drives the Ally/Enemy edge coloring below
 function isTileMovementBlocked(table, x, y){
@@ -295,10 +212,8 @@ function isTileMovementBlocked(table, x, y){
   return occ.down >= DOWN_BLOCK_THRESHOLD || occ.activeEnemies >= ACTIVE_CROWD_THRESHOLD;
 }
 
-// Behaviors, real Map execution (2026-08-22, per dDd) — turns a cardinal
-// Facing plus a clockwise turn count (see BEHAVIORS' `turn` field in
-// js/behaviors.js: Forward 0, Right 1, Backward 2, Left 3) into the actual
-// direction to step. Clockwise order, matches compass rotation.
+// Behaviors' real Map execution — turns a cardinal Facing plus a clockwise
+// turn count (Forward 0, Right 1, Backward 2, Left 3) into the actual direction to step.
 const FACING_ORDER = ['N', 'E', 'S', 'W'];
 export function turnFacing(facing, steps){
   const idx = FACING_ORDER.indexOf(facing);
@@ -307,21 +222,12 @@ export function turnFacing(facing, steps){
 }
 
 // One autonomous Tile-step in a cardinal direction — used by
-// resolveNonCombatRound() (js/noncombat.js) when a Character's rolled
-// Behavior is a Move* one, or (Gom/Kulkrow) every Round unconditionally.
-// Deliberately NOT the Move Order/AP path system (stageMoveOrder above) —
-// this is autonomous per-Round movement, not a Player command, so it just
-// tries the one step and silently does nothing (returns false) if it's
-// invalid, rather than erroring. Mutates table.positions directly — callers
-// run this from inside their own mutateTable() callback, same as every
-// other in-callback mutation in this codebase.
-//
-// AP-gated (2026-08-22, per dDd, caught live: "a Living Stone shouldn't be
-// able to Move, even if they wanted to; they shouldn't have any AP
-// Points"). A Living Stone's own Build has `ap:0` — same requirement
-// stageMoveOrder already enforces for Player-directed Movement (a 0-AP
-// actor's computeReachable comes back empty), just missing here for the
-// autonomous Behavior path until now.
+// resolveNonCombatRound() when a rolled Behavior is a Move* one. Not the Move
+// Order/AP path system (stageMoveOrder below) — this just tries the one step
+// and silently returns false if invalid. Mutates table.positions directly;
+// callers run this from inside their own mutateTable() callback.
+// AP-gated: a 0-AP actor (e.g. a Living Stone) can't move at all, same
+// requirement stageMoveOrder already enforces for Player-directed Movement.
 const DIRECTION_DELTA = { N: { dx: 0, dy: -1 }, E: { dx: 1, dy: 0 }, S: { dx: 0, dy: 1 }, W: { dx: -1, dy: 0 } };
 export function behaviorStep(table, actorId, direction){
   const map = table.map;
@@ -338,14 +244,10 @@ export function behaviorStep(table, actorId, direction){
   return true;
 }
 
-// Tile coloring (2026-08-16, dDd's spec): two gradients layered on every
-// Tile, driven by inline CSS custom properties (see css/panels.css) rather
-// than dozens of discrete tier classes. Burgundy creeps in from the edge as
-// Down Characters pile up (1-5, never reaching the center); Pink spreads out
-// from the center as Chunks pile up (1-40 in 8 bands of 5, never fully
-// covering the Tile). Colors are dDd's own hex values where given — the pink
-// 8-band scale interpolates his 4 anchor colors (at Chunk 10/20/30/40) since
-// he wanted 5-Chunk granularity but only spec'd 4 stops.
+// Tile coloring: two gradients layered on every Tile via inline CSS custom
+// properties. Burgundy creeps in from the edge as Down Characters pile up
+// (1-5, never reaching center); Pink spreads from the center as Chunks pile
+// up (1-40 in 8 bands of 5). The pink 8-band scale interpolates 4 anchor colors (at 10/20/30/40).
 const DOWN_GRADIENT = ['#BF527F', '#A84F76', '#8F3B65', '#7C2856', '#6B1747']; // tier 1 (20%) .. 5 (100%)
 const DOWN_REACH = [88, 76, 64, 52, 40]; // % radius the color starts at — lower = reaches further toward center
 const PINK_GRADIENT = ['#FFC4E0', '#FF9DCE', '#FF8FC5', '#FF82BC', '#FF78B5', '#FF6FAE', '#F965A6', '#F45A9F']; // tier 1..8
@@ -354,9 +256,8 @@ const CHUNK_REACH = [15, 25, 35, 45, 55, 65, 75, 85]; // % radius the bright rin
 function downTier(downCount){ return Math.max(0, Math.min(5, downCount)); }
 function chunkTier(chunkCount){ return chunkCount <= 0 ? 0 : Math.min(8, Math.ceil(chunkCount / 5)); }
 
-// Chunks (2026-08-16) — cosmetic-only per-Tile pool, see defaultMap above.
-// Capped at 40; callers (combat.js, on a fresh Death) pass the amount to add,
-// currently always 3 per dDd's spec.
+// Chunks — cosmetic-only per-Tile pool. Capped at 40; callers (combat.js, on
+// a fresh Death) pass the amount to add, currently always 3.
 const CHUNK_CEILING = 40;
 export function addChunksAt(table, x, y, amount){
   if(!table.map) return;
@@ -367,12 +268,10 @@ export function addChunksAt(table, x, y, amount){
 }
 
 
-// Actually relocates actorId (a Player, or an Enemy/NPC when Tata-driven) to
-// (x,y) — must be traversable, adjacent to their current position, and not
-// too crowded to step into. Combat-only now (table.inEncounter) — Combat
-// doesn't have its own Move action yet (still a separate future Mechanical
-// Fix), so this is the original, unchanged single-Tile instant move. Outside
-// an Encounter, stageMoveOrder (below) is what handleTileClick uses instead.
+// Actually relocates actorId to (x,y) — must be traversable, adjacent, and
+// not too crowded. Combat-only (table.inEncounter) — Combat doesn't have its
+// own Move action yet, so this is the original single-Tile instant move.
+// Outside an Encounter, stageMoveOrder (below) is what handleTileClick uses instead.
 async function tryMoveActor(actorId, x, y){
   const table = AppState.table;
   const positions = table.positions || {};
@@ -388,31 +287,23 @@ async function tryMoveActor(actorId, x, y){
   });
 }
 
-// Move Orders (2026-08-21, per dDd's spec) — the Non-Combat multi-Tile
-// pathing system. Every Tile costs 1 AP to move into; a Character can still
-// order a destination further than their own AP covers in one Round — the
-// path just takes multiple Rounds to finish, consumed AP-many Tiles at a
-// time by resolveNonCombatRound() (js/noncombat.js). dDd's own worked
-// example (AP 3): Tiles 1-3 resolve this Round (0 extra Rounds needed),
-// 4-6 need 1 more Round, 7-9 need 2, 10-12 need 3 — capped at 3 extra
-// Rounds max for now (MOVE_MAX_EXTRA_ROUNDS below), so with AP 3 the
-// farthest orderable Tile is distance 12.
+// Move Orders — the Non-Combat multi-Tile pathing system. Every Tile costs 1
+// AP to move into; a Character can order a destination further than their
+// own AP covers — the path takes multiple Rounds, consumed AP-many Tiles at a
+// time by resolveNonCombatRound(). Capped at 3 extra Rounds max.
 const MOVE_MAX_EXTRA_ROUNDS = 3;
 
 // How many extra Rounds (beyond this one) a Tile at `dist` steps away needs,
-// given `ap` Tiles covered per Round — null if the Character has no AP to
-// move with at all. 0 means "resolves this Round."
+// given `ap` Tiles covered per Round — null if no AP at all. 0 = resolves this Round.
 function moveExtraRounds(dist, ap){
   if(!ap || ap <= 0) return null;
   return Math.ceil(dist / ap) - 1;
 }
 
-// 8-directional BFS from `origin`, respecting only hard Obstacles (map.tiles)
-// — crowding is checked separately, only against the final destination (see
-// stageMoveOrder), same as the original single-Tile tryMoveActor did. Capped
-// at ap*(MOVE_MAX_EXTRA_ROUNDS+1) steps, since nothing farther is orderable
-// right now anyway. Returns a Map: tileIndex -> {x, y, dist, extraRounds,
-// parentIdx} for every reachable Tile except the origin itself.
+// 8-directional BFS from `origin`, respecting only hard Obstacles — crowding
+// is checked separately, only against the final destination. Capped at
+// ap*(MOVE_MAX_EXTRA_ROUNDS+1) steps. Returns a Map: tileIndex -> {x, y,
+// dist, extraRounds, parentIdx} for every reachable Tile except the origin.
 function computeReachable(table, origin, ap){
   const reach = new Map();
   if(!ap || ap <= 0) return reach;
@@ -491,10 +382,9 @@ async function stageMoveOrder(actorId, destX, destY){
   renderMap();
 }
 
-// Movement (2026-08-20), per dDd's own spec: clicking a Tile no longer moves
-// you there directly — it shows "Move?"/"Suggest Move?" popups for whoever's
-// actually standing on that Tile (see buildTilePopups below). Confirming
-// "Move?" is what switches the Map into Tile-selector mode; the *next*
+// Clicking a Tile shows "Move?"/"Suggest Move?" popups for whoever's
+// standing on it (see buildTilePopups below) rather than moving directly.
+// Confirming "Move?" switches the Map into Tile-selector mode; the next
 // click, wherever it lands, is the actual destination.
 export async function handleTileClick(x, y){
   const table = AppState.table;
@@ -523,11 +413,9 @@ export async function handleTileClick(x, y){
   }
 
   // A plain Tile click — set (or move) the occupancy-popup target and
-  // re-render; buildTilePopups works out what actually shows, including
-  // clearing away to nothing if this Tile has nothing relevant on it.
-  // The occupant-list popup (2026-08-22) is separate and always considered
-  // — opened/repositioned fresh off the just-rendered Tile element, or
-  // closed outright if this Tile has nobody on it.
+  // re-render; buildTilePopups works out what actually shows. The
+  // occupant-list popup is separate and always considered — opened fresh off
+  // the just-rendered Tile element, or closed if the Tile has nobody on it.
   AppState.moveClickTile = { x, y };
   renderMap();
   const tileEl = document.querySelector('.map-tile[data-x="' + x + '"][data-y="' + y + '"]');
@@ -547,33 +435,24 @@ export function toggleTata(){
   AppState.moveClickTile = null;
   AppState.moveSelectMode = null;
   closeOccupantPopup();
-  // Active Character (2026-08-22, per dDd) — entering TATA always starts
-  // fresh at The Architect default, not wherever a previous TATA session
-  // left off; leaving TATA doesn't need a reset since resolveActiveCharacter()
-  // (js/activeCharacter.js) only ever reads this while tataActive is true.
+  // Entering always starts fresh at the default, not wherever a previous
+  // session left off; leaving doesn't need a reset since
+  // resolveActiveCharacter() (activeCharacter.js) only reads this while active.
   if(AppState.tataActive){ AppState.activeCharacterId = null; AppState.actingEnemyId = null; }
   const btn = document.getElementById('tata-toggle');
   if(btn) btn.classList.toggle('toggled', AppState.tataActive);
-  // Full renderAll(), not just renderMap() (2026-08-20) — TATA now also
-  // swaps View 2 (js/main.js's renderView2Mode), which renderMap() alone
-  // never touches. triggerRender() is the same callback a real table
-  // mutation's realtime echo would fire; this is a local-only toggle with
-  // no mutation of its own to ride along on, so it has to fire it directly.
+  // Full renderAll(), not just renderMap() — this also swaps View 2
+  // (main.js's renderView2Mode). A local-only toggle with no mutation of its
+  // own to ride along on, so it fires the render trigger directly.
   triggerRender();
 }
 
-// Which popup(s) show for the Tile currently under AppState.moveClickTile.
-// Non-Tata: "Move?" for the Player's own Character if they're here, plus a
-// separate "Suggest Move?" if any other allied actor (another Player, or a
-// Mini-Party member — see alliedActorIds) is here too; both can fire at
-// once on a shared Tile. Tata: "Move?" only for the Active Character
-// specifically — bug fixed 2026-08-22, per dDd: "When Tata clicks a Tile
-// with an Inactive Character, Move appears, even though there should be no
-// Character to Move." The original 2026-08-20 spec ("every non-Player
-// Character is Move?, Tata can direct anyone") predates Active Character
-// existing as a real concept — now that it does, only the one Character
-// Tata is actually acting as should be directly movable, same as how a
-// Player can only ever Move their own Character, not any ally's.
+// Which popup(s) show for the Tile under AppState.moveClickTile. Non-Tata:
+// "Move?" for the Player's own Character if here, plus "Suggest Move?" if any
+// other allied actor is here too — both can fire at once. Tata: "Move?" only
+// for the Active Character specifically — only the one Character actually
+// being acted-as should be directly movable, same as a Player only ever
+// moving their own Character.
 function buildTilePopups(table, x, y){
   let out = '';
   if(AppState.tataActive){
@@ -596,19 +475,12 @@ function buildTilePopups(table, x, y){
     if(allyHere) out += '<div class="tile-popup suggest" data-suggest="1">Suggest Move?</div>';
   }
 
-  // Craft (2026-08-21, per dDd; extended to Tata 2026-08-22 — "the Tata
-  // should be able to target Characters on the Map with the Tile's 'Craft'
-  // popup, just like the Player already can"). Gated on there being a real
-  // Crafter to act as: the Player outside Tata, or a real Active Character
-  // inside it — AppState.activeCharacterId is null both outside Tata and
-  // while The Architect (no Stats) is the default, so this naturally covers
-  // both "not Tata" and "Tata, nobody made Active yet." What it actually
-  // shows once clicked (self-only Crafts here vs. other-targeting Crafts
-  // elsewhere, Combat/Non-Combat filtering, and now Tata's own hand-off to
-  // the DM's existing casting machinery) lives in js/craftPopup.js,
-  // deliberately NOT imported here — techniques.js already imports js/map.js
-  // (getDistance/hasLineOfSight), so map.js importing techniques.js's data
-  // back would cycle straight to itself.
+  // Craft popup: gated on there being a real Crafter to act as — the Player
+  // outside Tata, or a real Active Character inside it (activeCharacterId is
+  // null both outside Tata and while the no-Stats default is active, so this
+  // naturally covers both cases). What actually shows once clicked lives in
+  // craftPopup.js, deliberately not imported here — techniques.js already
+  // imports map.js, so importing back would cycle.
   const crafterId = AppState.tataActive ? AppState.activeCharacterId : AppState.playerId;
   if(crafterId){
     const craftOccupant = Object.entries(table.positions || {}).find(([id, pos]) =>
@@ -619,13 +491,10 @@ function buildTilePopups(table, x, y){
   return out;
 }
 
-// Occupant list popup (2026-08-22, per dDd) — "should always exist,"
-// separate from the Move/Suggest/Craft popups above rather than appended to
-// them. Every real occupant of a Tile (Players, their Mini-Party, Enemies),
-// click behavior split by kind: a Player/Mini-Party row always opens their
-// read-only Character Sheet; an Enemy row toggles them as Active Character
-// while Tata is on ("if they already are the Active Character it should be
-// indicated visually"), otherwise also just opens their Character Sheet.
+// Occupant list popup — always shown, separate from the Move/Suggest/Craft
+// popups above. Every real occupant of a Tile: a Player/Mini-Party row opens
+// their read-only Character Sheet; an Enemy row toggles them as Active
+// Character while Tata is on, otherwise also just opens the Sheet.
 function buildOccupantList(table, x, y){
   const list = [];
   Object.entries(table.positions || {}).forEach(([id, pos]) => {
@@ -633,8 +502,7 @@ function buildOccupantList(table, x, y){
     if(table.players && table.players[id]) list.push({ id, kind: 'player', name: table.players[id].name || 'Unnamed' });
     else if(table.enemies && table.enemies[id]) list.push({ id, kind: 'enemy', name: table.enemies[id].name || 'Enemy' });
   });
-  // Mini-Party members ride along on their own Player's Tile, same
-  // exclusion the Map's own occupant rendering already uses — a Possessed
+  // Mini-Party members ride along on their own Player's Tile. A Possessed
   // member is a real Enemy already listed above via its own position.
   Object.entries(table.players || {}).forEach(([pid, p]) => {
     const pos = table.positions && table.positions[pid];
@@ -652,30 +520,19 @@ function closeOccupantPopup(){
   if(popup) popup.classList.add('hidden');
 }
 
-// Fixed 2026-08-22, per dDd: "The pop panel for Characters in a Tile
-// persists when other Panels pop up, though it should disappear." Root
-// cause: initMapPopupDismiss() below only ever sees clicks that actually
-// bubble to document — plenty of buttons that open a Panel (the Craft list
-// popup's own craft-list-item, for one) call ev.stopPropagation() first for
-// unrelated reasons, which silently blocks it from ever seeing that click at
-// all. A direct call from panels.js's openPanel() doesn't depend on
-// bubbling surviving intact, so it can't be defeated the same way.
+// Closing on Panel-open, not just click-away — a direct call from
+// panels.js's openPanel() doesn't depend on click bubbling surviving intact
+// (some buttons call stopPropagation() first for unrelated reasons, which
+// silently blocks the document-level click-away listener below).
 export function closeMapPopups(){
   if(AppState.moveClickTile){ AppState.moveClickTile = null; renderMap(); }
   closeOccupantPopup();
 }
 
-// Positioned beside the Tile (left or right, never overlapping it) rather
-// than centered on top the way Move/Craft are — per dDd's spec, whichever
-// side keeps it closer to the center of the map so it's less likely to run
-// off the visible edge. Fixed 2026-08-22 (was comparing against the map's
-// total width, not what's actually visible — flagged as a known gap since
-// 2026-08-21 and finally exercised for real once a bigger, panned map
-// existed): now compares against the current viewport window instead,
-// correct by construction now that renderMap only ever renders the visible
-// viewW x viewH slice (see panMap/renderMap) — every rendered Tile is on
-// screen, so "center of the viewport" and "center of what's visible" are
-// the same question again.
+// Positioned beside the Tile (left or right, never overlapping), whichever
+// side keeps it closer to the center of the map, compared against the
+// current viewport window (not total map width — every rendered Tile is on
+// screen, since renderMap only ever renders the visible slice).
 function openOccupantPopup(table, x, y, anchorEl){
   const popup = document.getElementById('occupant-list-popup');
   if(!popup) return;
@@ -717,11 +574,9 @@ function openOccupantPopup(table, x, y, anchorEl){
   });
 }
 
-// Click-away dismiss (2026-08-22, per dDd — "clicking anywhere else on the
-// Map should cause it to go away"). Clicking a different Tile already
-// handles itself (handleTileClick overwrites/repositions both popups); the
-// real gap this closes is clicking outside every Tile entirely — elsewhere
-// on the Map row, or the page beyond it.
+// Click-away dismiss. A different-Tile click already handles itself
+// (handleTileClick overwrites/repositions both popups); this closes the real
+// gap — clicking outside every Tile entirely.
 export function initMapPopupDismiss(){
   document.addEventListener('click', (ev) => {
     if(ev.target.closest('.map-tile') || ev.target.closest('#occupant-list-popup')) return;
@@ -739,17 +594,12 @@ export function renderMap(){
   const map = table.map;
   const positions = table.positions || {};
   const entities = allEntities(table);
-  // Self (2026-08-22) — the one Tile that's specifically the viewing
-  // Player's own Character, per style-guide.md's Green "Self" slot (locked
-  // since 2026-08-16, unused until now).
-  const selfPos = positions[AppState.playerId];
+  const selfPos = positions[AppState.playerId]; // the "Self" Green highlight
 
-  // Viewport panning (2026-08-22, per dDd) — a fixed VIEWPORT_TILES x
-  // VIEWPORT_TILES window pans over the real map via tile-clicker buttons
-  // (panMap/panMapBack/panMapRest below) rather than native/CSS scroll over
-  // a fully-rendered grid. Clamped fresh every render — map size can change
-  // between renders (a new Scene loading) — and written back so AppState
-  // always reflects where the window actually landed, not a stale request.
+  // Viewport panning: a fixed VIEWPORT_TILES x VIEWPORT_TILES window pans
+  // over the real map via the pan buttons. Clamped fresh every render (map
+  // size can change between renders on a new Scene load), and written back
+  // so AppState always reflects where the window actually landed.
   const viewW = Math.min(VIEWPORT_TILES, map.width);
   const viewH = Math.min(VIEWPORT_TILES, map.height);
   const offsetX = Math.max(0, Math.min(AppState.mapViewOffset.x, map.width - viewW));
@@ -757,10 +607,9 @@ export function renderMap(){
   AppState.mapViewOffset.x = offsetX;
   AppState.mapViewOffset.y = offsetY;
 
-  // Move Orders (2026-08-21) — reachability, computed once per render rather
-  // than per-Tile, then looked up O(1) below for each Tile's tier class/badge.
-  // Non-Combat only (Combat keeps the plain adjacent-only tryMoveActor, no
-  // range preview at all).
+  // Move Orders reachability, computed once per render, looked up O(1) below
+  // per Tile. Non-Combat only — Combat keeps the plain adjacent-only
+  // tryMoveActor, no range preview.
   let moveReach = null;
   if(AppState.moveSelectMode && !table.inEncounter){
     const moveActorId = AppState.moveSelectMode.actorId;
@@ -778,12 +627,9 @@ export function renderMap(){
     occupants[idx].push(entities[id]);
   });
 
-  // Mini-Party members share their Player Character's Tile — no position of
-  // their own is tracked, they just ride along with whoever they belong to.
-  // Exception: a Possessed member (from the Possess Technique) reflects a
-  // real Enemy that's still a live entity in table.enemies/table.positions —
-  // it already rendered at its own real Tile via the entities loop above,
-  // so folding it into the Player's Tile too would double it up.
+  // Mini-Party members share their Player's Tile — no position of their own
+  // is tracked. A Possessed member (real Enemy) already rendered at its own
+  // real Tile via the entities loop above, so it's excluded here to avoid doubling up.
   Object.entries(table.players || {}).forEach(([id, p]) => {
     const pos = positions[id];
     if(!pos || !p.miniParty || !p.miniParty.length) return;
@@ -796,66 +642,39 @@ export function renderMap(){
   });
 
   // Header row (compass corner + column numbers) and header column (row
-  // letters) frame the actual tile grid — one extra row/column overall.
-  // Two dedicated leading columns/rows (2026-08-17, dDd's own ASCII layout
-  // sketch) for the compass + axis lines/heads, kept fully separate from the
-  // actual tile grid's own corner/column-headers/row-headers rather than
-  // sharing those cells — everything shifts down-right by one row/column
-  // (COL_OFFSET/ROW_OFFSET below) to make room. Still one CSS Grid (dDd:
-  // "they can all be part of the Tiles, but set aside somehow") — every
-  // cell, including the header-block ones, is explicitly grid-placed rather
-  // than relying on source-order auto-flow, since a grid this sparse (most
-  // of row 1/column 1 is empty) can't be filled correctly by auto-flow alone.
-  // Uniform squares, no buffer (2026-08-24, per dDd, after seeing the real
-  // rendered CSS — the leading/trailing "Utility" columns/rows used to
-  // auto-size to their own content, so the compass/header cells came out
-  // different widths than an actual Tile; a same-day buffer-ring add made
-  // that worse, not better). dDd's own exact layout for the Utility corner:
+  // letters) frame the actual tile grid. Two dedicated leading
+  // columns/rows for the compass + axis lines/heads, kept separate from the
+  // tile grid's own corner/headers — everything shifts down-right by one
+  // row/column (COL_OFFSET/ROW_OFFSET below). One CSS Grid throughout —
+  // every cell is explicitly grid-placed, since a grid this sparse can't be
+  // filled correctly by source-order auto-flow.
+  // Utility corner layout:
   //   Row1: empty | N | empty
   //   Row2: W | Compass | Reset
   //   Row3: empty | Undo | "0" (start of the real header rows/columns)
-  // Column 3/Row 3 (COL_OFFSET/ROW_OFFSET) exist specifically because
-  // that's where the E/S compass axis lines actually start (Reset anchors
-  // the horizontal line, Undo the vertical one) — not filler. Trailing side
-  // mirrors it at 2 tracks, not 3 (no separate buffer): one gap column/row,
-  // then the Pan row/column itself. Every track — Utility, Tile, or Pan —
-  // is now the exact same TILE_SIZE square, so the whole grid is just one
-  // uniform repeat() instead of a mix of `auto` and fixed-px segments.
+  // Column 3/Row 3 (COL_OFFSET/ROW_OFFSET) is where the E/S compass axis
+  // lines actually start (Reset anchors the horizontal line, Undo the
+  // vertical one). Trailing side mirrors it at 2 tracks: one gap
+  // column/row, then the Pan row/column. Every track — Utility, Tile, or Pan
+  // — is the same TILE_SIZE square, one uniform repeat().
   const COL_OFFSET = 3; // data tiles start at grid-column 3+1=4; column 3 is the row-letter header
   const ROW_OFFSET = 3; // data tiles start at grid-row 3+1=4; row 3 is the column-number header
-  // Dedicated pan-button row/column (2026-08-22, per dDd — "It's supposed
-  // to have a dedicated row and column for the Scroll Bars"), one further
-  // out than the E/S axis-head labels so neither overlaps the other.
+  // Dedicated pan-button row/column, one further out than the E/S axis-head labels.
   const PAN_COL = COL_OFFSET + viewW + 2;
   const PAN_ROW = ROW_OFFSET + viewH + 2;
-  // Fixed pixel Tiles, not minmax(34px,1fr) (2026-08-20, dDd's catch — "it
-  // should be designed to always have 7x7 as the view, instead of shrinking
-  // or expanding"). TILE_SIZE is a flat constant, identical at every map
-  // size and every screen width, and every Tile/header/Pan track uses it —
-  // except the outermost two tracks on each side (2026-08-24, per dDd:
-  // "shrink width of first two and last two columns by half... same for
-  // rows"), which are HALF_TILE. That's columns/rows 1-2 (W/N/Compass/Undo
-  // — the small decorative Utility cells) and the 2 trailing gap+Pan
-  // tracks; column/row 3 (COL_OFFSET/ROW_OFFSET — Reset, the "0" corner,
-  // and every real header) stays full-size, since it reads directly
-  // against the Tiles themselves.
+  // Fixed pixel Tiles. Every Tile/header/Pan track uses TILE_SIZE, except the
+  // outermost two tracks on each side (the small decorative Utility cells,
+  // and the trailing gap+Pan tracks), which are HALF_TILE. Column/row 3
+  // (Reset, the "0" corner, every real header) stays full-size.
   const HALF_TILE = TILE_SIZE / 2;
   el.style.gridTemplateColumns = HALF_TILE + 'px ' + HALF_TILE + 'px ' + TILE_SIZE + 'px repeat(' + viewW + ', ' + TILE_SIZE + 'px) ' + HALF_TILE + 'px ' + HALF_TILE + 'px';
   el.style.gridTemplateRows = HALF_TILE + 'px ' + HALF_TILE + 'px ' + TILE_SIZE + 'px repeat(' + viewH + ', ' + TILE_SIZE + 'px) ' + HALF_TILE + 'px ' + HALF_TILE + 'px';
 
-  // Compass + axis lines: N/W sit right by the compass (row2/col2), lines
-  // run the full length of the tile grid, S/E land at the far edges — see
-  // reference/CHANGELOG.md 2026-08-17 for the fix history. Rotation
-  // (pressing the compass to cycle N/E/S/W and re-map the grid) is an
-  // explicit reach item, not built yet — see reference/ROADMAP.md, Movement
-  // System. Undo/Reset (2026-08-23, per dDd — previously tiny 16px circular
-  // icons crammed inside the compass's own cell, "impossible to tell what it
-  // looks like right now") now get real button styling matching the other
-  // .map-pan-btn controls, and their own dedicated cells flanking the tile
-  // grid's own "0" corner: Reset (was "Rest" — renamed to resolve a naming
-  // collision with the unrelated Combat "Rest" action) sits directly above
-  // it, Undo directly to its left. Undo undoes the last pan step, Reset
-  // recenters on your own Character.
+  // Compass + axis lines: N/W sit by the compass, lines run the tile grid's
+  // full length, S/E land at the far edges. Rotation (cycling N/E/S/W and
+  // re-mapping the grid) is a reach item, not built yet. Undo/Reset get real
+  // button styling, dedicated cells flanking the "0" corner: Reset above it,
+  // Undo to its left. Undo undoes the last pan step, Reset recenters on your own Character.
   let html =
     '<div class="map-corner" title="8-directional compass" style="grid-column:2; grid-row:2;">' +
       '<span class="map-compass-icon">🧭</span>' +
@@ -866,17 +685,10 @@ export function renderMap(){
     '<span class="map-axis-head w" style="grid-column:1; grid-row:2;">W</span>' +
     '<span class="map-axis-head e" style="grid-column:' + (COL_OFFSET + viewW) + '; grid-row:2;">E</span>' +
     '<span class="map-axis-head s" style="grid-column:2; grid-row:' + (ROW_OFFSET + viewH) + ';">S</span>' +
-    // Lines toward E/S start one cell later than before (2026-08-23, per
-    // dDd: "the yellow lines for S and E should not overlap reset and
-    // undo") — Reset now sits at exactly the horizontal line's old start
-    // (grid-column:COL_OFFSET, row 2), Undo at the vertical line's old
-    // start (column 2, grid-row:ROW_OFFSET); the buttons themselves anchor
-    // that first segment now instead of the line running behind them.
+    // Reset sits at the horizontal line's own start; Undo at the vertical
+    // line's own start — the buttons anchor the first segment instead of the line running behind them.
     '<div class="map-axis-line horizontal" style="grid-row:2; grid-column:' + (COL_OFFSET + 1) + ' / ' + (COL_OFFSET + viewW) + ';"></div>' +
     '<div class="map-axis-line vertical" style="grid-column:2; grid-row:' + (ROW_OFFSET + 1) + ' / ' + (ROW_OFFSET + viewH) + ';"></div>' +
-    // The tile grid's own corner — a bare "0", the placeholder this spot
-    // used before the compass existed at all, now that the compass has its
-    // own separate cell above.
     '<div class="map-corner map-corner-zero" style="grid-column:' + COL_OFFSET + '; grid-row:' + ROW_OFFSET + ';">0</div>';
   for(let vx = 0; vx < viewW; vx++){
     const x = offsetX + vx;
@@ -896,11 +708,9 @@ export function renderMap(){
       const edgeCls = occ.activeEnemies >= ACTIVE_CROWD_THRESHOLD ? ' edge-enemy'
         : occ.activeAllies >= ACTIVE_CROWD_THRESHOLD ? ' edge-ally' : '';
       const chunkCount = (map.chunks && map.chunks[idx]) || 0;
-      // Move Orders (2026-08-21) — two shades of one color: dark for
-      // reachable-this-Round (extraRounds 0), light for anything beyond that
-      // but still within range (1-3). A Tile outside range (or blocked/
-      // unreachable) gets neither — "looks the same as it already does," per
-      // dDd, so no class/badge at all in that case.
+      // Move Orders: two shades of one color — dark for reachable-this-Round
+      // (extraRounds 0), light for anything beyond that but still in range.
+      // Outside range (or blocked/unreachable), no class/badge at all.
       const moveInfo = moveReach && moveReach.get(idx);
       const moveCls = moveInfo ? (moveInfo.extraRounds === 0 ? ' move-immediate' : ' move-future') : '';
       const moveBadge = moveInfo
@@ -919,23 +729,16 @@ export function renderMap(){
       styleParts.push('grid-column:' + (COL_OFFSET + 1 + vx), 'grid-row:' + (ROW_OFFSET + 1 + vy));
       const style = ' style="' + styleParts.join(';') + '"';
 
-      // Facing (2026-08-22) — a single occupant renders as a rotated Triangle
-      // (base indicating Facing) instead of a plain initial letter. A Tile
-      // with more than one occupant keeps the old comma-letter-list for now —
-      // multiple positioned Triangles on one Tile is the Mini-Tiles/Zoom
-      // work (see reference/ROADMAP.md, Movement System's Map Evolution),
-      // not yet built.
-      // Empowered (2026-08-22, per dDd, after playtesting — "changing color
-      // of Empowered Character Triangles to ally colors") — reads as Ally-
-      // Cyan regardless of actual side, same "you're one of mine now" cue
-      // Empower's own +1 Control/+1 AP is meant to convey.
+      // Facing: a single occupant renders as a rotated Triangle instead of a
+      // plain initial letter. A Tile with more than one occupant keeps the
+      // old comma-letter-list for now — multiple positioned Triangles is the
+      // Mini-Tiles/Zoom work, not yet built.
+      // Empowered reads as Ally-Cyan regardless of actual side — same
+      // "you're one of mine now" cue Empower's own +1 Control/+1 AP conveys.
       const facingColor = here.length === 1 ? (here[0].empowered ? FACING_COLOR_PLAYER : here[0].side === 'enemy' ? FACING_COLOR_NPC : FACING_COLOR_PLAYER) : null;
-      // Reveal stagger (2026-08-24, per dDd — "Loading Screen is timed to
-      // fade away as the Player fades in, followed by NPCS"). Only actually
-      // plays during a Scene's own genesis — css/panels.css scopes the
-      // fade-in animation to the brief #app.scene-revealing window
-      // js/scenes.js's loadScene() toggles, so this custom property sits
-      // inert on every ordinary Move/Combat re-render in between.
+      // Reveal stagger only actually plays during a Scene's own genesis —
+      // css/panels.css scopes the fade-in to the brief #app.scene-revealing
+      // window; inert on every ordinary Move/Combat re-render.
       const revealDelay = (here.length && here[0].side !== 'player') ? '.35s' : '0s';
       const label = here.length === 1
         ? '<span class="facing-marker" style="--facing-deg:' + FACING_DEGREES[here[0].facing || FACING_DEFAULT] + 'deg; --facing-color:' + facingColor + '; --reveal-delay:' + revealDelay + '"></span>'
@@ -951,25 +754,16 @@ export function renderMap(){
         tileKey(map, x, y) + (titleBits ? ' — ' + escapeHtml(titleBits) : '') + escapeHtml(titleMeta) + '">' + label + moveBadge + selfBadge + popupHtml + '</div>';
     }
   }
-  // Move Orders trail (2026-08-21) — a Tile-sized SVG overlay spanning the
-  // rendered viewport, sitting above every Tile (pointer-events:none, so it
-  // never steals a click). Its actual line content is filled in by
-  // updateMoveTrail below, off AppState.moveHoverTile — geometry only needs
-  // TILE_SIZE/TILE_GAP, the same constants the grid's own CSS Grid tracks
-  // use, so a Tile's pixel center here always matches its real rendered
-  // position (tileCenterPx below is viewport-offset-relative to match).
+  // Move Orders trail: a Tile-sized SVG overlay spanning the rendered
+  // viewport, sitting above every Tile (pointer-events:none). Its line
+  // content is filled in by updateMoveTrail below, off AppState.moveHoverTile.
   const trailW = viewW * TILE_SIZE + (viewW - 1) * TILE_GAP;
   const trailH = viewH * TILE_SIZE + (viewH - 1) * TILE_GAP;
   html += '<svg id="move-trail-svg" style="grid-column:' + (COL_OFFSET + 1) + ' / span ' + viewW +
     '; grid-row:' + (ROW_OFFSET + 1) + ' / span ' + viewH + ';" viewBox="0 0 ' + trailW + ' ' + trailH + '"></svg>';
 
-  // Pan controls (2026-08-22, per dDd) — "a tile clicker. So, you click and
-  // it advances a tile. 2 or 3 buttons to change the distance it goes."
-  // Two distances per direction: one Tile, or a full page (viewW/viewH —
-  // a whole screen's worth at once). Horizontal buttons sit in the new
-  // dedicated PAN_ROW below the grid, vertical ones in the new dedicated
-  // PAN_COL beside it — both real Grid cells of their own, not squeezed
-  // into the Tile area.
+  // Pan controls — two distances per direction: one Tile, or a full page
+  // (viewW/viewH). Horizontal buttons sit below the grid, vertical ones beside it.
   html +=
     '<div class="map-pan-row" style="grid-column:' + (COL_OFFSET + 1) + ' / span ' + viewW + '; grid-row:' + PAN_ROW + ';">' +
       '<button class="map-pan-btn" data-pan-dx="-' + viewW + '" data-pan-dy="0" title="Page West">◀◀</button>' +
@@ -1023,11 +817,9 @@ export function renderMap(){
     }
   }
 
-  // Move Orders trail hover (2026-08-21) — one delegated listener on the grid
-  // itself rather than one per Tile, so hovering never has to fight a full
-  // renderMap() rebuild mid-gesture. Only updates the trail SVG (see
-  // updateMoveTrail), never re-renders the grid — cheap enough to run on
-  // every mousemove.
+  // Move Orders trail hover — one delegated listener on the grid itself
+  // rather than one per Tile, so hovering never fights a full renderMap()
+  // rebuild mid-gesture. Only updates the trail SVG, never re-renders the grid.
   el.onmousemove = (ev) => {
     const tile = ev.target.closest('.map-tile');
     const x = tile ? Number(tile.dataset.x) : null;
@@ -1045,9 +837,8 @@ export function renderMap(){
   updateMoveTrail();
 }
 
-// Viewport-relative (2026-08-22) — x/y are real map coordinates, but the
-// Move Trail SVG's own viewBox only ever spans the rendered viewport now
-// (see renderMap's trailW/trailH), so pixel positions inside it need to
+// Viewport-relative — x/y are real map coordinates, but the Move Trail SVG's
+// own viewBox only spans the rendered viewport, so pixel positions need to
 // subtract the current pan offset the same way the Tile grid's own
 // grid-column/row placement already does.
 function tileCenterPx(x, y){
@@ -1055,12 +846,10 @@ function tileCenterPx(x, y){
   return { cx: (x - ox) * (TILE_SIZE + TILE_GAP) + TILE_SIZE / 2, cy: (y - oy) * (TILE_SIZE + TILE_GAP) + TILE_SIZE / 2 };
 }
 
-// Pan controls (2026-08-22, per dDd — the tile-clicker Scroll Bar
-// replacement). mapViewHistory is a small undo stack for the Back button;
+// Pan controls — mapViewHistory is a small undo stack for the Back button;
 // Rest recenters on the viewing Player's own Character. All local-only
 // (AppState.mapViewOffset), each viewer pans their own window independently
-// — actual clamping to the map's real bounds happens once, in renderMap,
-// on every render, so these just record the raw requested offset.
+// — actual clamping to the map's real bounds happens once, in renderMap.
 function panMap(dx, dy){
   if(!dx && !dy) return;
   AppState.mapViewHistory.push({ ...AppState.mapViewOffset });
@@ -1077,14 +866,10 @@ function panMapBack(){
 }
 
 // Centers AppState.mapViewOffset on the viewing Player's own Character — no
-// history side-effect, no render call, just the offset math — shared by the
-// Reset button (panMapRest below, which layers in undo-history + its own
-// renderMap) and js/main.js's enterTable() (2026-08-23, per dDd's own
-// diagnosis of the Map-load race). mapViewOffset is local-only state
-// (js/state.js) that defaults to {0,0} on every fresh load; nothing had ever
-// called this on a plain rejoin/hard-refresh before, so a Player reconnecting
-// mid-game saw the map's literal top-left corner — not wherever they actually
-// were — until they clicked Reset themselves. Returns false (no-op) if
+// history side-effect, no render call, just the offset math. Shared by the
+// Reset button (panMapRest below) and main.js's enterTable() — a Player
+// reconnecting mid-game needs this too, or they'd see the map's literal
+// top-left corner instead of wherever they actually are. Returns false if
 // there's no known position/map yet to center on.
 export function centerMapView(){
   const table = AppState.table;
@@ -1102,9 +887,8 @@ function panMapRest(){
   renderMap();
 }
 
-// Redraws just the Move Orders trail line (see the SVG built in renderMap)
-// off AppState.moveHoverTile — the one thing hovering the Map needs to
-// update live without rebuilding every Tile.
+// Redraws just the Move Orders trail line off AppState.moveHoverTile — the
+// one thing hovering the Map needs to update live without rebuilding every Tile.
 function updateMoveTrail(){
   const svg = document.getElementById('move-trail-svg');
   if(!svg) return;
