@@ -211,7 +211,15 @@ export function fillBehaviorQueue(actor){
       r -= w.weight;
     }
     repeatCount[picked.glyphId] = (repeatCount[picked.glyphId] || 0) + 1;
-    queue.push({ glyph: picked.glyphId, ref: picked.ref || null });
+    queue.push({ glyph: picked.glyphId, ref: picked.ref || null, behaviorKey: picked.behaviorKey });
   }
   return queue;
 }
+
+// "Auto Behavior" is this same function — the Queue is a fresh snapshot of
+// current Pursuit every time it's (re)computed, not something that persists
+// and grows. noncombat.js's resolveBehavior() calls this at the top of every
+// Round (overwriting whatever was left), and spawnCharacter() calls it once
+// at spawn so a fresh Character doesn't read as blank before the first Round
+// ticks. Nothing carries over between calls — Repeat only guards against one
+// Glyph sweeping every slot within a single computation.

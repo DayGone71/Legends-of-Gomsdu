@@ -109,7 +109,7 @@ export const BUILDS = Object.fromEntries(
 // on what's already on the table, which this function has no business knowing.
 export function spawnCharacter(build, overrides = {}){
   if(!build) return null;
-  return {
+  const char = {
     archetype: build.archetype, name: overrides.name || build.archetype, num: overrides.num,
     wounds: 0, woundsMax: build.woundsMax, ap: build.ap, flow: build.flowMax, flowMax: build.flowMax,
     recovery: build.recovery, power: build.power, quickness: build.quickness, resilience: build.resilience,
@@ -122,6 +122,7 @@ export function spawnCharacter(build, overrides = {}){
     facing: overrides.facing || FACING_DEFAULT,
     mindeye: bornMindeyeEntries(build.startingMindeye)
   };
+  return char;
 }
 
 // Only fills the form fields — doesn't save. A preview: nothing becomes real

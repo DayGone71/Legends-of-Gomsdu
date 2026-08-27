@@ -123,18 +123,20 @@ async function setPlanRef(r, s, refId){
   });
 }
 
+// Live, on demand — same as computeBehaviors()'s Likely/Runner-Up numbers
+// below, not stored table state. What resolveBehavior() (noncombat.js) acts
+// on each Round is its own fresh computation off the same function; this is
+// "what it would look like right now," visible any time, not just the
+// instant after a Resolve happens to leave something undrained.
 function queueOf(me){
-  return me.behaviorQueue || [];
+  return fillBehaviorQueue(me);
 }
 
 // Commit: a Character's own declaration that a given Expression is real
 // intent, not just a draft mid-edit. Toggling it flags (or unflags) that
 // Expression's Behavior Glyph(s) for the Plan weight (behaviors.js's
-// PLAN_WEIGHT), then regenerates the whole Behavior Queue via
-// fillBehaviorQueue() — a real weighted-random autofill across every
-// remembered Glyph, not just this Expression's own. Slot edits above still
-// save live either way; Commit only changes which Glyphs are Plan-flagged
-// and re-rolls the Queue from scratch off the current state.
+// PLAN_WEIGHT) — the Queue preview above picks this up automatically on its
+// own next render, nothing to regenerate/store here.
 async function togglePlanCommit(r){
   const id = AppState.inspectTargetId || AppState.playerId;
   await mutateTable(t => {
@@ -143,7 +145,6 @@ async function togglePlanCommit(r){
     if(!actor.plan) actor.plan = emptyPlan();
     if(!actor.plan.committed) actor.plan.committed = [false, false, false];
     actor.plan.committed[r] = !actor.plan.committed[r];
-    actor.behaviorQueue = fillBehaviorQueue(actor);
   });
 }
 

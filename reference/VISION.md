@@ -8,133 +8,123 @@ back to, not edited every session.
 
 **Written CC2-1 (Cycle 2, Session 1), 2026-08-17** — see [CYCLES.md](CYCLES.md)
 for what Cycle/Session actually mean. **Rewritten 2026-08-25, at Cycle 2's
-own Assessment** — the original had drifted into half-plan, half-diary (4
-dated Addenda bolted onto the bottom, a "state of things" section describing
-a build from over a week before it was last read). This version folds dDd's
-own status pass on every Priority item, given directly at that Assessment,
-into a single current statement instead of a patched-over one.
+own Assessment, and again CC3-1, 2026-08-26** — restructured from a 9-item
+Priority Order into 7 Stages. The 2026-08-25 version had marked
+Dialogue-Skeleton and Personality/Stats "Completed" based on the mechanism
+existing and running; CC3-1's own conversation on the Glyph/Language data
+underneath Wimbis found that "Completed" was true at the surface level and
+wrong at the organization level (Behavior/Variety duplicated as hand-kept JS
+constants instead of living in the Glyph JSON — already the cause of one
+real bug; Grammar Lines, Marks, and Expression structure all thinner than
+the JSON implied). This version reflects that finding directly rather than
+repeating a status line that no longer held up. Full detail in
+[CHANGELOG.md](CHANGELOG.md)'s 2026-08-26 entry.
 
 Cross-reference: [gomsdu-codex.md](gomsdu-codex.md) (the world/themes this is
 all in service of), [dialogue-system.md](dialogue-system.md) (the fuller
-design space several items below draw from — the full Wimbis pivot and
+design space several Stages below draw from — the full Wimbis pivot and
 Universal Characters Table history live there in dated detail, not
-repeated here), [style-guide.md](style-guide.md) (item 8), [ROADMAP.md](ROADMAP.md)
+repeated here), [style-guide.md](style-guide.md) (Stage 7), [ROADMAP.md](ROADMAP.md)
 (the tactical layer underneath all of this), [CYCLES.md](CYCLES.md) (what
 the current Cycle is actually scoped to do next).
 
 ---
 
-## The state of things, as of Cycle 2's Assessment (2026-08-25)
+## The state of things, as of CC3-1 (2026-08-26)
 
-The gap this document originally described — a sophisticated Codex sitting
-next to an engine with zero narrative surface — has substantially closed.
-Wimbis is real: a whole `language/` toolchain, a living Glyphic System.
-Personality is real: Heart/Stomach/Head domains, per-Glyph Emotion Axes, a
-working Pursuit/Longing Behavior Queue. Characters are universal: one
-logical space across Players/Enemies/NPCs, with Ally/Enemy correctly scoped
-to Combat only rather than a permanent tag. A real Scene exists and is
-playable — Era 1: Gom. Per dDd's own pass below, most of the original
-9-item order is now Completed or Partially Completed. The honest gap left
-isn't "nothing's connected" anymore — it's the handful of items still
-Started or Partial, plus the process problem named in this same Assessment
-(hardcoding one-off mechanics instead of reusable systems — see
-[ROADMAP.md](ROADMAP.md)'s Architecture/Systemization section) that's now
-the actual gate on what gets picked up next, not any single item below.
+Cycle 2's Assessment described a real gap that had genuinely closed by that
+point — a sophisticated Codex sitting next to an engine with zero narrative
+surface isn't true anymore. Wimbis is real, Personality is real, Characters
+are universal, and a real Scene exists and is playable (Era 1: Gom). What
+that Assessment didn't have yet was a close look at whether "real" also
+meant "organized" — it didn't, for the Language/Glyph data specifically (see
+[ROADMAP.md](ROADMAP.md)'s Architecture/Systemization section for the actual
+findings, gathered CC3-1). The honest state now: the mechanisms that make
+the game playable exist; several of them sit on data that's duplicated,
+thin, or not yet structured enough to extend safely. Not a regression from
+Cycle 2's read — a more accurate one, now that organization-level
+completeness actually got checked instead of assumed alongside
+surface-level completeness.
 
 ---
 
-## The Priority Order
+## The 7 Stages
 
-dDd's own ordering for 1–5 and 7; Claude filled the gaps at 6, 8, 9 on
-request, confirmed correct at the time. Status lines are dDd's own pass,
-given directly at Cycle 2's Assessment, 2026-08-25.
+Restructured CC3-1 from the old 9-item Priority Order. That order was built
+around old item 1's own dependency chain (Dialogue needed to exist before
+Personality Stats could attach to anything, etc.) — the durable premises
+that chain settled (Wimbis as the real Language, Characters as one universal
+shape, not a separate NPC data type) aren't Stages anymore; they're the
+ground the 7 Stages below stand on.
 
-**1 — Dialogue System Skeleton. Status: Completed — WIMBIS.**
-Before its own Stats exist, decide *how* they'll be used — same lesson
-Combat already learned. dDd's own framing, worth preserving verbatim:
-*"With the Combat, I started by thinking of the way heroes in movies were
-portrayed. Aragorn could slay like 7 orks in 3 seconds. What the heck was
-going on with enemies having these ridiculous health bars? ... Is it
-possible to get that sense across while having the Player feel pretty much
-unstoppable amongst all the commotion?"* Dialogue needed the equivalent
-translation pass — Themes into what's actually expressible inside
-HTML/CSS/JS — before anything got built. The path that actually got there
-wasn't the original English Set-Piece/Call-Response engine (superseded —
-see `dialogue-system.md`'s "2026-08-19 to 2026-08-20 — The pivot to
-Wimbis" section) — it's Wimbis, the world's own Language, built as a real
-system first, with English demoted to a translation layer handed to the
-Player. Full history in `dialogue-system.md`'s dated sections, 2026-08-19
-through 2026-08-24 (the file was trimmed 2026-08-25 — it originally also
-covered the superseded English engine itself, cut for the same reason
-`gomsdu-dialogue-mechanics.md` was).
+**1 — Architecture/Systemization discipline.** Not a feature — the gate.
+Real, reusable systems instead of one-off hardcoding per mechanic; real
+verification through actual gameplay scenarios instead of bespoke functions
+that force internal state to fake a pass. Named 2026-08-25 (see
+[ROADMAP.md](ROADMAP.md)), first tested for real CC3-1 against the Glyph
+data — Stage 2 immediately below is its first concrete application.
 
-**2 — Personality/Dialogue Stats. Status: Completed — Personality and the
-Axis.** Downstream of 1 by construction. Built: Heart/Stomach/Head as the
-domains Axes attach to, Attachment/Desire as the real per-Glyph Emotion
-Axes, and the full Desire + Longing + Plan + Repeat = Pursuit weighting
-formula driving a working Behavior Queue. Full history in `CHANGELOG.md`'s
-2026-08-21 through 2026-08-24 entries.
+**2 — Language/Glyph Architecture.** What CC3-1's Architecture conversation
+actually found broken, named directly instead of assumed done: Glyph
+identity (a validity audit still needed — what's current vs. stale across
+the 39 Glyphs), Marks (only the Chevron confirmed so far), Grammar Lines (2
+entries against at least 5 more already in use), Expression/Paragraph
+composition structure (not built as data anywhere yet), Behavior/Variety
+folded into the Glyph JSON instead of duplicated as JS constants (the
+duplication already caused a real bug — `KULOG`/`KALAG` swapped in
+`js/behaviors.js`'s `GLYPH_BEHAVIOR`), Era-gated roles (a Glyph's shape never
+changes, but which roles it can play — standalone, Mark, Compound-component
+— can unlock in a later Era), and Target identification's 3-tier system
+(category-level now, personal Number in Second Era, personal Name in Third
+Era, generalizing to Ideas eventually). Full breakdown in
+[ROADMAP.md](ROADMAP.md)'s Architecture/Systemization section.
 
-**3 — NPC Creation. Status: Completed — Characters are universal.** Needs
-somewhere to put the Stats. Resolved by the Universal Characters Table
-(`table.characters`) — per dDd, *"Character, defined: anything with a Stat
-Sheet... applies uniformly to Players, Mini-Party members, Enemies, and
-NPCs — there's no separate 'NPC' data shape, just another Character."* See
-`dialogue-system.md`'s 2026-08-22 and 2026-08-24 sections, and
-`CHANGELOG.md` 2026-08-24 (Yom as the Table's first real tenant).
+**3 — Personality/Behavior completion.** Downstream of Stage 2 by a
+dependency CC3-1 found directly — `GLYPH_BEHAVIOR` reads off Glyph identity,
+so Behavior can't be trusted to extend correctly until Stage 2's data is
+real. What's left once it is: AP actually draining as the Behavior Queue
+resolves, and Attachment/Desire moved from hardcoded JS
+(`js/relationships.js`) into real JSON. Old item 2, narrowed to what's
+genuinely still open rather than marked Completed.
 
-**4 — Character refinement + NPC integration. Status: Partially
-Completed.** Needs NPCs to exist first to know what "integration" means
-concretely. Per dDd, 2026-08-25: this item needs a closer read against
-what's actually built before its status can be judged precisely — flagged
-open rather than guessed at.
+**4 — Character/NPC integration.** Old items 3+4 merged. The Universal
+Characters Table is real and durable — what's left is old item 4's own
+flagged-open question ("needs a closer read against what's actually
+built"), plus Species actually mattering mechanically once something
+differentiates on it (currently a flavor-text string with nothing reading
+it — confirmed CC3-1, see [ROADMAP.md](ROADMAP.md)).
 
-**5 — Minor mechanical fixes. Status: Completed** — per dDd, 2026-08-25,
-"every one of these have been resolved." The 4 items standing between the
-old Map and a Bane-shaped encounter: AP-costed/queued movement, DM control
-over Enemy movement, Range Restriction on Actions (Attack/Block gated by
-Tile adjacency), Neutral Characters. AP-costed movement → Move Orders,
-built 2026-08-21 (see `CHANGELOG.md` same date). **Worth reconciling**:
-`ROADMAP.md`'s DM Panel item E ("nobody can move an Enemy once it
-spawns — not the DM, not anyone") is still listed `[Discuss]`, open as of
-2026-08-25 — flagged here rather than silently marked resolved, since it
-reads like a real gap against "every one of these have been resolved" and
-is worth a quick check next time DM Panel work comes up.
+**5 — Combat/Movement engine.** New as its own Stage — the old 9-item order
+never gave this a real slot, just a nod under old item 5 ("minor mechanical
+fixes"). Locality-based Encounters, the Map Evolution, Formation/Wall
+Formation, and everything else `ROADMAP.md` already tracks under Combat/
+Movement/Sequencer is a thread the same size as Language, not a footnote.
+Combat Panel itself is in a deliberate teardown (see `ROADMAP.md`) — this
+Stage is the engine-level work underneath it, not the standalone popup.
 
-**6 — Scenes / Narrative Interface. Status: Partially Completed.** The
-assembly layer. Items 1–5 are components; this is the first place they run
-together — text, a real dialogue exchange using the actual Axes/Stats, an
-NPC rendered as one, handing off into Combat on a Range-restricted Map.
-Per dDd, 2026-08-25: the Grid Tile Map is turning out much more flexible
-than first anticipated, and the Narrative itself is planned to work in
-tandem with item 9 (Physics-as-Narrative), not as a separate track. Era 1:
-Gom is the first real instance of this item actually existing in play —
-see `CHANGELOG.md` 2026-08-20/22.
+**6 — Scenes/Narrative assembly.** Old item 6, effectively unchanged — the
+layer where Stages 1-5 actually run together in play. Era 1: Gom is the
+existing proof this works at all, not a finished instance of it. Worth
+naming directly, confirmed CC3-1: this Stage's real destination isn't
+undefined. `gomsdu-codex.md`'s "Present Day" heading is explicitly labeled
+**Third Era**, and it already holds a substantially complete campaign —
+Bane's opening sequence, the Man of Gom tutorial arc, the Prophecy of
+Krowkist, the reserved True Union endgame. First and Second Era — everything
+Stages 1-5 are actually building — are the Living Stone's own prehistory,
+teaching the Language/systems vocabulary a player needs before that
+already-designed Third Era campaign is reachable. Not aspirational framing —
+per creator: "Third Era is the Goal of the Game itself... all this stuff is
+foundation," and First/Second Era content is meant to be fully valid
+gameplay in its own right along the way (primer missions/tutorials), not
+throwaway scaffolding.
 
-**7 — Web Lab development & Experiments. Status: Ongoing** — a longer
-initiative by design, not a race to finish. Parallel/recreational track,
-not competing for priority against 1–6 — the thing that happens *during* a
-break from them, not after them. dDd encourages "lots of creative
-thinking," and the Codex itself hands over plenty of Force/Form
-combinations to draw from. See "The Web Laboratory" section below for the
-full seed list.
-
-**8 — Visual/Art-direction pass. Status: Started.** The current
-ink/parchment/brass look is explicitly flagged in `style-guide.md` as
-never art-directed, "all of it is getting replaced" — real work, but
-nothing upstream depends on it. Per dDd, 2026-08-25: the Mindeye Interface
-(the animated smoke → split → Vesica Piscis → Glyph-box reveal, built
-2026-08-20) is a real example of this pass actually happening, not just
-planned.
-
-**9 — Physics-as-Narrative fusion. Status: Started.** The eventual payoff
-of everything above it: Possession driving the Lightning box's own
-strike-rate live, a Scene rendering as a tuned storm instead of a
-paragraph. Per dDd, 2026-08-25: the Mindeye Interface is a working example
-here too — it's the Home Page's own Lightning-box effect, adapted to how a
-Script presents itself on screen. The same piece of art-direction work is
-doing double duty as items 8 and 9 at once — worth noticing as a real
-connection, not a coincidence to resolve.
+**7 — Presentation.** Old items 7 (Web Lab), 8 (Visual/Art-direction), and 9
+(Physics-as-Narrative) merged into one. The 2026-08-25 version of this
+document already noted 8 and 9 were "doing double duty" through the same
+work (the Mindeye Interface); Web Lab was always explicitly parallel/
+recreational, never competing for priority. One Stage — how the game
+actually looks and feels — instead of three separate ones that were already
+overlapping in practice.
 
 ---
 
@@ -142,7 +132,7 @@ connection, not a coincidence to resolve.
 
 Landing-page-only right now (`index.html`'s Color Lab, Lightning box, Lava
 box — see `js/main.js`'s `initLightningBox`/`initLavaBox`), explicitly no
-game state beyond what item 9 above has started connecting. dDd's vision
+game state beyond what Stage 7 above has started connecting. dDd's vision
 for where this goes: not decoration, but the Narrative eventually
 *presented through* these semi-random forces going off — which lines up
 unusually well with the Codex's own cosmology, where the First and Second
@@ -198,17 +188,11 @@ a small working model of the Founding Rule itself — which is the most
 
 ## Closing note on this rewrite
 
-The 4 dated Addenda that used to sit below the Priority Order (2026-08-19
-through 2026-08-22 — the Wimbis pivot, the Non-Combat Round landing, and
-Composition-to-Behavior/the Universal Characters Table getting named) have
-been folded into the status lines above instead of kept as appended prose.
-Nothing was lost: full original detail lived in `dialogue-system.md` (the
-Wimbis pivot, Composition-to-Behavior) and `CHANGELOG.md`'s 2026-08-21 and
-2026-08-22 entries (the Non-Combat Round) — just no longer duplicated in a
-document meant to stay stable. Same reasoning for the old "Open, not yet
-started" section, which only ever covered item 1's now-superseded English
-Dialogue Engine prototypes — **that content is now gone from `dialogue-system.md`
-too, cut in a follow-up pass the same day** (1130 lines down to ~400 — per
-dDd, "more than half of that information is useless"). Genuinely retired,
-not relocated — the same "zero consequence" judgment already applied to
-`gomsdu-dialogue-mechanics.md`/`gomsdu-vibe-doc.md`/`dialogue-snippets.md`.
+The 2026-08-25 version's own closing note (explaining how that Assessment
+folded 4 dated Addenda into status lines instead of keeping them as appended
+prose) is itself now historical — full detail lives in git history and in
+[CYCLES.md](CYCLES.md)'s Cycle 2 entry, not repeated here for the same
+reason that version gave for not repeating what came before it. This
+rewrite's own reasoning is covered in the header note above and in
+[CHANGELOG.md](CHANGELOG.md)'s 2026-08-26 entry — nothing to add here that
+isn't better placed there.

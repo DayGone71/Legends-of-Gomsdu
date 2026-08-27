@@ -98,7 +98,7 @@
       "separation": false, "infuse": false, "bloodkindle": false,
       "seed": false
     },
-    "startingMindeye": ["KROW", "KRO", "GOM", "GO", "KUL", "OG", "KULKROW", "OR", "MO", "WIM", "BIS", "S", "WIMBIS", "GOMGOM", "GI", "GeKA", "GeKARAP", "ZON", "ZIN", "WIMZIN", "GeKARI", "BE", "KA", "DU", "W", "M", "RO / OR", "OP / PO", "KO", "OK", "SUU", "KULOG", "KALAG", "YO", "KOR", "ROK", "POK", "KOP", "BA"],
+    "startingMindeye": ["KROW", "KRO", "GOM", "GO", "KUL", "OG", "KULKROW", "OR", "MO", "WIM", "BIS", "S", "WIMBIS", "GOMGOM", "GI", "GeKA", "GeKARAP", "ZON", "ZIN", "WIMZIN", "GeKARI", "KA", "DU", "W", "M", "RO / OR", "OP / PO", "KO", "OK", "SUU", "KULOG", "KALAG", "YO", "KOR", "ROK", "POK", "KOP", "BA"],
     "personality": { "head": { "intelligence": 10 }, "heart": null, "stomach": null }
   },
   "kulkrow": {

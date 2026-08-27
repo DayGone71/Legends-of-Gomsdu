@@ -188,7 +188,7 @@
     {
       "id": "separate",
       "role": "lexical-base",
-      "description": "for BE",
+      "description": "for BA (previously also BE, deleted 2026-08-26 — per creator, 'supposed to be gone... should have gotten rid of it days ago').",
       "render": {
         "type": "multipath",
         "d": [
@@ -394,8 +394,7 @@
           "note": "Redesigned, next session: gom-circle replaces jagged-circle, matching GOM's own updated base above."
         }
       ],
-      "status": "settled — meaning renamed 'Shadow Gom', next session, per creator (previously 'Gom's aura / domain — that which is his without Gom's full self present').",
-      "notes": "Rarely appears free-standing; typically bound in GO + ownership-line + [owned thing] constructions, e.g. GO|KROW. 'Shadow Gom' lines up directly with the already-established in-game term 'Shadow Possession' (see reference/HELP-DRAFT.md) — the ambient, low-level possession baseline every Character already carries, as opposed to full/Active Possession. Worth confirming this is the intended connection rather than assumed."
+      "status": "settled — meaning renamed 'Shadow Gom', next session, per creator (previously 'Gom's aura / domain — that which is his without Gom's full self present')."
     },
     {
       "id": "KUL",
@@ -584,8 +583,7 @@
         }
       ],
       "status": "settled",
-      "etymology": "Two chevrons (one W, one M) overlapping so their inner edges connect. No independent container/base shape of its own — purely a relation between two completions.",
-      "notes": "Word-order-sets-direction isn't unique to WIM — every Word in the language works that way (see grammar.rules, 'Word order as direction'). What actually makes WIM distinct is semantic, not grammatical: its meaning specifically names the teacher-to-pupil relationship itself, not just 'Teach/Learn' in the abstract. That relational specificity is a more advanced idea than 1st Era Language is worrying about yet — flagged for a later pass, per creator."
+      "etymology": "Two chevrons (one W, one M) overlapping so their inner edges connect. No independent container/base shape of its own — purely a relation between two completions."
     },
     {
       "id": "BIS",
@@ -651,7 +649,7 @@
           ],
           "scale": 0.7,
           "rotation": 0,
-          "note": "Left column, lower — big, upright."
+          "note": "Lower — big, upright."
         },
         {
           "primitive": "chevron",
@@ -661,12 +659,11 @@
           ],
           "scale": 0.4,
           "rotation": 180,
-          "note": "Left column, upper — small, inverted."
+          "note": "Upper — small, inverted. Confirmed 2026-08-26, per creator: S is two Chevrons colliding, the top one smaller than the bottom one — matches this scale-0.4-vs-0.7 split."
         }
       ],
       "status": "settled, creator-drawn, next session",
-      "etymology": "The singular form of BIS — one instance of BIS's own big-upright/small-inverted chevron-column motif, not the whole two-column pair. Same relationship as the language's other singular/plural-adjacent truncations (GOM/GO, KROW/KRO), applied to BIS specifically.",
-      "notes": "Formalizes the correctionLog's 'next session' entry: SUU becomes a real Glyph 'during the War' (First War, per its established origin as the Molten Ones' first spoken word — see scenes.md's Genesis Syllabary) — S is that Glyph's written form, not a separate word. Resolves the matching openThreads entry. Also dual-natured like the Chevron itself: usually functions at the Mark/Letter tier (a sound/vibration, alongside M and W) rather than the Word tier, and — like M and W — can carry the Continual feature (sustained rather than instantaneous; see grammar.rules). Notation for Continual S not yet settled (creator choosing between 'S-' and 'S''); when held Continual and created by Kulkrow specifically, S' is Lava itself — see gomsdu-codex.md's 'The Continual Mark, and S' as Lava.'"
+      "etymology": "The singular form of BIS — one instance of BIS's own big-upright/small-inverted chevron-column motif, not the whole two-column pair. Same relationship as the language's other singular/plural-adjacent truncations (GOM/GO, KROW/KRO), applied to BIS specifically."
     },
     {
       "id": "WIMBIS",
@@ -782,8 +779,7 @@
           "note": "The Center — the one position that belongs to GI alone. Never available to GeKA or GeKARAP's own dots."
         }
       ],
-      "status": "settled — added 2026-08-20, creator-authored",
-      "notes": "First introduced as a category label before the position-grid under it was confirmed; see ZIN/ZON below for how GI's Center and GeKA/GeKARAP's four outer positions turn out to be the same five points as the Crystal Being's Self/Heart pair. New 'meta' category introduced here for words that describe the writing system itself rather than the cosmology — flag if you'd rather fold these into 'root' instead."
+      "status": "settled — added 2026-08-20, creator-authored"
     },
     {
       "id": "GeKA",
@@ -813,8 +809,7 @@
           "note": "East — one example pairing; any 2 of the 4 outer positions are valid, per creator."
         }
       ],
-      "status": "settled — added 2026-08-20, creator-authored",
-      "notes": "Shown here in one example arrangement (West+East). Per creator, any combination of 2 of the 4 outer positions (Top/Right/Bottom/Left) is a valid GeKA — several arrangements, not just this one. GI's Center is never available to GeKA."
+      "status": "settled — added 2026-08-20, creator-authored"
     },
     {
       "id": "GeKARAP",
@@ -854,8 +849,7 @@
           "note": "South — one example; any 3 of the 4 outer positions works (4 possible arrangements total, one for whichever position gets left empty), per creator."
         }
       ],
-      "status": "settled — added 2026-08-20, creator-authored",
-      "notes": "Name visibly contains GeKA (GeKA-RAP) — the sound grows the same way the shape does: GeKARAP is GeKA's own two dots plus one more. 4 valid arrangements (choose which 1 of the 4 outer positions stays empty), confirmed by creator. GI's Center is never available here either."
+      "status": "settled — added 2026-08-20, creator-authored"
     },
     {
       "id": "ZON",
@@ -903,8 +897,7 @@
         }
       ],
       "status": "settled — corrected 2026-08-20 (meaning was backward — 'I' is the commonly-known public meaning, 'Heart' the Crystal Being secret translation; Era corrected from Third to Second), per creator",
-      "etymology": "ZON's exact outline, plus its Center filled with GI — the same completion-marks-presence grammar as KRO/KROW and GO/GOM, now applied to Self itself. Second Era, not Third: most people at this point were Mud People (Gom's own creations, mirroring Kulkrow's Molten Ones), and most Mud People did not have a Heart. ZIN and ZON were introduced as a deliberately unifying act — teaching everyone, Mud People included, that they had more self-awareness than previously assumed, shaped by whatever that era's Writing System and its limited Speech could actually carry.",
-      "notes": "The Crystal Beings knew exactly what Wimsib (Language — the same LANGUAGE Glyph, its BIS-half simply read in reverse, grammatically identical per the horizontal-mirroring rule) had already done to the First Era's people: reprogrammed the Living Stone's own self-understanding, replacing GOMGOM with GO|KROW. By formally claiming GI and ZON within the Language itself, they were trying to make that same erasure impossible to repeat on the Mud People. But the public meaning — 'I,' teaching universal self-awareness — carries a second, secret one underneath it: 'Heart,' reserved for the only beings who actually have one. Crystal Beings' Hearts are Rainbow Slivers. A defensive act against Gom's own playbook, and — per creator — 'basically a form of Elitism,' at the same time."
+      "etymology": "ZON's exact outline, plus its Center filled with GI — the same completion-marks-presence grammar as KRO/KROW and GO/GOM, now applied to Self itself. Second Era, not Third: most people at this point were Mud People (Gom's own creations, mirroring Kulkrow's Molten Ones), and most Mud People did not have a Heart. ZIN and ZON were introduced as a deliberately unifying act — teaching everyone, Mud People included, that they had more self-awareness than previously assumed, shaped by whatever that era's Writing System and its limited Speech could actually carry."
     },
     {
       "id": "WIMZIN",
@@ -979,8 +972,7 @@
         }
       ],
       "status": "settled — added 2026-08-20, creator-authored",
-      "etymology": "WIMBIS's exact glyph — WIM's diamond flanked by BIS's shape twice — with the Primitive GI ('Soul') added beneath it, oversized, grounding the whole thing. Perfected Language, quite literally: ordinary Language plus the one thing the First Era's version of it was built to take away.",
-      "notes": "The Crystal Beings' own refinement of WIMBIS — not a different word for Language, but the same one with something added that only they thought to add. Given everything WIMBIS itself already carries ('the thing that teaches you by making you forget'), naming this specific addition 'Perfected' rather than merely 'different' is worth sitting with."
+      "etymology": "WIMBIS's exact glyph — WIM's diamond flanked by BIS's shape twice — with the Primitive GI ('Soul') added beneath it, oversized, grounding the whole thing. Perfected Language, quite literally: ordinary Language plus the one thing the First Era's version of it was built to take away."
     },
     {
       "id": "GeKARI",
@@ -1030,27 +1022,7 @@
           "note": "North — with West/East/South, all four outer positions filled; unlike GeKARAP, none is left empty, since a Tetglyph uses all four."
         }
       ],
-      "status": "settled 2026-08-21, creator-authored",
-      "notes": "Names the Tetglyph category the same way GI/GeKA/GeKARAP name Glyph/Diglyph/Triglyph — per creator, Tetglyphs (and this word for them) are a Second Era invention. Uses the Primitive GI at all four outer positions, same construction as GeKA/GeKARAP."
-    },
-    {
-      "id": "BE",
-      "sound": "be",
-      "meaning": "Cut / Separate / Sever",
-      "category": "glyph",
-      "era": "First Era",
-      "composition": [
-        {
-          "position": [
-            0.5,
-            0.5
-          ],
-          "scale": 1,
-          "rotation": 0,
-          "primitive": "separate"
-        }
-      ],
-      "status": "creator-authored; composition corrected to use the 'separate' primitive (matching its own description, \"for BE\") instead of 'connect', which the source file had assigned to both BE and KA identically — flagged and fixed 2026-08-19, see correctionLog."
+      "status": "settled 2026-08-21, creator-authored"
     },
     {
       "id": "KA",
@@ -1106,8 +1078,7 @@
           "primitive": "new-chevron-north"
         }
       ],
-      "status": "creator-authored, next session",
-      "notes": "Formalizes W as a real Glyph built from new-chevron-north, rather than the base 'chevron' primitive rotated 0deg. Companion to M, below."
+      "status": "creator-authored, next session"
     },
     {
       "id": "M",
@@ -1126,8 +1097,7 @@
           "primitive": "new-chevron-south"
         }
       ],
-      "status": "creator-authored, next session",
-      "notes": "Formalizes M as a real Glyph built from new-chevron-south, rather than the base 'chevron' primitive rotated 180deg. Companion to W, above."
+      "status": "creator-authored, next session"
     },
     {
       "id": "RO / OR",
@@ -1295,7 +1265,7 @@
     {
       "id": "KULOG",
       "sound": "kulog",
-      "meaning": "Find / Hunt",
+      "meaning": "Explore / Wander",
       "category": "diglyph",
       "era": "First Era",
       "composition": [
@@ -1350,7 +1320,7 @@
     {
       "id": "KALAG",
       "sound": "kalag",
-      "meaning": "Explore / Wander",
+      "meaning": "Facing / Direction / Orientation",
       "category": "diglyph",
       "era": "First Era",
       "composition": [
@@ -1543,12 +1513,12 @@
         "description": "GOM can never associate with himself directly inside an Expression — a real, unbreakable grammar rule, not just a cultural taboo attached to the one word GOMGOM. Two instances of GOM always need a Block or Line separating them. Exceptions, per creator: GOM may precede a Closing Line or follow an Opening Line (adjacency to a Line marker doesn't count as direct association); GOGOM/GOMGO is fine because GO carries no completing Mark, so it doesn't count as 'GOM' for the rule's purposes; Compounds (any Diglyph/Triglyph/etc. containing GOM as a sub-component) are excluded entirely. Supersedes the previous 'Unmarked juxtaposition (tentative)' framing of this rule."
       },
       {
-        "name": "Chevron as Mark (Letter), next session",
-        "description": "Below the Glyph/Word tier (GI) sits a Letter tier: the Chevron is a 'Mark', corresponding to a Sound/Vibration. M and W are confirmed as 'hummers' (a vocalization category) — no other Mark/sound-category is documented yet, a real gap flagged by creator, not an oversight. A bare Chevron can also stand alone as a full Glyph in its own right rather than a Mark attached to a container — see the 'GI KA M- CROW' Second Era infusion construction in gomsdu-codex.md's 'Language as the Animating Gate' section, the first confirmed example of this."
+        "name": "Chevron as Mark (Letter)",
+        "description": "Below the Glyph/Word tier (GI) sits a Letter tier. Confirmed 2026-08-26, per creator: each of the 4 cardinal-direction Chevrons (new-chevron-north/south/east/west) is its own distinct Mark, not one generic 'Chevron' Mark with variable orientation. M and W are confirmed as 'hummers' (a vocalization category). GI becomes a Mark specifically in the Second Era, per creator (2026-08-26) — a real example of a Glyph/Primitive gaining an additional role only once a later Era's grammar supports it (see ROADMAP.md's Architecture/Systemization section, Era-gated roles). A bare Chevron can also stand alone as a full Glyph in its own right rather than a Mark attached to a container — see the 'GI KA M- CROW' Second Era infusion construction in gomsdu-codex.md's 'Language as the Animating Gate' section, the first confirmed example of this."
       },
       {
-        "name": "Chevron compass-direction orientation, next session",
-        "description": "Chevrons carry directional orientation beyond the existing upright/inverted W/M-completion binary. First Era uses 4 Chevrons, one per Cardinal Direction; Second Era expands to 8. How this reconciles with the 'Chevron completion' rule above — whether W/M-completion is just 2 of these 4/8 orientations, or a separate axis layered on top — isn't worked out yet."
+        "name": "Chevron compass-direction orientation — Second Era direction not decided",
+        "description": "First Era uses 4 Chevrons, one per Cardinal Direction. Whether Second Era expands this to 8 is explicitly NOT decided — corrected 2026-08-26, per creator: 'I haven't decided what to do with Chevrons and 8 Directions yet.' What IS confirmed: Second Era doesn't extend First Era's Chevron grammar at all — it uses the GI-family Glyphs (GI, GeKA, GeKARAP) plus Mark instead, a genuinely different mechanism, not a bigger version of the same one. How (or whether) First Era's 'Chevron completion' rule (upright=W, inverted=M) reconciles with any of this remains open."
       },
       {
         "name": "Yield direction: yield-line vs extract-line, next session",
@@ -1569,18 +1539,11 @@
     ]
   },
   "openThreads": [
-    "Resolved, next session: KULKROW is pronounced full two-part 'kul-krow', not contracted, per creator.",
-    "Resolved, next session: 'Wimbis' is confirmed as the current Sound for Language, per creator.",
-    "Resolved 2026-08-20, see gomsdu-codex.md's 'Sound and Shape, and the Name that never formed': this was never a timing question. There is no true Name 'Kulkrow' retroactively overwrote — Kulkrow could never speak or write it into existence in the first place, so Gom's claim on it (via the same Event-Horizon nature GOMGOM exposed) had nothing real to compete against, at any point before or after the First War.",
-    "What would an upright, non-inverted chevron inside the jagged-circle (GOM-family base) mean, if anything — the pairing of 'Gom-family shape + W-orientation', currently unused (GOM itself uses inverted/M-completion; KRO/KROW use the rect-container with upright/W)? Raised directly with creator, next session — not recognized in this phrasing ('I'm not sure what that is referring to'). Needs a concrete drawn example next time, not just a description.",
     "Are KUL/OG's 90-degree axis-rotation and GOM/KROW's 180-degree chevron-rotation meant as one unified 'rotation carries grammatical meaning' principle across the whole script, or are they two separately-arrived-at devices that happen to look similar? Raised directly with creator, next session — not recognized in this phrasing ('I don't know what this is about'). Needs a concrete side-by-side example next time.",
-    "Resolved: Does SUU, or any other pre-Language oral vocabulary, ever get folded into this written syllabary? Yes — SUU becomes a real Glyph 'during the War' (First War), added as the Glyph 'S', etymologically the singular form of BIS, meaning 'Pain / Hurt / Feel' rather than just 'Stop'.",
-    "OR and MO: reopened, next session, per creator — no longer just a visual-redesign question. Creator is reconsidering whether they're a Give/Take Diglyph pair rather than two independent Glyphs at all. Confirmed still coming, not dropped — 'the ORMO Diglyph is not out yet' — OR's own composition has since resolved independently (RO/OR + M), MO's is a visual update only. See each entry's own updated status.",
     "Single-Letter/Mark documentation doesn't exist yet, flagged next session — the Chevron is confirmed as a 'Mark' (Letter) corresponding to a Sound/Vibration, and M/W are confirmed as 'hummers', but no other Mark/sound-category has been written down. Worth its own pass once the newly-drafted Vowels (see below) settle.",
     "Chevron compass-direction system — First Era uses 4 Chevrons for the 4 Cardinal Directions, Second Era expands to 8, per creator (next session). How this reconciles with the existing binary 'Chevron completion' rule (upright=W, inverted=M) isn't fully worked out — is W/M-completion just 2 of these 4/8 orientations, or a separate axis layered on top?",
-    "Vowels — near-complete in creator's Notebook, next session; quick draft given: I = Singular, E = Plural, O = Above, U = Below, A = Association. Not yet reconciled against BIS/SUU's own 'S = singular form of BIS' usage (open whether that's the same singular-marking mechanism or an unrelated truncation pattern, like GOM/GO or KROW/KRO). Not yet added to this file's own structured data.",
-    "Third Era ('the real goal', per creator) is confirmed still a far-off goal — Second Era has to be worked out first.",
-    "Resolved, next session: the Kill branch's S-yield is the vessel's Pain, not Kulkrow's own — per creator, the whole three-branch Composition functions as a warning contrasting Gom's two options (Give/Take Life) against Kulkrow's one (Inflict Pain). See gomsdu-codex.md's corrected 'Language as the Animating Gate' section.",
-    "Continual S's own notation isn't settled — creator choosing between 'S-' and 'S'' — and it's unconfirmed whether any Mark besides M, W, and S can carry the Continual feature at all."
+    "Vowels — confirmed still accurate 2026-08-26, per creator: I = Singular, E = Plural, O = Above, U = Below, A = Association. Not yet reconciled against BIS/SUU's own 'S = singular form of BIS' usage (open whether that's the same singular-marking mechanism or an unrelated truncation pattern, like GOM/GO or KROW/KRO). Not yet added to this file's own structured data.",
+    "Third Era is the actual goal of the game itself, per creator (2026-08-26) — First and Second Era aren't just prep, they're meant to be totally valid gameplay in their own right (primer missions/tutorials toward the real goal), not throwaway foundation. Full framing not yet written up anywhere durable — flagged for creator to say where it should live (gomsdu-codex.md vs. VISION.md).",
+    "Continual S's own notation isn't settled — creator choosing between 'S-' and 'S'' — and it's unconfirmed whether any Mark besides M, W, and S can carry the Continual feature at all. Per creator (2026-08-26), not a current concern: only matters for Transliteration, which is low-priority right now — the real near-term need is just a few Letters that stay consistent enough to track which Glyphs are being referred to."
   ]
 }

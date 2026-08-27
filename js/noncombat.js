@@ -14,7 +14,7 @@ import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
 import { isDeathWounded, deliverMindeyeEntry, timeNow, resolveEntityRef, knownGlyphIds } from './utils.js';
 import { applyRecoveryTick, applyAttunementTick, tickEmpowerUpkeep, canMaintainAnotherEmpower, spawnBuildAt } from './combat.js';
-import { computeBehaviors, tickLonging, rollBehavior, BEHAVIORS, BEHAVIOR_CATEGORIES } from './behaviors.js';
+import { tickLonging, fillBehaviorQueue, BEHAVIORS } from './behaviors.js';
 import { behaviorStep, turnFacing, tileKey, FACING_DEFAULT, applyFacing, DIRECTION_GLYPH_CARDINAL, applySpillAt, tickLavaTiles } from './map.js';
 import { TECHNIQUES } from './techniques.js';
 const CARDINALS = ['N', 'E', 'S', 'W'];
@@ -245,15 +245,14 @@ export async function resolveNonCombatRound(){
     // duplicated here as a literal to avoid a cross-file coupling for one constant.
     t.timeTick = ((t.timeTick ?? 6) + 1) % 13;
 
-    // Real Map execution: a genuine weighted random roll across the whole
-    // distribution (rollBehavior), not always the highest-%. A rolled Move*
-    // Behavior steps the actor one Tile via behaviorStep(), relative to
-    // current Facing. A blocked/off-map step fails quietly and still logs
-    // the attempt.
-    // Longing ticks first, so this Round's roll reflects this Round's own accumulation.
-    // 3 independent Categories (Movement/Actions/Targeting) roll separately —
-    // a Character can Move AND take an Action in the same Round. A Category
-    // with nothing to roll just stays silent that Round.
+    // Real Map execution: the Behavior Queue is what actually gets acted on
+    // now, not a fresh roll. fillBehaviorQueue() (behaviors.js) recomputes
+    // the whole Queue fresh every Round — every known Glyph across all 3
+    // Categories competes in one pool for up to 9 slots (cap tied to the
+    // actor's own AP), Repeat-penalized within that single computation only,
+    // nothing carried over from last Round. Draining then pops from the
+    // front, 1 AP per Behavior, until AP runs out or the Queue does.
+    // Longing ticks first, so this Round's Queue reflects this Round's own accumulation.
     function resolveBehavior(id, actor){
       (actor.mindeye || []).forEach(tickLonging);
       if(isDeathWounded(actor)) return;
@@ -262,16 +261,13 @@ export async function resolveNonCombatRound(){
       // a conflicting one. Longing still ticks above regardless.
       if(actor.suppressSubconscious) return;
 
-      const categories = computeBehaviors(actor);
+      const queue = fillBehaviorQueue(actor);
 
-      BEHAVIOR_CATEGORIES.forEach(cat => {
-        const { distribution } = categories[cat.key];
-        const rolled = rollBehavior(distribution);
-        // Movement always has the Stand Around baseline, so this only fires
-        // for Actions/Targeting — genuinely nothing to do yet.
-        if(rolled === null) return;
-        const meta = BEHAVIORS[rolled];
-        const pct = distribution[rolled] || 0;
+      actor.apSpent = actor.apSpent || 0;
+      while(actor.apSpent < (actor.ap || 0) && queue.length){
+        const entry = queue.shift();
+        const meta = BEHAVIORS[entry.behaviorKey];
+        if(!meta) continue; // stale/unrecognized entry — skip rather than crash the Round
         let outcome = '';
 
         if(meta.kind === 'move'){
@@ -337,8 +333,9 @@ export async function resolveNonCombatRound(){
           }
         }
 
-        t.log.push({ type: 'system', text: (actor.name || 'Someone') + ' does ' + meta.name + ' (' + pct + '%)' + outcome + '.', time: timeNow() });
-      });
+        actor.apSpent += 1;
+        t.log.push({ type: 'system', text: (actor.name || 'Someone') + ' does ' + meta.name + outcome + '.', time: timeNow() });
+      }
     }
     Object.entries(t.players || {}).forEach(([id, p]) => resolveBehavior(id, p));
     Object.entries(t.enemies || {}).forEach(([id, e]) => resolveBehavior(id, e));

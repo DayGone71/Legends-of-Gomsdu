@@ -15,6 +15,23 @@ translation layer for the player rather than the thing being formalized.
 Also, per dDd: a language he's personally wanted to design for two years,
 now folded directly into the game rather than staying a side project.
 
+**Fuller context, added 2026-08-26, per creator**: the snag wasn't Wimbis
+needing an origin story so much as English itself failing first — modeling
+Dialogue through English and "Human Personality" directly turned out too
+dense to hold as a game-mechanical grammar, and going back to the beginning
+meant going back to first principles rather than simplifying English
+further. What made building an entirely new Language the answer, rather
+than a stranger workaround: 3 years of the creator's own active language
+study, concentrated on Metaphysics specifically — not a side interest
+borrowed for flavor, the actual background the pivot draws on. The
+resulting framing is the load-bearing idea behind everything else in this
+document: **the whole Game is meant to be playable in WIMBIS itself** —
+English (or any other real-world language) is a Translation of Gomsdu's own
+Native Language, not the thing the game's logic is built in. Worth stating
+plainly, per creator, because it's the fact that makes using a constructed
+Language as an actual game-logic engine — rather than flavor text over an
+English data model — read as considered rather than absurd.
+
 ### The toolchain — `language/`
 Four files, self-contained disposable-prototype HTML/JS in the same style
 as `prototypes/`, sharing one data file:

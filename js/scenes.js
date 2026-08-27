@@ -1,7 +1,7 @@
 import { AppState } from './state.js';
 import { mutateTable } from './sync.js';
 import { defaultMap, FACING_DEFAULT, centerMapView } from './map.js';
-import { BUILDS, loadBuild, makeActiveCharacter, spawnCharacter } from './character.js';
+import { BUILDS, spawnCharacter } from './character.js';
 import { timeNow, deliverMindeyeEntry, showBannerError } from './utils.js';
 import { showLoading } from './panels.js';
 
@@ -168,10 +168,6 @@ export async function seedScene(){
 
   if(!npcsMissing && !mySpawn) return; // Nothing missing — Seed has nothing to do.
 
-  // One write for everything that doesn't need t.players[myId] to already
-  // exist — NPC spawns, my Tile claim, Yom's vanishing act, the log line.
-  // What's left (Personality/Mindeye/Facing) needs makeActiveCharacter() to
-  // have committed t.players[myId] first, so it's a second write below.
   await mutateTable(t => {
     if(npcsMissing){
       if(!t.enemies) t.enemies = {};
@@ -191,30 +187,26 @@ export async function seedScene(){
       // World he Seeded — stays a real Character in t.characters, just no
       // longer positioned.
       if(t.positions.yom) delete t.positions.yom;
+
+      // A Player Spawns directly into an already-prebuilt Character here —
+      // not a form that gets loaded and submitted. spawnCharacter() (same
+      // function every NPC and Yom go through) handles Stats, Personality,
+      // techniqueAccess, Mindeye, and the initial Behavior Queue fill in one
+      // shot; only the human's own chosen name carries over from whatever
+      // t.players[myId] already held from joining the table. Previously this
+      // routed through loadBuild()/makeActiveCharacter() (the Character
+      // Sheet's form-commit flow) plus a hand-rolled second pass copying
+      // Personality/techniqueAccess/Mindeye across — a real duplicate of
+      // what spawnCharacter() already does, and the reason the Behavior
+      // Queue silently never populated for a Player's own spawn.
+      const build = BUILDS[mySpawn.build];
+      if(build){
+        const existingName = t.players[myId] && t.players[myId].name;
+        t.players[myId] = spawnCharacter(build, { name: existingName, facing: mySpawn.facing });
+      }
     }
     t.log.push({ type: 'system', text: 'Yom casts Seed — the World takes shape.', time: timeNow() });
   });
-
-  if(mySpawn && mySpawn.build){
-    // loadBuild()/makeActiveCharacter() drive the Character sheet's own
-    // form + commit flow — can't fold into the write above since
-    // t.players[myId] has to exist before Personality/Mindeye/Facing land.
-    loadBuild(mySpawn.build);
-    await makeActiveCharacter();
-
-    const build = BUILDS[mySpawn.build];
-    await mutateTable(t => {
-      const p = t.players[myId];
-      if(build && build.personality && p) p.personality = JSON.parse(JSON.stringify(build.personality));
-      // techniqueAccess carried over the same way — saveCharacter()'s own
-      // sheet-save no longer writes this field (old 4-category checkboxes,
-      // incompatible with per-Technique access), so without this a Player
-      // would fall back to the permissive default and get every Technique.
-      if(build && build.techniqueAccess && p) p.techniqueAccess = JSON.parse(JSON.stringify(build.techniqueAccess));
-      if(build) (build.startingMindeye || []).forEach(g => deliverMindeyeEntry(t, myId, 'Star Father', g, true));
-      if(mySpawn.facing && p) p.facing = mySpawn.facing;
-    });
-  }
 }
 
 export function toggleSceneMenu(){

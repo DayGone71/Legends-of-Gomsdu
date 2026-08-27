@@ -45,7 +45,7 @@ export const GLYPH_VARIETY = {
   // Actions — verbs, things a Character does. GOM is dual (Target and Idea)
   // but not dual into Actions; kept single-Variety here.
   'WIM': 'actions', 'KA': 'actions', 'OG': 'actions', 'S': 'actions', 'BA': 'actions',
-  'BE': 'actions', 'OR': 'actions', 'MO': 'actions', 'DU': 'actions', 'KUL': 'actions',
+  'OR': 'actions', 'MO': 'actions', 'DU': 'actions', 'KUL': 'actions',
   // Ideas — meta-language (describes WIMBIS itself) and abstract concepts.
   'GI': 'ideas', 'GeKA': 'ideas', 'GeKARAP': 'ideas', 'GeKARI': 'ideas',
   'WIMBIS': 'ideas', 'WIMZIN': 'ideas', 'GOMGOM': 'ideas', 'BIS': 'ideas',
