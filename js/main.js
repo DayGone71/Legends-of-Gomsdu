@@ -179,7 +179,7 @@ async function handleJoin(){
     // all). A joining Player entering an already-active real Scene gets
     // their own Spawn List slot from seedScene() instead, called right after from enterTable() below.
     const scene = SCENES[t.scene];
-    if(!scene || !(scene.npcSpawns || scene.playerSpawns)){
+    if(!scene || !(scene.spawns && scene.spawns.length)){
       if(!t.positions) t.positions = {};
       // Each new Player starts one Tile down from the previous one, same column.
       const y = Math.min(Object.keys(t.players).length - 1, (t.map.height || 1) - 1);

@@ -4,21 +4,26 @@ import { defaultMap, FACING_DEFAULT, centerMapView } from './map.js';
 import { BUILDS, spawnCharacter } from './character.js';
 import { timeNow, deliverMindeyeEntry, showBannerError } from './utils.js';
 import { showLoading } from './panels.js';
+import { TECHNIQUES } from './techniques.js';
 
 // Pure data — no imports — so character.js can read SCENES[...].restrictBuilds
 // for the Character-panel dropdown without a circular import.
 // playerFacing/enemyFacing is the compass reading for two spawns facing each
 // other; optional per Scene, falls back to FACING_DEFAULT.
+// One Spawn List per Scene — every entry is a Character first, `role`
+// ('player'|'npc') is just a property on it like anything else, not a
+// structural fork. `role:'player'` entries are slots claimed in join order as
+// humans arrive (see seedScene() below); `role:'npc'` entries all spawn
+// together at genesis. This is Seed's own payload (TECHNIQUES.seed,
+// data/techniques.json) — what Yom actually casts, not a separate spawn mechanism.
 export const SCENES = {
   dev: { name: 'Dev' }, // a fresh Table's default state — no map/spawn changes, just unlocks the screen below the Sequencer Divider.
   era1: {
     name: 'Era 1: Tutorial',
     mapWidth: 7, mapHeight: 7,
-    playerSpawns: [
-      { build: 'living-stone', x: 5, y: 3, facing: 'W' }
-    ],
-    npcSpawns: [
-      { build: 'gom', x: 2, y: 3, facing: 'E' }
+    spawns: [
+      { role: 'player', build: 'living-stone', x: 5, y: 3, facing: 'W' },
+      { role: 'npc', build: 'gom', x: 2, y: 3, facing: 'E' }
     ],
     restrictBuilds: ['living-stone', 'gom']
   },
@@ -30,18 +35,16 @@ export const SCENES = {
     mapWidth: 24, mapHeight: 30,
     // Gom centered facing South; a Living Stone pair mirrored east/west two
     // rows up (facing inward toward Gom); a 5th below him facing North.
-    playerSpawns: [
-      { build: 'gom', x: 10, y: 12, facing: 'S' }
-    ],
-    npcSpawns: [
-      { build: 'living-stone', x: 8, y: 10, facing: 'E' },
-      { build: 'living-stone', x: 12, y: 10, facing: 'W' },
-      { build: 'living-stone', x: 8, y: 12, facing: 'E' },
-      { build: 'living-stone', x: 12, y: 12, facing: 'W' },
-      { build: 'living-stone', x: 10, y: 14, facing: 'N' },
+    spawns: [
+      { role: 'player', build: 'gom', x: 10, y: 12, facing: 'S' },
+      { role: 'npc', build: 'living-stone', x: 8, y: 10, facing: 'E' },
+      { role: 'npc', build: 'living-stone', x: 12, y: 10, facing: 'W' },
+      { role: 'npc', build: 'living-stone', x: 8, y: 12, facing: 'E' },
+      { role: 'npc', build: 'living-stone', x: 12, y: 12, facing: 'W' },
+      { role: 'npc', build: 'living-stone', x: 10, y: 14, facing: 'N' },
       // Kulkrow — same position as his own Player spawn in era1kulkrow below;
       // the two Scenes are one shared world, seen from different perspectives.
-      { build: 'kulkrow', x: 19, y: 24 }
+      { role: 'npc', build: 'kulkrow', x: 19, y: 24 }
     ],
     restrictBuilds: ['gom', 'living-stone', 'kulkrow']
   },
@@ -51,11 +54,9 @@ export const SCENES = {
   era1kulkrow: {
     name: 'Era 1: Kulkrow',
     mapWidth: 24, mapHeight: 30,
-    playerSpawns: [
-      { build: 'kulkrow', x: 19, y: 24 }
-    ],
-    npcSpawns: [
-      { build: 'gom', x: 10, y: 12 }
+    spawns: [
+      { role: 'player', build: 'kulkrow', x: 19, y: 24 },
+      { role: 'npc', build: 'gom', x: 10, y: 12 }
     ],
     restrictBuilds: ['kulkrow', 'gom']
   }
@@ -136,10 +137,66 @@ export async function loadScene(key){
   setTimeout(() => { if(app) app.classList.remove('scene-revealing'); }, 900);
 }
 
-// Seed — Yom's own Master Technique, and the real mechanism behind Scene
-// genesis. loadScene() above only clears the board; every actual spawn (NPCs,
-// each Player's own Character) happens here, in one shared path used by both
-// the DM picking a Scene and every join/rejoin (main.js's enterTable()).
+// Seed's real mechanical effect (TECHNIQUES.seed: "Spawns all Characters
+// accordingly") — one shared resolver so Genesis below and any future live
+// cast (a Character with real techniqueAccess.seed, staged through the normal
+// Technique system) produce the identical result. jobs:
+// [{kind:'npc', build, x, y, facing, mindeye} | {kind:'player', playerId, build, x, y, facing}]
+export function castSeed(t, jobs){
+  if(!t.enemies) t.enemies = {};
+  if(!t.positions) t.positions = {};
+  const counts = {};
+  jobs.forEach(job => {
+    if(job.kind === 'npc'){
+      counts[job.build] = (counts[job.build] || 0) + 1;
+      const enemyId = 'e_' + Math.random().toString(36).slice(2, 8);
+      spawnNpc(t, enemyId, job.build, counts[job.build], job.facing, job.mindeye);
+      t.positions[enemyId] = { x: job.x, y: job.y };
+    }else if(job.kind === 'player'){
+      const build = BUILDS[job.build];
+      if(!build) return;
+      // A Player Spawns directly into an already-prebuilt Character here —
+      // not a form that gets loaded and submitted. spawnCharacter() (same
+      // function every NPC and Yom go through) handles Stats, Personality,
+      // techniqueAccess, Mindeye, and the initial Behavior Queue fill in one
+      // shot; only the human's own chosen name carries over from whatever
+      // t.players[job.playerId] already held from joining the table.
+      const existingName = t.players[job.playerId] && t.players[job.playerId].name;
+      t.players[job.playerId] = spawnCharacter(build, { name: existingName, facing: job.facing });
+      t.positions[job.playerId] = { x: job.x, y: job.y };
+    }
+  });
+}
+
+// Yom actually casting Seed — a real staged-and-charged Technique use, not a
+// bypass. Costs come straight off TECHNIQUES.seed (data/techniques.json),
+// same accounting every other Technique's cost-check uses. Genesis has no
+// live Round loop to catch a staged cast (Yom lives in t.characters, never
+// swept by combat.js/noncombat.js's per-Round dispatch — this IS the "first
+// Round," happening entirely behind the Loading Screen), so this resolves
+// immediately rather than waiting on one.
+function castSeedAsYom(t, jobs){
+  if(!jobs.length) return;
+  const yom = t.characters && t.characters.yom;
+  if(!yom) return;
+  const def = TECHNIQUES.seed;
+  yom.lavaSpent = (yom.lavaSpent || 0) + def.costs.lava;
+  yom.lightningSpent = (yom.lightningSpent || 0) + def.costs.lightning;
+  yom.focusSpent = (yom.focusSpent || 0) + def.costs.focus;
+  yom.apSpent = (yom.apSpent || 0) + def.costs.ap;
+  if(!yom.sequence) yom.sequence = [];
+  yom.sequence.push({ kind: 'technique', techniqueKey: 'seed', jobs });
+  // Vanishes first — the World is what resolves visibly (once the Loading
+  // Screen lifts), not Yom himself casting it.
+  if(t.positions && t.positions.yom) delete t.positions.yom;
+  castSeed(t, jobs);
+  t.log.push({ type: 'system', text: 'Yom casts Seed — the World takes shape.', time: timeNow() });
+}
+
+// The real mechanism behind Scene genesis. loadScene() above only clears the
+// board and bootstraps Yom onto it; every actual spawn (NPCs, each Player's
+// own Character) happens here, in one shared path used by both the DM
+// picking a Scene and every join/rejoin (main.js's enterTable()).
 //
 // Idempotent by design — safe to call more often than genesis should
 // actually happen. Only fills in whatever's missing for this client's own
@@ -153,59 +210,31 @@ export async function seedScene(){
 
   const myId = AppState.playerId;
   const alreadyPositioned = !!(table.positions && table.positions[myId]);
-  const npcsMissing = !!(scene.npcSpawns && scene.npcSpawns.length) &&
-    !(table.enemies && Object.keys(table.enemies).length);
+  const npcSpawns = (scene.spawns || []).filter(s => s.role === 'npc');
+  const playerSlots = (scene.spawns || []).filter(s => s.role === 'player');
+  const npcsMissing = !!npcSpawns.length && !(table.enemies && Object.keys(table.enemies).length);
 
   // Which Spawn List slot this Player claims: one slot per Player already
   // positioned so far, first-come-first-served, clamped to the last slot if
   // more Players join than the Scene defines.
   let mySpawn = null;
-  if(!alreadyPositioned && scene.playerSpawns && scene.playerSpawns.length){
+  if(!alreadyPositioned && playerSlots.length){
     const claimedCount = Object.keys(table.players || {})
       .filter(id => table.positions && table.positions[id]).length;
-    mySpawn = scene.playerSpawns[Math.min(claimedCount, scene.playerSpawns.length - 1)];
+    mySpawn = playerSlots[Math.min(claimedCount, playerSlots.length - 1)];
   }
 
   if(!npcsMissing && !mySpawn) return; // Nothing missing — Seed has nothing to do.
 
   await mutateTable(t => {
+    const jobs = [];
     if(npcsMissing){
-      if(!t.enemies) t.enemies = {};
-      if(!t.positions) t.positions = {};
-      const counts = {};
-      scene.npcSpawns.forEach(spawn => {
-        counts[spawn.build] = (counts[spawn.build] || 0) + 1;
-        const enemyId = 'e_' + Math.random().toString(36).slice(2, 8);
-        spawnNpc(t, enemyId, spawn.build, counts[spawn.build], spawn.facing, spawn.mindeye);
-        t.positions[enemyId] = { x: spawn.x, y: spawn.y };
-      });
+      npcSpawns.forEach(spawn => jobs.push({ kind: 'npc', build: spawn.build, x: spawn.x, y: spawn.y, facing: spawn.facing, mindeye: spawn.mindeye }));
     }
     if(mySpawn){
-      if(!t.positions) t.positions = {};
-      t.positions[myId] = { x: mySpawn.x, y: mySpawn.y };
-      // Yom vanishes from the Map the moment a real Player arrives in the
-      // World he Seeded — stays a real Character in t.characters, just no
-      // longer positioned.
-      if(t.positions.yom) delete t.positions.yom;
-
-      // A Player Spawns directly into an already-prebuilt Character here —
-      // not a form that gets loaded and submitted. spawnCharacter() (same
-      // function every NPC and Yom go through) handles Stats, Personality,
-      // techniqueAccess, Mindeye, and the initial Behavior Queue fill in one
-      // shot; only the human's own chosen name carries over from whatever
-      // t.players[myId] already held from joining the table. Previously this
-      // routed through loadBuild()/makeActiveCharacter() (the Character
-      // Sheet's form-commit flow) plus a hand-rolled second pass copying
-      // Personality/techniqueAccess/Mindeye across — a real duplicate of
-      // what spawnCharacter() already does, and the reason the Behavior
-      // Queue silently never populated for a Player's own spawn.
-      const build = BUILDS[mySpawn.build];
-      if(build){
-        const existingName = t.players[myId] && t.players[myId].name;
-        t.players[myId] = spawnCharacter(build, { name: existingName, facing: mySpawn.facing });
-      }
+      jobs.push({ kind: 'player', playerId: myId, build: mySpawn.build, x: mySpawn.x, y: mySpawn.y, facing: mySpawn.facing });
     }
-    t.log.push({ type: 'system', text: 'Yom casts Seed — the World takes shape.', time: timeNow() });
+    castSeedAsYom(t, jobs);
   });
 }
 
