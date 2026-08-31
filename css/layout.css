@@ -419,8 +419,10 @@
 /* Reserved breathing room at the bottom of View 1 (2026-08-17) — dDd's
    correction after seeing the Map squeezed too short: sized to roughly
    match the Battle Report line + Blood Drops strip combined, not a generic
-   20vh guess. */
-.view1-spacer{height:60px; flex-shrink:0;}
+   20vh guess. Trimmed 60px -> 32px, 2026-08-30 — freed up room .map-panel
+   needed (see its own .panel-static override above); still real breathing
+   room, just not as much. Worth revisiting if it ever reads as too tight. */
+.view1-spacer{height:10px; flex-shrink:0;}
 
 /* Persistent area: Party + Ledger, always visible, side by side */
 /* View 2, pinned to a full screen height same as .view1 (2026-08-17) — see
@@ -489,4 +491,16 @@
 .map-panel{flex:0 0 auto; min-width:0; display:flex; flex-direction:column; min-height:0;}
 
 .panel-static{background:var(--ink-soft); border:1px solid var(--ink-line); border-radius:10px; padding:20px;}
+/* .map-panel.panel-static, not .map-panel alone — needs to out-specificity
+   .panel-static's own 20px shorthand just above (equal-specificity, later
+   in the cascade, would otherwise win and silently reset this). 2026-08-30:
+   that 20px bottom padding was pushing this panel's real content (Map Grid +
+   toolbar + Active Character Display, all fixed-height) past .view1's fixed
+   budget for it. The overflow painted fine (nothing here clips) but landed
+   on .view1-spacer right below, which ate its clicks — invisible while the
+   Active Character Display's own placeholder row had nothing clickable in
+   it, surfaced once 3 of its 7 squares became real buttons. Top padding
+   untouched, so the Grid's own position relative to the side toolbars
+   doesn't shift. */
+.map-panel.panel-static{padding-bottom:0;}
 .panel-static h2{font-size:15px; text-transform:uppercase; letter-spacing:.08em; font-weight:600; color:var(--text-dim); margin-bottom:14px;}

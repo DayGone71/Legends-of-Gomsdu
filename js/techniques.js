@@ -4,6 +4,7 @@ import { escapeHtml, timeNow, genId, isDeathWounded, resolveEntityRef, resolvePo
 import { openPanel, closePanel } from './panels.js';
 import { getDistance, hasLineOfSight } from './map.js';
 import { MAX_MINI_PARTY } from './possession.js';
+import { activeActorId } from './activeCharacter.js';
 
 // Data-driven so adding a new Technique later is just a new entry — no new
 // staging/undo/cost-checking code needed, the engine below is generic over
@@ -75,8 +76,8 @@ let currentTechniqueKey = null;
 // Every real Character at the table is targetable — crafterTargetPoolIds()
 // in utils.js is the one place that decision lives; selfOnly-flagged
 // Techniques are the one exception, handled in craftPopup.js.
-function targetPoolIds(table, def){
-  return crafterTargetPoolIds(table, AppState.playerId, def.targetSide);
+function targetPoolIds(table, casterId, def){
+  return crafterTargetPoolIds(table, casterId, def.targetSide);
 }
 
 // `presetTargetId` is set here, before anything reads tu-target — assigning
@@ -84,11 +85,21 @@ function targetPoolIds(table, def){
 // (rather than after the fact) is what lets Influence's own picker (below)
 // know the right Target from the moment this panel opens via craftPopup.js's
 // Map hand-off.
+//
+// Actor-generic since 2026-08-30 — activeActorId() (js/activeCharacter.js)
+// resolves to the Player outside Yom Mode same as always, or whoever's
+// Active inside it. This one panel is now the real Technique-casting
+// surface for anyone, not a Player-only thing with a separate DM-only copy
+// duplicating its cost/range/Glyph-picker logic — dDd's own call, after the
+// two interfaces drifted and Yom Mode's copy broke first.
 export function openTechniqueUse(key, presetTargetId){
   const def = TECHNIQUES[key];
   if(!def) return;
-  const me = AppState.table && AppState.table.players[AppState.playerId];
-  if(!hasTechniqueAccess(me, def)){ showBannerError('Your Character doesn’t have access to this Technique.'); return; }
+  const casterId = activeActorId();
+  const table = AppState.table;
+  const me = casterId && resolveEntityRef(table, casterId);
+  if(!me){ showBannerError('No Active Character to cast as yet.'); return; }
+  if(!hasTechniqueAccess(me, def)){ showBannerError('This Character doesn’t have access to this Technique.'); return; }
   currentTechniqueKey = key;
 
   document.getElementById('tu-name').textContent = def.name;
@@ -97,9 +108,8 @@ export function openTechniqueUse(key, presetTargetId){
   document.getElementById('tu-range').textContent = def.range;
   document.getElementById('tu-effect').textContent = def.effect;
 
-  const table = AppState.table;
-  const myPos = table.positions && table.positions[AppState.playerId];
-  const targets = targetPoolIds(table, def)
+  const myPos = table.positions && table.positions[casterId];
+  const targets = targetPoolIds(table, casterId, def)
     .map(id => ({ id, entity: resolveEntityRef(table, id) }))
     .filter(t => t.entity && !isDeathWounded(t.entity));
 
@@ -110,9 +120,9 @@ export function openTechniqueUse(key, presetTargetId){
         let suffix = '', disabled = '';
         if(myPos && pos && table.map){
           // Shadow Possession Link: "0 Range works on anything with a
-          // Current." A target already linked to this Player ignores Range
+          // Current." A target already linked to this Caster ignores Range
           // on every Technique, not just Current itself — only the very first ignition needs real proximity.
-          const linked = entity.shadowLinkedBy && entity.shadowLinkedBy.includes(AppState.playerId);
+          const linked = entity.shadowLinkedBy && entity.shadowLinkedBy.includes(casterId);
           const dist = getDistance(myPos, pos);
           if(!linked && dist > def.range){ suffix = ' (out of Range: ' + dist + ')'; disabled = 'disabled'; }
           else if(!hasLineOfSight(table, myPos, pos)){ suffix = ' (no line of sight)'; disabled = 'disabled'; }
@@ -199,14 +209,22 @@ export function glyphOptionsHtml(includeEmpty, selectedValue){
 // Anybody can stage any Technique — no ownership/unlock gating (for
 // testing purposes) — but the resource cost still has to be affordable, same
 // as every other staged Combat action.
-export async function stageTechnique(){
+//
+// `explicitTargetId` lets a second door into this same function skip the
+// sidebar's own tu-target dropdown entirely — the Active Character Display's
+// Essence button (js/dm.js's quick-cast popover, 2026-08-30) stages directly
+// off a Map click instead. Same cost/range/order logic either way, just a
+// second way to reach it — dDd's own framing: RTS games routinely have a
+// button menu AND a right-click/context menu for the same command.
+export async function stageTechnique(explicitTargetId){
   const def = TECHNIQUES[currentTechniqueKey];
   if(!def) return;
-  const me = AppState.table.players[AppState.playerId];
+  const casterId = activeActorId();
+  const me = casterId && resolveEntityRef(AppState.table, casterId);
   if(!me) return;
-  if(!hasTechniqueAccess(me, def)){ showBannerError('Your Character doesn’t have access to this Technique.'); return; }
+  if(!hasTechniqueAccess(me, def)){ showBannerError('This Character doesn’t have access to this Technique.'); return; }
 
-  const targetId = document.getElementById('tu-target').value;
+  const targetId = explicitTargetId || document.getElementById('tu-target').value;
   const target = resolveEntityRef(AppState.table, targetId);
   if(!target || isDeathWounded(target)){ showBannerError('Pick a target first.'); return; }
   const glyphIds = currentTechniqueKey === 'message'
@@ -233,7 +251,7 @@ export async function stageTechnique(){
       if(remaining(me, resource) < amount){ showBannerError('Not enough ' + RESOURCE_LABELS[resource] + ' left.'); return; }
     }
     await mutateTable(t => {
-      const actor = t.players[AppState.playerId];
+      const actor = resolveEntityRef(t, casterId);
       Object.entries(def.costs).forEach(([resource, amount]) => {
         if(resource === 'ap') return;
         if(resource === 'flow') actor.flow = Math.max(0, (actor.flow || 0) - amount);
@@ -266,11 +284,11 @@ export async function stageTechnique(){
     return;
   }
 
-  const myPos = AppState.table.positions && AppState.table.positions[AppState.playerId];
+  const myPos = AppState.table.positions && AppState.table.positions[casterId];
   const targetPos = resolvePositionRef(AppState.table, targetId);
   if(myPos && targetPos){
     // Shadow Possession Link bypasses Range — see the matching note in openTechniqueUse above.
-    const linked = target.shadowLinkedBy && target.shadowLinkedBy.includes(AppState.playerId);
+    const linked = target.shadowLinkedBy && target.shadowLinkedBy.includes(casterId);
     const dist = getDistance(myPos, targetPos);
     if(!linked && dist > def.range){ showBannerError('Target is out of Range (' + dist + ' > ' + def.range + ').'); return; }
     if(!hasLineOfSight(AppState.table, myPos, targetPos)){ showBannerError('No line of sight to target.'); return; }
@@ -284,7 +302,7 @@ export async function stageTechnique(){
   }
 
   await mutateTable(t => {
-    const actor = t.players[AppState.playerId];
+    const actor = resolveEntityRef(t, casterId);
     if(!actor.sequence) actor.sequence = [];
     const entry = {
       kind: 'technique', techniqueKey: currentTechniqueKey, actionLabel: def.name,
@@ -312,18 +330,42 @@ export async function stageTechnique(){
   closePanel();
 }
 
+// The quick-cast door (js/dm.js's Essence popover on the Active Character
+// Display) — Message and Influence still need their own real fields
+// (Glyphs; Glyph+Axis+Direction), so those two open the full sidebar same as
+// the Map's Craft popup does, preset to the Character already clicked.
+// Everything else stages directly off the click, no panel needed.
+export async function quickStageTechnique(key, targetId){
+  if(key === 'message' || key === 'influence'){
+    openTechniqueUse(key, targetId);
+    return;
+  }
+  currentTechniqueKey = key;
+  await stageTechnique(targetId);
+}
+
+// Every real Craft/Power the given actor has access to — shared by the
+// Techniques Panel's own greying-out logic and the Essence quick-cast
+// popover, so "what can this Character cast" is computed one place.
+export function craftsAndPowersFor(actor){
+  return Object.entries(TECHNIQUES).filter(([, def]) =>
+    (def.group === 'Craft' || def.group === 'Powers') && hasTechniqueAccess(actor, def)
+  );
+}
+
 export function initTechniquesUI(){
   document.querySelectorAll('.tech-item[data-technique]').forEach(btn => {
     btn.addEventListener('click', () => openTechniqueUse(btn.dataset.technique));
   });
-  document.getElementById('btn-tu-stage').addEventListener('click', stageTechnique);
+  document.getElementById('btn-tu-stage').addEventListener('click', () => stageTechnique());
 }
 
-// Greys out + crosses through any Technique the current Player's Character
+// Greys out + crosses through any Technique the currently Active Character
 // doesn't have access to — call on every render so it stays live as
-// Create-a-Character's toggles change.
+// Create-a-Character's toggles change, or as Yom Mode switches who's Active.
 export function renderTechniquesPanel(){
-  const me = AppState.table && AppState.table.players[AppState.playerId];
+  const casterId = activeActorId();
+  const me = casterId && AppState.table && resolveEntityRef(AppState.table, casterId);
   document.querySelectorAll('.tech-item[data-technique]').forEach(btn => {
     const def = TECHNIQUES[btn.dataset.technique];
     const granted = hasTechniqueAccess(me, def);

@@ -833,6 +833,13 @@ export async function resolveRound(){
     // character still recovers same as anyone else.
     Object.entries(t.players || {}).forEach(([id, p]) => { if(!isDeathWounded(p)){ applyRecoveryTick(p); applyAttunementTick(p); tickEmpowerUpkeep(t, id, p); } });
     Object.entries(t.enemies || {}).forEach(([id, e]) => { if(!isDeathWounded(e)){ applyRecoveryTick(e); applyAttunementTick(e); tickEmpowerUpkeep(t, id, e); } });
+    // Yom (and any future Universal Character in t.characters) gets the exact
+    // same tick — he was never swept here before, which silently meant a
+    // Character who spends his whole Lightning/Lava/Focus pool casting Seed
+    // (js/scenes.js) had no way to ever recover it. Recovery itself is a
+    // no-op for him (his own recovery stat is 0), but Attunement is what
+    // actually matters — refills Focus/Lightning/Lava, same as everyone else.
+    Object.entries(t.characters || {}).forEach(([id, c]) => { if(!isDeathWounded(c)){ applyRecoveryTick(c); applyAttunementTick(c); tickEmpowerUpkeep(t, id, c); } });
     miniPartyStubs.forEach(mp => { if(!isDeathWounded(mp)){ applyRecoveryTick(mp); applyAttunementTick(mp); } });
 
     // Kulkrow's Spill — passive, always-on, runs for any living actor
@@ -847,12 +854,13 @@ export async function resolveRound(){
     // come back via the Attunement tick above, not for free.
     Object.values(t.players || {}).forEach(p => { p.sequence = []; p.apSpent = 0; });
     Object.values(t.enemies || {}).forEach(e => { e.sequence = []; e.apSpent = 0; });
+    Object.values(t.characters || {}).forEach(c => { c.sequence = []; c.apSpent = 0; });
     miniPartyStubs.forEach(mp => { mp.sequence = []; mp.apSpent = 0; });
   });
 
   AppState.pendingType = null; AppState.pendingAttackKind = null; AppState.pendingEssenceSchool = null;
   AppState.pendingBlockKind = null; AppState.pendingCounter = false;
-  AppState.dmPendingType = null; AppState.dmPendingAttackKind = null; AppState.dmPendingCraftKey = null;
+  AppState.dmPendingType = null; AppState.dmPendingCraftKey = null;
   AppState.dmPendingBlockKind = null; AppState.dmPendingCounter = false;
 }
 

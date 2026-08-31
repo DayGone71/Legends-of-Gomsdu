@@ -4,7 +4,7 @@ import { defaultMap, FACING_DEFAULT, centerMapView } from './map.js';
 import { BUILDS, spawnCharacter } from './character.js';
 import { timeNow, deliverMindeyeEntry, showBannerError } from './utils.js';
 import { showLoading } from './panels.js';
-import { TECHNIQUES } from './techniques.js';
+import { TECHNIQUES, remaining } from './techniques.js';
 
 // Pure data — no imports — so character.js can read SCENES[...].restrictBuilds
 // for the Character-panel dropdown without a circular import.
@@ -65,9 +65,9 @@ export const SCENES = {
 // Shared Enemy-spawn helper. Record construction goes through
 // character.js's spawnCharacter(); this adds the Scene-specific bits it has
 // no business knowing about — which table bucket, and any extra Scene-authored mindeye.
-function spawnNpc(t, enemyId, build, num, facing, mindeye){
-  const eb = BUILDS[build];
-  if(!eb) return;
+// `eb` is an already-resolved build object (castSeed below is what resolves
+// a job's `build` — a BUILDS key or a raw saved-character/roster snapshot — into this).
+function spawnNpc(t, enemyId, eb, num, facing, mindeye){
   t.enemies[enemyId] = spawnCharacter(eb, { name: eb.archetype + ' #' + num, num, facing });
   (mindeye || []).forEach(m => {
     deliverMindeyeEntry(t, enemyId, 'Yom', m.glyph);
@@ -148,9 +148,21 @@ export function castSeed(t, jobs){
   const counts = {};
   jobs.forEach(job => {
     if(job.kind === 'npc'){
-      counts[job.build] = (counts[job.build] || 0) + 1;
+      // job.build is either a BUILDS key (Scene-authored spawns, the DM
+      // spawn picker) or a raw build object (a Saved Character or a Saved
+      // Encounter roster snapshot, neither of which lives in BUILDS).
+      const eb = typeof job.build === 'string' ? BUILDS[job.build] : job.build;
+      if(!eb) return;
+      const buildKey = typeof job.build === 'string' ? job.build : (eb.archetype || 'Custom');
+      // Numbering counts every already-live enemy of the same archetype too,
+      // not just this batch — otherwise a live cast onto an occupied field
+      // could mint a "#1" that collides with one already on the Map.
+      if(counts[buildKey] === undefined){
+        counts[buildKey] = Object.values(t.enemies).filter(e => e.archetype === eb.archetype).length;
+      }
+      counts[buildKey] += 1;
       const enemyId = 'e_' + Math.random().toString(36).slice(2, 8);
-      spawnNpc(t, enemyId, job.build, counts[job.build], job.facing, job.mindeye);
+      spawnNpc(t, enemyId, eb, counts[buildKey], job.facing, job.mindeye);
       t.positions[enemyId] = { x: job.x, y: job.y };
     }else if(job.kind === 'player'){
       const build = BUILDS[job.build];
@@ -191,6 +203,48 @@ function castSeedAsYom(t, jobs){
   if(t.positions && t.positions.yom) delete t.positions.yom;
   castSeed(t, jobs);
   t.log.push({ type: 'system', text: 'Yom casts Seed — the World takes shape.', time: timeNow() });
+}
+
+// Same stacking rule the old DM spawn picker used (js/dm.js, before it
+// folded into Seed) — new arrivals fill the upper-right-most Tile until
+// there are 5, then continue straight down the rightmost column. `offset`
+// lets castSeedLive below pre-compute a whole batch's positions before any
+// of them are actually written to t.enemies.
+function nextSpawnPosition(t, offset){
+  const map = t.map;
+  const count = Object.keys(t.enemies || {}).length + offset;
+  const row = Math.min(Math.floor(count / 5), (map.height || 1) - 1);
+  return { x: (map.width || 1) - 1, y: row };
+}
+
+// Yom casting Seed live, mid-session — the ad-hoc counterpart to Genesis's
+// own cast above (castSeedAsYom). Same flat, full-pool cost regardless of
+// batch size (data/techniques.json's seed entry), and the same immediate
+// resolution — Yom is never swept by a Round resolver (see castSeedAsYom's
+// own comment), so there's no staged-then-resolved path to hook into here
+// either, live or not. `buildRefs`: BUILDS keys and/or raw build objects
+// (Saved Characters, a Saved Encounter roster's snapshots) in one array —
+// castSeed already resolves either shape per-job.
+export async function castSeedLive(buildRefs){
+  if(!buildRefs || !buildRefs.length) return;
+  const table = AppState.table;
+  const yom = table && table.characters && table.characters.yom;
+  if(!yom){ showBannerError('Yom hasn’t Seeded this Table yet.'); return; }
+  const def = TECHNIQUES.seed;
+  for(const [resource, amount] of Object.entries(def.costs)){
+    if(resource === 'ap') continue; // Non-Combat doesn't scale to AP yet — see techniques.js's stageTechnique.
+    if(remaining(yom, resource) < amount){
+      showBannerError('Yom doesn’t have enough ' + resource[0].toUpperCase() + resource.slice(1) + ' left to cast Seed again this Round.');
+      return;
+    }
+  }
+  await mutateTable(t => {
+    const jobs = buildRefs.map((build, i) => {
+      const pos = nextSpawnPosition(t, i);
+      return { kind: 'npc', build, x: pos.x, y: pos.y };
+    });
+    castSeedAsYom(t, jobs);
+  });
 }
 
 // The real mechanism behind Scene genesis. loadScene() above only clears the

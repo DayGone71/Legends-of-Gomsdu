@@ -317,6 +317,13 @@
          from Move/Suggest/Craft above, per dDd. Same position:fixed pattern,
          positioned beside (not on top of) the clicked Tile by js/map.js. -->
     <div id="occupant-list-popup" class="occupant-list-popup hidden"></div>
+    <!-- Essence's Craft picker (js/dm.js's dmToggleEssenceMode/openEssencePopover)
+         — the bar-button door onto Craft/Power casting, anchored above the
+         Active Character Display's own E button. Same position:fixed pattern
+         as the occupant popup above; the Map's own Tile-click Craft popup
+         (craftPopup.js) is the other door onto the exact same techniques.js
+         mechanism, per dDd — "two doors," not two implementations. -->
+    <div id="essence-craft-popup" class="essence-craft-popup hidden"></div>
 
     <!-- PANELS -->
     <div id="panel-backdrop" class="hidden"></div>
@@ -495,7 +502,7 @@
         <button id="panel-close-dm" class="btn-ghost btn-small">Close</button>
       </div>
       <div class="field">
-        <label>Load an encounter</label>
+        <label>Cast Seed — spawn a saved roster</label>
         <select id="dm-encounter-loader">
           <option value="">&mdash; pick a saved encounter &mdash;</option>
           <optgroup label="Custom" id="dm-encounter-saved-group"></optgroup>
@@ -510,12 +517,12 @@
         <div class="save-hint" id="dm-encounter-hint"></div>
       </div>
       <div class="field">
-        <label>Spawn enemy</label>
+        <label>Cast Seed — spawn one</label>
         <div class="chat-row">
           <select id="dm-enemy-build-picker">
             <optgroup label="Custom" id="dm-build-saved-group"></optgroup>
           </select>
-          <button id="btn-add-enemy" class="btn-ghost btn-small">+ Add enemy</button>
+          <button id="btn-add-enemy" class="btn-ghost btn-small">Cast Seed</button>
         </div>
       </div>
       <div class="counter-row">
@@ -531,29 +538,21 @@
         <div class="counter"><span class="counter-label">Hit% (exposure)</span><span id="dm-hitpercent-display" class="counter-value">&mdash;</span></div>
       </div>
       <div class="field" style="margin-top:14px;">
-        <label>Acting as <span class="footnote" style="display:inline;">(double-click to toggle as its own target)</span></label>
-        <div id="dm-enemy-picker"><div class="log-empty">No enemies to control yet.</div></div>
+        <label>Acting as whoever's currently Active <span class="footnote" style="display:inline;">(Map's "Yom" toggle + NPC List's Make Active)</span></label>
       </div>
       <div class="field" style="margin-top:14px;">
-        <label>Target (players)</label>
-        <div id="dm-target-range"><div class="log-empty">No players to target.</div></div>
+        <label>Target</label>
+        <div id="dm-target-range"><div class="log-empty">No Characters to target.</div></div>
       </div>
       <div class="action-row">
         <button id="dm-btn-attack-menu" class="btn-action">Attack</button>
         <button id="dm-btn-block-menu" class="btn-action">Block</button>
-        <button id="dm-essence-btn" class="btn-action hidden">Essence</button>
-      </div>
-      <div class="action-menu hidden" id="dm-menu-attack">
-        <button class="btn-ghost btn-small" id="dm-attack-fast-btn">Fast &mdash; 5 AP</button>
-        <button class="btn-ghost btn-small" id="dm-attack-strong-btn">Strong &mdash; 10 AP</button>
-        <button class="btn-ghost btn-small hidden" id="dm-attack-focus-btn">Focus Attack &mdash; 10 AP + 1 Focus</button>
       </div>
       <div class="action-menu hidden" id="dm-menu-block">
         <button class="btn-ghost btn-small" id="dm-block-general-btn">General Block</button>
         <button class="btn-ghost btn-small" id="dm-block-target-btn">Target Block</button>
         <button class="btn-ghost btn-small" id="dm-block-counter-btn">Counter</button>
       </div>
-      <div class="action-menu hidden" id="dm-menu-essence"></div>
       <div class="commit-row">
         <button id="dm-btn-commit" class="btn-brass btn-small">Commit</button>
         <button id="dm-btn-undo" class="btn-ghost btn-small">Undo</button>

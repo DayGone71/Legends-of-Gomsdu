@@ -17,6 +17,7 @@ import { applyRecoveryTick, applyAttunementTick, tickEmpowerUpkeep, canMaintainA
 import { tickLonging, fillBehaviorQueue, BEHAVIORS } from './behaviors.js';
 import { behaviorStep, turnFacing, tileKey, FACING_DEFAULT, applyFacing, DIRECTION_GLYPH_CARDINAL, applySpillAt, tickLavaTiles } from './map.js';
 import { TECHNIQUES } from './techniques.js';
+import { TWILIGHT_CYCLE_COUNT } from './sequencer.js';
 const CARDINALS = ['N', 'E', 'S', 'W'];
 
 export async function resolveNonCombatRound(){
@@ -121,6 +122,11 @@ export async function resolveNonCombatRound(){
 
     Object.entries(t.players || {}).forEach(([id, p]) => processOrders(id, p));
     Object.entries(t.enemies || {}).forEach(([id, e]) => processOrders(id, e));
+    // Yom (and any future Universal Character) can now stage real Orders too
+    // — techniques.js's openTechniqueUse/stageTechnique became actor-generic
+    // 2026-08-30, so this has to actually resolve them, not just the
+    // Recovery/Attunement/reset sweeps below (already generalized earlier).
+    Object.entries(t.characters || {}).forEach(([id, c]) => processOrders(id, c));
 
     // Statted Mini-Party members get the same end-of-round upkeep as a real
     // Player/Enemy. They have no position of their own yet, so they never
@@ -132,6 +138,11 @@ export async function resolveNonCombatRound(){
 
     Object.entries(t.players || {}).forEach(([id, p]) => { if(!isDeathWounded(p)){ applyRecoveryTick(p); applyAttunementTick(p); tickEmpowerUpkeep(t, id, p); } });
     Object.entries(t.enemies || {}).forEach(([id, e]) => { if(!isDeathWounded(e)){ applyRecoveryTick(e); applyAttunementTick(e); tickEmpowerUpkeep(t, id, e); } });
+    // Yom (and any future Universal Character in t.characters) — same tick as
+    // combat.js's resolveRound(), see the matching note there. Attunement is
+    // what actually matters for him: refills the Focus/Lightning/Lava a live
+    // Seed cast (js/scenes.js's castSeedLive) spends.
+    Object.entries(t.characters || {}).forEach(([id, c]) => { if(!isDeathWounded(c)){ applyRecoveryTick(c); applyAttunementTick(c); tickEmpowerUpkeep(t, id, c); } });
     miniPartyStubs.forEach(mp => { if(!isDeathWounded(mp)){ applyRecoveryTick(mp); applyAttunementTick(mp); } });
 
     // Kulkrow's Spill + Lava Tile-State tick — same mechanism as combat.js's resolveRound().
@@ -237,13 +248,14 @@ export async function resolveNonCombatRound(){
     // permanently stuck maxed out.
     Object.values(t.players || {}).forEach(p => { p.sequence = []; p.apSpent = 0; });
     Object.values(t.enemies || {}).forEach(e => { e.sequence = []; e.apSpent = 0; });
+    Object.values(t.characters || {}).forEach(c => { c.sequence = []; c.apSpent = 0; });
     miniPartyStubs.forEach(mp => { mp.sequence = []; mp.apSpent = 0; });
 
     // Twilight Milk — the Time Mechanic. Every Non-Combat Round advances the
-    // Sequencer Bar's Tick by one, 13 positions total (6 per Wing, Orb as
-    // center) — see sequencer.js's renderTwilightSky. 6 is the Orb/center,
-    // duplicated here as a literal to avoid a cross-file coupling for one constant.
-    t.timeTick = ((t.timeTick ?? 6) + 1) % 13;
+    // real cycle by one — 26 states now (Day 0-12, Night 13-25), not 13; see
+    // sequencer.js's own header comment for the real spec (dDd, 2026-08-30)
+    // and TWILIGHT_CYCLE_COUNT, the one place that number lives.
+    t.timeTick = ((t.timeTick ?? 6) + 1) % TWILIGHT_CYCLE_COUNT;
 
     // Real Map execution: the Behavior Queue is what actually gets acted on
     // now, not a fresh roll. fillBehaviorQueue() (behaviors.js) recomputes

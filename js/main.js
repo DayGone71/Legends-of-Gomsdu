@@ -5,7 +5,7 @@ import { blankCharacter, loadBuild, scheduleSave, saveCharacter, makeActiveChara
 import { renderLedger, renderRoster, sendMessage, initAddPartyMemberUI } from './ledger.js';
 import { renderTargetRange, renderAllyRange, toggleMenu, selectAttackKind, selectEssenceSchool, selectBlockKind, toggleCounter, commitAction, undoAction, resolveRound, renderCombatCounters, renderStagedActions, stageRest } from './combat.js';
 import { renderSequencer, initSequencerHover, initSequencerScrub } from './sequencer.js';
-import { addEnemy, startEncounter, endEncounter, renderDMEnemyPicker, renderDMCounters, renderDMTargetRange, dmToggleMenu, dmSelectAttackKind, dmSelectBlockKind, dmToggleCounter, dmCommitAction, dmUndoAction, renderDMStagedActions, clearDead, populateSavedEncounterDropdown, saveEncounterAsTemplate, loadEncounterTemplate, renderNpcList } from './dm.js';
+import { castSeedAddEnemy, startEncounter, endEncounter, renderDMCounters, renderDMTargetRange, dmToggleMenu, dmSelectAttack, dmToggleBlockMode, dmToggleEssenceMode, dmSelectBlockKind, dmToggleCounter, dmCommitAction, dmUndoAction, renderDMStagedActions, clearDead, populateSavedEncounterDropdown, saveEncounterAsTemplate, castSeedLoadEncounter, renderNpcList, initEssencePopoverDismiss } from './dm.js';
 import { defaultMap, renderMap, toggleMapEditMode, toggleTata, cancelMoveSelect, initMapPopupDismiss, centerMapView } from './map.js';
 import { SCENES, loadScene, toggleSceneMenu, seedScene } from './scenes.js';
 import { openPanel, closePanel, togglePanel, updateEncounterUI, initPanelBackdrop, showLoading } from './panels.js';
@@ -102,7 +102,6 @@ function renderAll(){
   renderAllyRange();
   renderStagedActions();
   renderSequencer();
-  renderDMEnemyPicker();
   renderDMCounters();
   renderDMTargetRange();
   renderDMStagedActions();
@@ -828,23 +827,32 @@ function wireEvents(){
   document.getElementById('btn-rest').addEventListener('click', stageRest);
 
   // DM
-  document.getElementById('dm-encounter-loader').addEventListener('change', loadEncounterTemplate);
+  document.getElementById('dm-encounter-loader').addEventListener('change', castSeedLoadEncounter);
   document.getElementById('btn-save-encounter').addEventListener('click', saveEncounterAsTemplate);
-  document.getElementById('btn-add-enemy').addEventListener('click', addEnemy);
+  document.getElementById('btn-add-enemy').addEventListener('click', castSeedAddEnemy);
   document.getElementById('btn-start-encounter').addEventListener('click', startEncounter);
   document.getElementById('btn-end-encounter').addEventListener('click', endEncounter);
-  document.getElementById('dm-attack-fast-btn').addEventListener('click', () => dmSelectAttackKind('fast'));
-  document.getElementById('dm-attack-strong-btn').addEventListener('click', () => dmSelectAttackKind('strong'));
-  document.getElementById('dm-attack-focus-btn').addEventListener('click', () => dmSelectAttackKind('focus'));
-  document.getElementById('dm-btn-attack-menu').addEventListener('click', () => dmToggleMenu('attack'));
+  document.getElementById('dm-btn-attack-menu').addEventListener('click', dmSelectAttack);
   document.getElementById('dm-btn-block-menu').addEventListener('click', () => dmToggleMenu('block'));
   document.getElementById('dm-block-general-btn').addEventListener('click', () => dmSelectBlockKind('general'));
   document.getElementById('dm-block-target-btn').addEventListener('click', () => dmSelectBlockKind('target'));
   document.getElementById('dm-block-counter-btn').addEventListener('click', dmToggleCounter);
-  document.getElementById('dm-essence-btn').addEventListener('click', () => dmToggleMenu('essence'));
   document.getElementById('dm-btn-commit').addEventListener('click', dmCommitAction);
   document.getElementById('dm-btn-undo').addEventListener('click', dmUndoAction);
   document.getElementById('btn-clear-dead').addEventListener('click', clearDead);
+  // Active Character Display's final 3 placeholder buttons (Attack/Block/
+  // Essence, js/activeCharacter.js) — delegated since that row's own HTML is
+  // rebuilt every render. All 3 are one door onto the real mechanisms (Map
+  // Tile/occupant clicks, js/map.js, are the other) — js/dm.js toggles a
+  // targeting mode for each; Essence's own quickStageTechnique hand-off
+  // (techniques.js) is what keeps this from being a second implementation.
+  document.getElementById('active-character-display').addEventListener('click', (ev) => {
+    const btn = ev.target.closest('.active-char-action-btn');
+    if(!btn) return;
+    if(btn.dataset.actionKind === 'attack') dmSelectAttack();
+    else if(btn.dataset.actionKind === 'block') dmToggleBlockMode();
+    else if(btn.dataset.actionKind === 'essence') dmToggleEssenceMode();
+  });
 
   // DM Test panel
   document.getElementById('btn-dmtest-round').addEventListener('click', runDMTestRound);
@@ -870,6 +878,7 @@ function wireEvents(){
   initPanelBackdrop();
   initCraftPopup();
   initMapPopupDismiss();
+  initEssencePopoverDismiss();
 }
 
 // ---------- Init ----------

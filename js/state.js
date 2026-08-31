@@ -15,11 +15,16 @@ export const AppState = {
   pendingBlockKind: null, // 'general' | 'target'
   pendingCounter: false,
 
-  // DM combat staging
-  actingEnemyId: null,
+  // Attack/Block/Essence staging for whoever's currently Active — js/dm.js,
+  // merged 2026-08-30 onto activeCharacterId below instead of its own
+  // separate actingEnemyId (the two were always kept numerically identical
+  // by js/activeCharacter.js's toggleActiveCharacter, just via two fields).
+  // Names kept "dm"-prefixed for now — this engine used to be DM Panel-only,
+  // isn't anymore, but the file/panel haven't been renamed yet. Essence's
+  // own staging (dmPendingCraftKey picked) hands off to techniques.js's
+  // quickStageTechnique rather than duplicating its cost/order logic here.
   dmSelectedTargetId: null,
   dmPendingType: null,
-  dmPendingAttackKind: null,
   dmPendingCraftKey: null,
   dmPendingBlockKind: null,
   dmPendingCounter: false,

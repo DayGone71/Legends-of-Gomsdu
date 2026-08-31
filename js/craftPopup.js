@@ -14,27 +14,22 @@
 import { AppState } from './state.js';
 import { TECHNIQUES, hasTechniqueAccess, openTechniqueUse } from './techniques.js';
 import { resolveEntityRef } from './utils.js';
-import { dmSelectCraft, selectDMTarget, dmToggleMenu } from './dm.js';
-import { openPanel } from './panels.js';
-import { triggerRender } from './sync.js';
+import { activeActorId } from './activeCharacter.js';
 
 function closeCraftPopup(){
   const popup = document.getElementById('craft-list-popup');
   if(popup) popup.classList.add('hidden');
 }
 
-// The Crafter is the Player outside TATA, or the real Active Character
-// inside it. js/map.js's buildTilePopups only emits the Craft button at all
-// when this would resolve to someone real (never The Architect, who has no
-// Stats to Craft with).
-function currentCrafterId(){
-  return AppState.tataActive ? AppState.activeCharacterId : AppState.playerId;
-}
-
+// The Crafter is the Player outside Yom Mode, or whoever's Active inside it
+// — activeActorId() (js/activeCharacter.js) resolves either. Used to be a
+// manual tataActive ternary here that handed Yom Mode off to a separate DM
+// Panel flow (removed 2026-08-30) — openTechniqueUse itself became
+// actor-generic instead, so both cases are just this one call now.
 function openCraftPopup(targetId, anchorEl){
   const table = AppState.table;
-  const casterId = currentCrafterId();
-  const me = resolveEntityRef(table, casterId);
+  const casterId = activeActorId();
+  const me = casterId && resolveEntityRef(table, casterId);
   if(!me) return;
   const isSelf = targetId === casterId;
 
@@ -59,26 +54,7 @@ function openCraftPopup(targetId, anchorEl){
   popup.querySelectorAll('.craft-list-item').forEach(btn => {
     btn.onclick = (ev) => {
       ev.stopPropagation();
-      if(AppState.tataActive){
-        // TATA hands off to the DM's existing Essence-menu casting
-        // machinery (dmCommitAction etc., js/dm.js) rather than duplicating
-        // its cost/range/sequence logic here; the Player-only Technique Use
-        // panel below assumes AppState.playerId as the Crafter throughout,
-        // which an Active Character isn't. AppState.actingEnemyId is kept
-        // in lockstep with activeCharacterId (js/activeCharacter.js's
-        // toggleActiveCharacter), so the DM Panel opens already showing the
-        // right Character's real Crafts/costs. openPanel('dm') collapses
-        // every DM action submenu by design (panels.js's openPanel) — has
-        // to run before re-expanding Essence, or the pre-selection below
-        // gets immediately hidden again.
-        openPanel('dm');
-        dmToggleMenu('essence');
-        selectDMTarget(targetId);
-        dmSelectCraft(btn.dataset.craftKey);
-        triggerRender();
-      }else{
-        openTechniqueUse(btn.dataset.craftKey, targetId);
-      }
+      openTechniqueUse(btn.dataset.craftKey, targetId);
       closeCraftPopup();
     };
   });

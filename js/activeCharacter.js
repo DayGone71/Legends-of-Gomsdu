@@ -1,12 +1,15 @@
 // Every Character functions identically; Active Character is just which one
 // a Player is currently acting as. Outside TATA, the Active Character is
 // always just the Player's own Character — no switching UI exists for that.
-// The DM Panel's own separate Acting-As/Essence-menu machinery (js/dm.js) is
-// a distinct concept for now.
+// js/dm.js's Attack/Block/Essence staging engine (still named for the panel
+// it started in, not yet what it now is) reads activeActorId() below to
+// know who it's acting as — merged 2026-08-30 from its own separate
+// actingEnemyId, which toggleActiveCharacter used to keep in lockstep by hand.
 
 import { AppState } from './state.js';
 import { escapeHtml, isDeathWounded } from './utils.js';
 import { BUILDS } from './character.js';
+import { lookupGlyph, glyphMarkup, svgWrap } from './information.js';
 
 // Yom is the TATA default (was a placeholder, now a real Character in the
 // Universal Characters Table — table.characters, see js/scenes.js's
@@ -31,12 +34,22 @@ function yomDisplayCharacter(){
 // Clicking a Character's "Make Active" button switches straight to them if
 // someone else (or nobody) was Active; clicking the SAME Character's button
 // again drops back to the default, rather than needing a separate
-// "deactivate" control. Kept in lockstep with AppState.actingEnemyId (the DM
-// Panel's own "Acting As" concept, js/dm.js) so whichever Character becomes
-// Active is also who Attack/Block/Essence treat as the Crafter.
+// "deactivate" control.
 export function toggleActiveCharacter(id){
   AppState.activeCharacterId = (AppState.activeCharacterId === id) ? null : id;
-  AppState.actingEnemyId = AppState.activeCharacterId;
+}
+
+// Who Attack/Block/Essence staging (js/dm.js) currently acts as: the Player
+// themselves outside TATA (no switching UI exists there), whichever
+// Character's been explicitly made Active inside it, or Yom's own real id as
+// the TATA default when nothing's been picked yet. Null only if TATA is on,
+// nothing's been made Active, AND Yom hasn't even been Seeded onto this
+// Table yet — nothing real to act as.
+export function activeActorId(){
+  if(!AppState.tataActive) return AppState.playerId;
+  if(AppState.activeCharacterId) return AppState.activeCharacterId;
+  const table = AppState.table;
+  return (table && table.characters && table.characters.yom) ? 'yom' : null;
 }
 
 // Resolves what's actually Active right now into one normalized shape the
@@ -62,7 +75,7 @@ export function resolveActiveCharacter(){
   if(!found || isDeathWounded(found)){
     // Dead/removed since being made Active — fall back to Yom's real,
     // persisted record rather than a display pointing at nothing.
-    if(id){ AppState.activeCharacterId = null; AppState.actingEnemyId = null; }
+    if(id){ AppState.activeCharacterId = null; }
     const realYom = table.characters && table.characters.yom;
     return { name: 'Yom', side: 'yom', character: realYom || yomDisplayCharacter() };
   }
@@ -97,11 +110,33 @@ export function renderActiveCharacterDisplay(){
     '</div>';
   }
 
-  // 7 inert placeholder squares — no spec yet for what they'll do, reserving
-  // the space now.
-  const placeholderRow = '<div class="active-char-placeholder-row">' +
-    '<div class="active-char-placeholder-btn"></div>'.repeat(7) +
-  '</div>';
+  // 7 squares total. The first 4 are still inert placeholders — no spec yet,
+  // except the 3rd, which now carries the SUU Glyph (2026-08-30, per dDd) as
+  // a pure icon placement — no click behavior wired to it yet.
+  // The final 3 are real now, 2026-08-30: Attack/Block/Essence for whoever's
+  // currently Active, staged through js/dm.js's engine (same one Combat
+  // Panel and the DM Panel used to own separately) — click wiring lives in
+  // js/main.js as a delegated listener on this container, not here, so this
+  // module doesn't need to import js/dm.js/js/panels.js at all.
+  // Attack renders its real S Glyph (same SVG-composition path Mindeye/
+  // Scripts already use, js/information.js) now that it exists, rather than
+  // a bare letter — every one of these becomes a real Glyph eventually.
+  // Block/Essence stay plain-letter placeholders: Block has no Glyph yet,
+  // Essence's own hasn't been settled, per dDd.
+  const suuGlyph = lookupGlyph('SUU');
+  const suuIcon = suuGlyph ? '<span class="active-char-glyph-icon">' + svgWrap(glyphMarkup(suuGlyph)) + '</span>' : '';
+  const inertPlaceholders = '<div class="active-char-placeholder-btn"></div>'.repeat(2) +
+    '<div class="active-char-placeholder-btn">' + suuIcon + '</div>' +
+    '<div class="active-char-placeholder-btn"></div>';
+  const sGlyph = lookupGlyph('S');
+  const attackIcon = sGlyph ? '<span class="active-char-glyph-icon">' + svgWrap(glyphMarkup(sGlyph)) + '</span>' : 'S';
+  const actionButtons = [
+    { kind: 'attack', icon: attackIcon, title: 'Attack (S)' },
+    { kind: 'block', icon: 'B', title: 'Block' },
+    { kind: 'essence', icon: 'E', title: 'Essence' }
+  ].map(b => '<button class="active-char-placeholder-btn active-char-action-btn" data-action-kind="' +
+    b.kind + '" title="' + b.title + '">' + b.icon + '</button>').join('');
+  const placeholderRow = '<div class="active-char-placeholder-row">' + inertPlaceholders + actionButtons + '</div>';
 
   el.innerHTML =
     '<div class="active-character-display-row1">' +

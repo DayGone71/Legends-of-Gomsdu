@@ -6,18 +6,36 @@ import { escapeHtml, computeEntryTick, computeCounterMax, alliedActorIds, resolv
 // dynamic, just consistent with that value.
 const NEEDLE_SWEEP_MS = 6500;
 
-// Twilight Milk — the Time Mechanic. The First/Second Era sky is permanent
-// Twilight: Gom (a Black Hole) eats the light Yom/Star Father constantly
-// feeds him, which reads as a milky haze to the Planet's inhabitants.
-// Repurposes the Sequencer Bar's own 13 tick positions (6 per Wing, the Orb
-// as the 7th/center) as a literal globe-lighting model — table.timeTick
-// (0-12, where the "light" currently sits) advances by one every Non-Combat
-// Round. No literal tick mark or needle renders here — the whole Wing
-// background IS the display, and moving the (invisible) needle just changes how that background looks.
+// Twilight Milk — the Time Mechanic. Real spec from dDd, 2026-08-30 (the
+// previous version of this comment was wrong — see CHANGELOG.md's own
+// 2026-08-30 entry for the two guesses that preceded this): permanent
+// twilight, not a real day/night swing. Gom (a Black Hole) sucks the light
+// up before it can ever become real daylight or real darkness — the Star
+// (Yom) just reads as "a milky blotch moving across" a sky that's
+// otherwise always some shade of twilight, never pure white, never pure
+// black, day or night.
+//
+// A full cycle is 26 Non-Combat Rounds, not 13: **Day** is `timeTick` 0-12
+// — the Star's own blotch sweeps right-to-left across the Sequencer's 13
+// real tick positions, "rising" at the rightmost (tick 12) and "setting" at
+// the leftmost (tick 0). **Night** is `timeTick` 13-25 — no blotch at all,
+// the whole sky sits at one flat, slightly-darker twilight shade for the
+// full 13 ticks, then wraps back to 0 and the Star rises again on the
+// right. `js/noncombat.js`'s own tick-advance uses `% TWILIGHT_CYCLE_COUNT`
+// now, not a bare `13`, so this file stays the one place that number lives.
 export const TWILIGHT_TICK_COUNT = 13;
-export const TWILIGHT_CENTER_TICK = 6;
-const TWILIGHT_DARK = [13, 10, 34];       // #0D0A22 — Gom's own black-hole dark
-const TWILIGHT_BRIGHT = [243, 238, 255];  // #F3EEFF — the Milk itself: pale, faintly violet
+export const TWILIGHT_CYCLE_COUNT = TWILIGHT_TICK_COUNT * 2; // Day + Night
+export const TWILIGHT_CENTER_TICK = 6; // mid-Day fallback, before any real timeTick exists
+// Three tones, all deliberately mid-range — nothing here should ever read as
+// true black or true white. Easy to retune by eye; these are first guesses,
+// not measured against anything.
+const TWILIGHT_NIGHT = [26, 22, 48];      // flat Night sky — darker twilight, not darkness
+const TWILIGHT_DAY = [96, 88, 128];       // ambient Day sky, away from the Star's own blotch
+const TWILIGHT_BRIGHT = [243, 238, 255];  // #F3EEFF — the blotch's own peak; the Milk itself
+// How many ticks out from the Star's own position its blotch is still
+// visibly brighter than the ambient Day sky — a moving local glow, not a
+// gradient spanning the whole sky (that was the old, wrong model).
+const TWILIGHT_BLOTCH_RADIUS = 3;
 
 function mixColor(a, b, t){
   const r = Math.round(a[0] + (b[0] - a[0]) * t);
@@ -26,18 +44,16 @@ function mixColor(a, b, t){
   return `rgb(${r},${g},${bl})`;
 }
 
-// "Opposite" uses 26, not 13 — 13 ticks is odd, so there's no exact integer
-// opposite in 13-space. Doubling to a 26-slot circle first fixes that: every
-// tick's doubled coordinate is even, so its true antipode (+13 in 26-space)
-// always lands on an odd number — exactly halfway between two other ticks,
-// not a rounding error onto one side. Brightness falls off with a cosine
-// curve (real sphere lighting: brightest at the sub-point, darkest at the
-// antipode, smooth between).
-function twilightColorAt(tick, needleTick){
-  const doubledDist = Math.abs(tick * 2 - needleTick * 2);
-  const circDist = Math.min(doubledDist, TWILIGHT_TICK_COUNT * 2 - doubledDist); // 0..13
-  const brightness = (Math.cos((circDist / TWILIGHT_TICK_COUNT) * Math.PI) + 1) / 2;
-  return mixColor(TWILIGHT_DARK, TWILIGHT_BRIGHT, brightness);
+// `raw` is the real 0-25 table.timeTick value — Day (0-12) or Night (13-25).
+function twilightColorAt(tick, raw){
+  const isDay = raw < TWILIGHT_TICK_COUNT;
+  if(!isDay) return `rgb(${TWILIGHT_NIGHT.join(',')})`;
+  // Rises at tick 12 (raw 0), sets at tick 0 (raw 12) — right to left.
+  const starTick = (TWILIGHT_TICK_COUNT - 1) - raw;
+  const dist = Math.abs(tick - starTick);
+  if(dist >= TWILIGHT_BLOTCH_RADIUS) return `rgb(${TWILIGHT_DAY.join(',')})`;
+  const glow = (Math.cos((dist / TWILIGHT_BLOTCH_RADIUS) * Math.PI) + 1) / 2;
+  return mixColor(TWILIGHT_DAY, TWILIGHT_BRIGHT, glow);
 }
 
 function renderTwilightSky(){

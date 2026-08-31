@@ -1,25 +1,14 @@
 import { AppState } from './state.js';
 import { mutateTable, triggerRender } from './sync.js';
 import { escapeHtml, timeNow, playerShorthand, apCostForControl, describeAction, flashHint, isDeathWounded, resolveEntityRef, resolvePositionRef, enemyRoster, charactersRoster, allCharacterRoster, showBannerError } from './utils.js';
-import { BUILDS, spawnCharacter } from './character.js';
 import { getSavedCharacters } from './savedCharacters.js';
 import { getSavedEncounters, saveEncounterTemplate } from './savedEncounters.js';
+import { castSeedLive } from './scenes.js';
 import { updateEncounterUI, openPanel } from './panels.js';
-import { TECHNIQUES, hasTechniqueAccess, remaining, costText, glyphOptionsHtml } from './techniques.js';
-import { getDistance, hasLineOfSight } from './map.js';
+import { isMeleeArc, FACING_DEFAULT, renderMap, registerStageOnCharacterHandler } from './map.js';
 import { showCharacterView } from './characterView.js';
-import { toggleActiveCharacter } from './activeCharacter.js';
-
-// Spawned enemies stack on the upper-right-most Tile until there are 5, then
-// additional ones spawn on the Tile below that — straight down the rightmost
-// column, never sideways. Based on how many enemies are currently present
-// (not a lifetime count), so clearing the dead frees the top tile back up.
-function nextEnemyPosition(t){
-  const map = t.map;
-  const count = Object.keys(t.enemies || {}).length;
-  const row = Math.min(Math.floor(count / 5), (map.height || 1) - 1);
-  return { x: (map.width || 1) - 1, y: row };
-}
+import { toggleActiveCharacter, activeActorId } from './activeCharacter.js';
+import { craftsAndPowersFor, quickStageTechnique, costText } from './techniques.js';
 
 export async function startEncounter(){
   await mutateTable(t => {
@@ -32,28 +21,23 @@ export async function startEncounter(){
 export async function endEncounter(){
   await mutateTable(t => {
     t.inEncounter = false;
+    t.encounterZoneIds = {};
     t.log.push({ type: 'system', text: 'The encounter ends', time: timeNow() });
   });
   updateEncounterUI();
 }
 
-export async function addEnemy(){
+// Folded into Seed, 2026-08-30 — used to write t.enemies directly, free of
+// any cost or Character behind it. Now a real cast of Yom's own Seed
+// Technique (js/scenes.js's castSeedLive), same cost/resolution Genesis
+// itself already goes through. The picker (a Build, or a Saved Character) is unchanged.
+export async function castSeedAddEnemy(){
   const key = document.getElementById('dm-enemy-build-picker').value;
   if(!key) return;
   const isSaved = key.startsWith('saved:');
-  const b = isSaved ? getSavedCharacters()[key.slice(6)] : BUILDS[key];
-  if(!b) return;
-  const displayBase = isSaved ? key.slice(6) : b.archetype;
-  await mutateTable(t => {
-    if(!t.enemies) t.enemies = {};
-    if(!t.positions) t.positions = {};
-    const id = 'e_' + Math.random().toString(36).slice(2, 8);
-    const count = Object.values(t.enemies).filter(e => e.archetype === b.archetype && e.name.indexOf(displayBase) === 0).length + 1;
-    const pos = nextEnemyPosition(t);
-    t.enemies[id] = spawnCharacter(b, { name: displayBase + ' #' + count, num: count });
-    t.positions[id] = pos;
-    t.log.push({ type: 'system', text: 'An enemy joined the fight: ' + t.enemies[id].name, time: timeNow() });
-  });
+  const build = isSaved ? getSavedCharacters()[key.slice(6)] : key;
+  if(!build) return;
+  await castSeedLive([build]);
 }
 
 // Per-enemy version of clearDead below — lets a hover-revealed X on a single
@@ -65,7 +49,7 @@ export async function removeEnemy(id){
     delete t.enemies[id];
     t.log.push({ type: 'system', text: enemy.name + ' is removed from the field', time: timeNow() });
   });
-  if(AppState.actingEnemyId === id) AppState.actingEnemyId = null;
+  if(AppState.activeCharacterId === id) AppState.activeCharacterId = null;
   if(AppState.selectedTargetId === id) AppState.selectedTargetId = null;
 }
 
@@ -102,64 +86,33 @@ export async function saveEncounterAsTemplate(){
   flashHint('dm-encounter-hint', 'Saved "' + name + '" (' + snapshot.length + (snapshot.length === 1 ? ' enemy' : ' enemies') + ')');
 }
 
-// Spawns a saved roster's full set of enemies onto the field at once —
-// additive, so a DM can layer multiple saved templates together instead of it being all-or-nothing.
-export async function loadEncounterTemplate(){
+// Folded into Seed the same way, 2026-08-30 — spawns a saved roster's full
+// set of enemies as one Seed cast (Seed's own cost is flat regardless of
+// batch size, same as Genesis spawning a whole Scene's worth at once). Each
+// snapshot now goes through the real spawnCharacter() pipeline (via
+// castSeed/spawnNpc in scenes.js) instead of being spread onto the table
+// verbatim — the old version skipped techniqueAccess/personality/Mindeye/
+// Behavior-Queue setup entirely, a real gap this closes as a side effect.
+export async function castSeedLoadEncounter(){
   const select = document.getElementById('dm-encounter-loader');
   const name = select && select.value;
   if(!name) return;
   const roster = getSavedEncounters()[name];
   if(!roster || !roster.length){ if(select) select.value = ''; return; }
-
-  await mutateTable(t => {
-    if(!t.enemies) t.enemies = {};
-    if(!t.positions) t.positions = {};
-    roster.forEach(b => {
-      const id = 'e_' + Math.random().toString(36).slice(2, 8);
-      const count = Object.values(t.enemies).filter(e => e.archetype === b.archetype && e.name.indexOf(b.archetype) === 0).length + 1;
-      const pos = nextEnemyPosition(t);
-      t.enemies[id] = { ...b, name: b.archetype + ' #' + count, num: count, apSpent: 0, focusSpent: 0, sequence: [], possessedBy: null };
-      t.positions[id] = pos;
-    });
-    t.log.push({ type: 'system', text: 'The DM loads the "' + name + '" encounter (' + roster.length + (roster.length === 1 ? ' enemy' : ' enemies') + ')', time: timeNow() });
-  });
+  await castSeedLive(roster);
   if(select) select.value = '';
 }
 
-export function renderDMEnemyPicker(){
-  const el = document.getElementById('dm-enemy-picker');
-  if(!el) return;
-  const enemies = (AppState.table && AppState.table.enemies) || {};
-  const rows = enemyRoster(AppState.table);
-  if(AppState.actingEnemyId && !enemies[AppState.actingEnemyId]) AppState.actingEnemyId = null;
-  if(!rows.length){ el.innerHTML = '<div class="log-empty">No enemies to control yet.</div>'; return; }
-
-  el.innerHTML = rows.map(r => {
-    const e = r.entity;
-    let cls = 'target-chip';
-    if(r.id === AppState.actingEnemyId) cls += ' selected';
-    if(r.id === AppState.dmSelectedTargetId) cls += ' self-targeted';
-    if(r.dead) cls += ' defeated';
-    const removeX = r.dead ? '<span class="chip-remove-x" data-id="' + r.id + '">✕</span>' : '';
-    return '<div class="' + cls + '" data-id="' + r.id + '">' + escapeHtml(r.name) + ' &mdash; ' + Math.max(0, e.wounds) + '/' + e.woundsMax + removeX + '</div>';
-  }).join('');
-
-  el.querySelectorAll('.target-chip').forEach(chip => {
-    chip.onclick = () => selectActingEnemy(chip.dataset.id);
-    chip.ondblclick = () => toggleActingSelfTarget(chip.dataset.id);
-  });
-  el.querySelectorAll('.chip-remove-x').forEach(x => {
-    x.onclick = (ev) => { ev.stopPropagation(); removeEnemy(x.dataset.id); };
-  });
-}
-
 // NPC list — every live table.enemies entry, each row opening the same
-// read-only showCharacterView() popup the Roster's own avatars use. Distinct
-// from the DM's own "Acting As" picker just above: that one selects who the
-// DM stages actions as; this one is pure lookup, open to anyone at the Table.
-// containerId defaults to the toolbar's own NPCs panel, but the same data +
-// markup also drives View 2's TATA-mode "Characters" pane — same list, same
-// click-to-view-sheet either way, just mounted in a second place (see renderView2Mode() in main.js).
+// read-only showCharacterView() popup the Roster's own avatars use. Also
+// where "who am I acting as" actually gets picked now (the Make Active
+// button below) — the DM Panel used to have its own separate "Acting As"
+// picker for that; removed 2026-08-30 once activeCharacterId became the one
+// id both Movement and Attack/Block/Essence staging read (js/activeCharacter.js's
+// activeActorId()). containerId defaults to the toolbar's own NPCs panel,
+// but the same data + markup also drives View 2's TATA-mode "Characters"
+// pane — same list, same click-to-view-sheet either way, just mounted in a
+// second place (see renderView2Mode() in main.js).
 export function renderNpcList(containerId){
   const el = document.getElementById(containerId || 'npc-list');
   if(!el) return;
@@ -228,34 +181,8 @@ export function renderNpcList(containerId){
   });
 }
 
-export function selectActingEnemy(id){
-  const enemy = AppState.table && AppState.table.enemies && AppState.table.enemies[id];
-  if(!enemy || isDeathWounded(enemy)) return;
-  // A self-target only makes sense pinned to the Enemy that had it — moving
-  // to act as someone else drops it rather than carrying it along silently.
-  if(AppState.dmSelectedTargetId === AppState.actingEnemyId && AppState.actingEnemyId !== id){
-    AppState.dmSelectedTargetId = null;
-  }
-  AppState.actingEnemyId = id;
-  renderDMEnemyPicker();
-  renderDMCounters();
-  renderDMTargetRange();
-}
-
-// Double-click the Acting As chip to toggle it as its own target (e.g. to
-// test Execution/self-effects). A second double-click clears it.
-export function toggleActingSelfTarget(id){
-  const enemy = AppState.table && AppState.table.enemies && AppState.table.enemies[id];
-  if(!enemy || isDeathWounded(enemy)) return;
-  AppState.actingEnemyId = id;
-  AppState.dmSelectedTargetId = (AppState.dmSelectedTargetId === id) ? null : id;
-  renderDMEnemyPicker();
-  renderDMCounters();
-  renderDMTargetRange();
-}
-
 export function renderDMCounters(){
-  const enemy = AppState.actingEnemyId && AppState.table.enemies[AppState.actingEnemyId];
+  const actor = resolveEntityRef(AppState.table, activeActorId());
   const wEl = document.getElementById('dm-wounds-display');
   const aEl = document.getElementById('dm-ap-display');
   const fEl = document.getElementById('dm-flow-display');
@@ -263,92 +190,50 @@ export function renderDMCounters(){
   const ctrlEl = document.getElementById('dm-control-display');
   const hpEl = document.getElementById('dm-hitpercent-display');
   if(!wEl || !aEl) return;
-  if(!enemy){
+  if(!actor){
     wEl.textContent = '—'; aEl.textContent = '—';
     if(fEl) fEl.textContent = '—';
     if(fcEl) fcEl.textContent = '—';
     if(ctrlEl) ctrlEl.textContent = '—';
     if(hpEl) hpEl.textContent = '—';
   }else{
-    wEl.textContent = (enemy.wounds ?? 0) + '/' + (enemy.woundsMax ?? 0);
-    aEl.textContent = (enemy.apSpent || 0) + '/' + (enemy.ap ?? 0);
-    if(fEl) fEl.textContent = (enemy.flow ?? 0) + '/' + (enemy.flowMax ?? 0);
-    if(fcEl) fcEl.textContent = ((enemy.focus || 0) - (enemy.focusSpent || 0)) + '/' + (enemy.focus ?? 0);
-    if(ctrlEl) ctrlEl.textContent = (enemy.control ?? 0) + ' (base action: ' + apCostForControl(enemy.control || 0, 1) + ' AP)';
-    if(hpEl) hpEl.textContent = (enemy.flow > 0) ? '—' : (enemy.hitPercent ?? 1).toFixed(0) + '%';
+    wEl.textContent = (actor.wounds ?? 0) + '/' + (actor.woundsMax ?? 0);
+    aEl.textContent = (actor.apSpent || 0) + '/' + (actor.ap ?? 0);
+    if(fEl) fEl.textContent = (actor.flow ?? 0) + '/' + (actor.flowMax ?? 0);
+    if(fcEl) fcEl.textContent = ((actor.focus || 0) - (actor.focusSpent || 0)) + '/' + (actor.focus ?? 0);
+    if(ctrlEl) ctrlEl.textContent = (actor.control ?? 0) + ' (base action: ' + apCostForControl(actor.control || 0, 1) + ' AP)';
+    if(hpEl) hpEl.textContent = (actor.flow > 0) ? '—' : (actor.hitPercent ?? 1).toFixed(0) + '%';
   }
-
-  const fastBtn = document.getElementById('dm-attack-fast-btn');
-  const strongBtn = document.getElementById('dm-attack-strong-btn');
-  const focusBtn = document.getElementById('dm-attack-focus-btn');
-  const control = enemy ? (enemy.control || 0) : 0;
-  if(enemy){
-    if(fastBtn) fastBtn.textContent = 'Fast — ' + apCostForControl(control, 1) + ' AP';
-    if(strongBtn) strongBtn.textContent = 'Strong — ' + apCostForControl(control, 2) + ' AP';
-    if(focusBtn) focusBtn.textContent = 'Focus Attack — ' + apCostForControl(control, 2) + ' AP + 1 Focus';
-  }
-  if(focusBtn) focusBtn.classList.toggle('hidden', !(enemy && (enemy.focus || 0) > 0));
-
-  const crafts = enemy ? craftsKnownBy(enemy) : [];
-  const essBtn = document.getElementById('dm-essence-btn');
-  if(essBtn) essBtn.classList.toggle('hidden', !crafts.length);
-  renderDMEssenceMenu(crafts);
 
   dmRenderToggleStates();
 }
 
-// Which Crafts AND Powers (any column — Gom needs Focus Powers reachable
-// here so he can cast Empower) the acting Enemy actually knows — gated by
-// techniqueAccess and by actually having the resource stat above 0, same
-// visibility rule the old flat Lightning/Lava buttons used.
-function craftsKnownBy(actor){
-  return Object.entries(TECHNIQUES).filter(([, def]) => {
-    if(def.group !== 'Craft' && def.group !== 'Powers') return false;
-    if(def.column === 'Lightning' && !(actor.lightning > 0)) return false;
-    if(def.column === 'Lava' && !(actor.lava > 0)) return false;
-    if(def.column === 'Focus' && !(actor.focus > 0)) return false;
-    if(def.column === 'Flow' && !(actor.flow > 0)) return false;
-    return hasTechniqueAccess(actor, def);
-  });
-}
-
-// The DM Panel's Essence menu — shows the acting Enemy's real named Crafts,
-// reusing the same TECHNIQUES data and cost/target/range plumbing the
-// Player-side Techniques Panel uses.
-function renderDMEssenceMenu(crafts){
-  const el = document.getElementById('dm-menu-essence');
-  if(!el) return;
-  if(!crafts.length){ el.innerHTML = ''; return; }
-  el.innerHTML = crafts.map(([key, def]) =>
-    '<button class="btn-ghost btn-small' + (AppState.dmPendingCraftKey === key ? ' toggled' : '') +
-    '" data-craft="' + key + '">' + escapeHtml(def.name) + ' — ' + costText(def.costs) + '</button>'
-  ).join('');
-  // Message's Glyph picker — same Directions/Other picker the Player-facing
-  // Technique Use panel uses, reused directly rather than rebuilt, so Acting
-  // As Gom gets exactly the same real choice Moving him already has.
-  if(AppState.dmPendingCraftKey === 'message'){
-    el.innerHTML += '<div class="field"><label>Glyphs (up to 3, sent together)</label>' +
-      '<select id="dm-glyph-select-1">' + glyphOptionsHtml(false) + '</select>' +
-      '<select id="dm-glyph-select-2">' + glyphOptionsHtml(true) + '</select>' +
-      '<select id="dm-glyph-select-3">' + glyphOptionsHtml(true) + '</select></div>';
-  }
-  el.querySelectorAll('[data-craft]').forEach(btn => {
-    btn.onclick = () => dmSelectCraft(btn.dataset.craft);
-  });
-}
-
 // The canonical "everybody" roster — every Player, their Mini-Party, AND
-// every Enemy. An Enemy acting via the DM Panel can target another Enemy
-// here, same as everywhere else.
+// every Enemy — EXCEPT while Attack is the pending action, where the list
+// narrows to real melee reach: same Tile always (no Mini-Tiles yet to need
+// Facing there), an adjacent Tile only within the front 5 of its 8
+// neighbors (js/map.js's isMeleeArc — front, both front-diagonals, both
+// flanks; the 3 directly-behind neighbors are excluded regardless of
+// range). Essence casting no longer lives here at all (moved to
+// techniques.js's own Technique Use panel, now actor-generic — see
+// dmCommitAction's own note below) — this range is Attack/Block only now.
 export function renderDMTargetRange(){
   const el = document.getElementById('dm-target-range');
   if(!el) return;
   const table = AppState.table;
   if(!table){ el.innerHTML = ''; return; }
 
-  const rows = allCharacterRoster(table);
+  const isAttack = AppState.dmPendingType === 'attack';
+  const id = activeActorId();
+  const actor = isAttack && resolveEntityRef(table, id);
+  const actorPos = isAttack && resolvePositionRef(table, id);
 
-  if(!rows.length){ el.innerHTML = '<div class="log-empty">No Characters to target.</div>'; return; }
+  let rows = allCharacterRoster(table);
+  if(isAttack && actor && actorPos){
+    rows = rows.filter(r => r.id !== id && isMeleeArc(actorPos, actor.facing || FACING_DEFAULT, resolvePositionRef(table, r.id)));
+  }
+
+  if(!rows.length){ el.innerHTML = '<div class="log-empty">' + (isAttack ? 'No one in melee reach.' : 'No Characters to target.') + '</div>'; return; }
 
   el.innerHTML = rows.map(r => {
     let cls = 'target-chip';
@@ -368,36 +253,116 @@ export function selectDMTarget(id){
   if(!target || isDeathWounded(target)) return;
   AppState.dmSelectedTargetId = id;
   renderDMTargetRange();
-  renderDMEnemyPicker(); // clears any self-targeted highlight on the Acting As chip
 }
 
+// Legacy panel-dm submenu toggle — Block's old in-panel controls still
+// exist (dormant, only reachable via the "Dungeon Master" toolbar button)
+// but the real entry point now is the Map-driven trio below. Essence's own
+// legacy copy (dm-menu-essence) is gone outright, not just dormant — its
+// craft-picking now reuses techniques.js's own actor-generic access check
+// (craftsAndPowersFor) instead of a second copy of that logic.
 export function dmToggleMenu(name){
   const target = document.getElementById('dm-menu-' + name);
   const wasHidden = target ? target.classList.contains('hidden') : true;
-  ['attack', 'block', 'essence'].forEach(m => {
-    const el = document.getElementById('dm-menu-' + m);
-    if(!el) return;
-    if(m === name) el.classList.toggle('hidden', !wasHidden);
-    else el.classList.add('hidden');
-  });
+  const el = document.getElementById('dm-menu-block');
+  if(el) el.classList.toggle('hidden', name === 'block' ? !wasHidden : true);
 }
 
-export function dmSelectAttackKind(kind){
-  AppState.dmPendingType = 'attack';
-  AppState.dmPendingAttackKind = kind;
+// --- Map-driven targeting, 2026-08-30 per dDd — the Active Character
+// Display's own S/B/E buttons, a second door onto the same mechanisms the
+// Map's own Tile-click popups already reach (dDd's framing: RTS games
+// routinely have both a button menu and a right-click menu for one
+// command — two doors are fine, two *implementations* underneath aren't).
+// Each is a plain toggle (click again to cancel); WHERE you then click
+// actually stages the action, via dmStageOnCharacter below (js/map.js's
+// occupant popup calls it through registerStageOnCharacterHandler — a direct
+// import would cycle, js/dm.js already imports js/map.js for isMeleeArc). ---
+
+// Attack: single basic melee action (Strong/Focus dropped outright, not
+// deferred — Ranged Attack is First-Era Technique territory). No submenu —
+// toggle on, then click a Character standing on a highlighted Tile.
+export function dmSelectAttack(){
+  AppState.dmPendingType = AppState.dmPendingType === 'attack' ? null : 'attack';
+  closeEssencePopover();
   dmRenderToggleStates();
+  renderMap();
+}
+
+// Block: also no submenu now — WHO you click decides the kind. Clicking
+// the acting Character themselves stages General Block (Resilience's own
+// timing window, no target); clicking anyone else stages Target Block
+// against exactly them (see dmStageOnCharacter).
+export function dmToggleBlockMode(){
+  AppState.dmPendingType = AppState.dmPendingType === 'block' ? null : 'block';
+  AppState.dmPendingBlockKind = null;
+  closeEssencePopover();
+  dmRenderToggleStates();
+  renderMap();
+}
+
+// Essence: opens a small Craft popover anchored to the E button — picking a
+// Craft arms the Map's cursor glow (any Character anywhere is a valid
+// target, unlike Attack's fixed arc); clicking one then stages it through
+// quickStageTechnique (techniques.js) — the exact same cost/range/order
+// logic the Player's own Technique Use panel uses, just a second door onto
+// it. Message/Influence still open that real panel (dmStageOnCharacter
+// below hands off to quickStageTechnique either way), since those two
+// genuinely need their own Glyph/Axis/Direction fields.
+export function dmToggleEssenceMode(){
+  const turningOn = AppState.dmPendingType !== 'essence';
+  AppState.dmPendingType = turningOn ? 'essence' : null;
+  AppState.dmPendingCraftKey = null;
+  if(turningOn) openEssencePopover(); else closeEssencePopover();
+  dmRenderToggleStates();
+  renderMap();
 }
 
 export function dmSelectCraft(key){
   AppState.dmPendingType = 'essence';
   AppState.dmPendingCraftKey = key;
+  closeEssencePopover();
   dmRenderToggleStates();
+  renderMap();
+}
+
+function openEssencePopover(){
+  const btn = document.querySelector('.active-char-action-btn[data-action-kind="essence"]');
+  const popup = document.getElementById('essence-craft-popup');
+  if(!btn || !popup) return;
+  const actor = resolveEntityRef(AppState.table, activeActorId());
+  const crafts = actor ? craftsAndPowersFor(actor) : [];
+  if(!crafts.length){ showBannerError('No known Crafts to cast.'); AppState.dmPendingType = null; return; }
+  popup.innerHTML = crafts.map(([key, def]) =>
+    '<button class="essence-popover-item" data-craft="' + key + '">' + escapeHtml(def.name) + ' — ' + costText(def.costs) + '</button>'
+  ).join('');
+  const rect = btn.getBoundingClientRect();
+  popup.style.bottom = (window.innerHeight - rect.top + 6) + 'px';
+  popup.style.right = (window.innerWidth - rect.right) + 'px';
+  popup.classList.remove('hidden');
+  popup.querySelectorAll('[data-craft]').forEach(b => {
+    b.onclick = (ev) => { ev.stopPropagation(); dmSelectCraft(b.dataset.craft); };
+  });
+}
+
+function closeEssencePopover(){
+  const popup = document.getElementById('essence-craft-popup');
+  if(popup) popup.classList.add('hidden');
+}
+
+// Click-away dismiss, same idea/pattern as map.js's initMapPopupDismiss —
+// called once from main.js's wireEvents(), not a bare top-level side effect.
+export function initEssencePopoverDismiss(){
+  document.addEventListener('click', (ev) => {
+    if(ev.target.closest('#essence-craft-popup') || ev.target.closest('.active-char-action-btn[data-action-kind="essence"]')) return;
+    closeEssencePopover();
+  });
 }
 
 export function dmSelectBlockKind(kind){
   AppState.dmPendingType = 'block';
   AppState.dmPendingBlockKind = (AppState.dmPendingBlockKind === kind) ? null : kind;
   dmRenderToggleStates();
+  renderDMTargetRange();
 }
 
 export function dmToggleCounter(){
@@ -406,17 +371,45 @@ export function dmToggleCounter(){
   dmRenderToggleStates();
 }
 
-export function dmRenderToggleStates(){
-  const enemy = AppState.actingEnemyId && AppState.table && AppState.table.enemies[AppState.actingEnemyId];
-  const control = enemy ? (enemy.control || 0) : 0;
+// The actual Map-click target handler, registered with map.js via
+// registerStageOnCharacterHandler (see the bottom of this file) so map.js
+// never has to import this file directly. Collapses the old two-step (pick
+// from a panel list, then hit Commit) into one click — reuses
+// dmCommitAction's own cost/range/arc validation entirely; this only
+// decides WHAT to stage based on WHO got clicked and the current mode.
+export async function dmStageOnCharacter(id){
+  if(!AppState.dmPendingType) return false;
+  const actorId = activeActorId();
+  if(AppState.dmPendingType === 'block'){
+    AppState.dmPendingBlockKind = (id === actorId) ? 'general' : 'target';
+    AppState.dmSelectedTargetId = (id === actorId) ? null : id;
+    await dmCommitAction();
+  }else if(AppState.dmPendingType === 'essence'){
+    if(!AppState.dmPendingCraftKey) return true; // toggled on, no Craft chosen yet — swallow the click
+    await quickStageTechnique(AppState.dmPendingCraftKey, id);
+  }else{
+    AppState.dmSelectedTargetId = id;
+    await dmCommitAction();
+  }
+  return true;
+}
 
-  const fastBtn = document.getElementById('dm-attack-fast-btn');
-  const strongBtn = document.getElementById('dm-attack-strong-btn');
-  const focusBtn = document.getElementById('dm-attack-focus-btn');
-  if(fastBtn) fastBtn.classList.toggle('toggled', AppState.dmPendingType === 'attack' && AppState.dmPendingAttackKind === 'fast');
-  if(strongBtn) strongBtn.classList.toggle('toggled', AppState.dmPendingType === 'attack' && AppState.dmPendingAttackKind === 'strong');
-  if(focusBtn) focusBtn.classList.toggle('toggled', AppState.dmPendingType === 'attack' && AppState.dmPendingAttackKind === 'focus');
-  renderDMEssenceMenu(enemy ? craftsKnownBy(enemy) : []);
+export function dmRenderToggleStates(){
+  const actor = resolveEntityRef(AppState.table, activeActorId());
+  const control = actor ? (actor.control || 0) : 0;
+
+  const attackBtn = document.getElementById('dm-btn-attack-menu');
+  if(attackBtn){
+    attackBtn.textContent = 'Attack — ' + apCostForControl(control, 1) + ' AP';
+    attackBtn.classList.toggle('active', AppState.dmPendingType === 'attack');
+  }
+
+  // The real visible surface now — the Active Character Display's own S/B/E
+  // buttons, not panel-dm's (dormant, legacy-only). Active whenever that
+  // mode is the current dmPendingType, regardless of Craft-picked sub-state.
+  document.querySelectorAll('.active-char-action-btn').forEach(btn => {
+    btn.classList.toggle('active', AppState.dmPendingType === btn.dataset.actionKind);
+  });
 
   const generalBtn = document.getElementById('dm-block-general-btn');
   const targetBtn = document.getElementById('dm-block-target-btn');
@@ -439,8 +432,9 @@ export function dmRenderToggleStates(){
 }
 
 export async function dmCommitAction(){
-  if(!AppState.actingEnemyId){ showBannerError('Pick an enemy to act as first.'); return; }
-  const actor = AppState.table.enemies[AppState.actingEnemyId];
+  const id = activeActorId();
+  if(!id){ showBannerError('No Active Character to act as yet.'); return; }
+  const actor = resolveEntityRef(AppState.table, id);
   if(!actor) return;
   const spent = actor.apSpent || 0;
   const focusSpent = actor.focusSpent || 0;
@@ -449,16 +443,19 @@ export async function dmCommitAction(){
   const control = actor.control || 0;
 
   if(AppState.dmPendingType === 'attack'){
-    if(!AppState.dmPendingAttackKind){ showBannerError('Choose Fast, Strong, or Focus first.'); return; }
     const target = resolveEntityRef(AppState.table, AppState.dmSelectedTargetId);
     if(!target){ showBannerError('Pick a target first.'); return; }
-    const cost = apCostForControl(control, AppState.dmPendingAttackKind === 'fast' ? 1 : 2);
-    if(spent + cost > (actor.ap || 0)){ showBannerError('Not enough AP left this round.'); return; }
-    if(AppState.dmPendingAttackKind === 'focus' && focusSpent + 1 > (actor.focus || 0)){
-      showBannerError('Not enough Focus left this round.'); return;
+    // Defensive re-check, not just the render-time filter (renderDMTargetRange
+    // above) — a Facing change or a stale selection could otherwise slip an
+    // out-of-arc target through to here.
+    const myPos = resolvePositionRef(AppState.table, id);
+    const targetPos = resolvePositionRef(AppState.table, AppState.dmSelectedTargetId);
+    if(!isMeleeArc(myPos, actor.facing || FACING_DEFAULT, targetPos)){
+      showBannerError('Out of melee reach.'); return;
     }
-    const label = AppState.dmPendingAttackKind === 'strong' ? 'SA' : AppState.dmPendingAttackKind === 'focus' ? 'FCA' : 'FA';
-    entry = { apCost: cost, focusCost: AppState.dmPendingAttackKind === 'focus' ? 1 : 0, actionLabel: label, targetLabel: playerShorthand(target), targetName: target.name, kind: 'attack', attackKind: AppState.dmPendingAttackKind, targetId: AppState.dmSelectedTargetId };
+    const cost = apCostForControl(control, 1);
+    if(spent + cost > (actor.ap || 0)){ showBannerError('Not enough AP left this round.'); return; }
+    entry = { apCost: cost, focusCost: 0, actionLabel: 'FA', targetLabel: playerShorthand(target), targetName: target.name, kind: 'attack', attackKind: 'fast', targetId: AppState.dmSelectedTargetId };
   }else if(AppState.dmPendingType === 'block'){
     if(!AppState.dmPendingBlockKind){ showBannerError('Choose General Block or Target Block first.'); return; }
     let targetId = null, targetLabel = '', targetName = '';
@@ -474,43 +471,15 @@ export async function dmCommitAction(){
     if(spent + cost > (actor.ap || 0)){ showBannerError('Not enough AP left this round.'); return; }
     const label = (AppState.dmPendingBlockKind === 'general' ? 'GB' : 'TB') + (AppState.dmPendingCounter ? '+C' : '');
     entry = { apCost: cost, focusCost: 0, actionLabel: label, targetLabel, targetName, kind: 'block', blockKind: AppState.dmPendingBlockKind, counter: AppState.dmPendingCounter, targetId };
-  }else if(AppState.dmPendingType === 'essence'){
-    if(!AppState.dmPendingCraftKey){ showBannerError('Choose a Craft first.'); return; }
-    const def = TECHNIQUES[AppState.dmPendingCraftKey];
-    if(!def){ showBannerError('That Craft no longer exists.'); return; }
-    const target = resolveEntityRef(AppState.table, AppState.dmSelectedTargetId);
-    if(!target){ showBannerError('Pick a target first.'); return; }
-
-    const myPos = resolvePositionRef(AppState.table, AppState.actingEnemyId);
-    const targetPos = resolvePositionRef(AppState.table, AppState.dmSelectedTargetId);
-    if(myPos && targetPos){
-      // Shadow Possession Link bypasses Range — same rule as the Player's own Technique Use panel.
-      const linked = target.shadowLinkedBy && target.shadowLinkedBy.includes(AppState.actingEnemyId);
-      const dist = getDistance(myPos, targetPos);
-      if(!linked && dist > def.range){ showBannerError('Target is out of Range (' + dist + ' > ' + def.range + ').'); return; }
-      if(!hasLineOfSight(AppState.table, myPos, targetPos)){ showBannerError('No line of sight to target.'); return; }
-    }
-    for(const [resource, amount] of Object.entries(def.costs)){
-      if(remaining(actor, resource) < amount){ showBannerError('Not enough ' + resource + ' left.'); return; }
-    }
-
-    const glyphIds = AppState.dmPendingCraftKey === 'message'
-      ? [1, 2, 3].map(n => document.getElementById('dm-glyph-select-' + n)).filter(Boolean).map(el => el.value).filter(Boolean)
-      : undefined;
-    entry = {
-      apCost: def.costs.ap || 0, focusCost: def.costs.focus || 0, flowCost: def.costs.flow || 0,
-      lightningCost: def.costs.lightning || 0, lavaCost: def.costs.lava || 0,
-      actionLabel: def.name, targetLabel: playerShorthand(target), targetName: target.name,
-      kind: 'technique', techniqueKey: AppState.dmPendingCraftKey, targetId: AppState.dmSelectedTargetId,
-      glyphs: glyphIds
-    };
   }else{
-    showBannerError('Open Attack, Block, or Essence and choose something first.');
+    // Essence isn't staged through here anymore — techniques.js's own
+    // stageTechnique() owns Craft/Power casting entirely now.
+    showBannerError('Open Attack or Block and choose something first.');
     return;
   }
 
   await mutateTable(t => {
-    const a = t.enemies[AppState.actingEnemyId];
+    const a = resolveEntityRef(t, id);
     if(!a.sequence) a.sequence = [];
     a.sequence.push(entry);
     a.apSpent = spent + entry.apCost;
@@ -518,21 +487,42 @@ export async function dmCommitAction(){
     a.lightningSpent = (a.lightningSpent || 0) + (entry.lightningCost || 0);
     a.lavaSpent = (a.lavaSpent || 0) + (entry.lavaCost || 0);
     if(entry.flowCost) a.flow = Math.max(0, (a.flow || 0) - entry.flowCost);
+    // Locality-based Encounters (Combat item K), first pass — staging an
+    // Attack pulls both the attacker and the target into the Encounter
+    // Zone (tracked in its own membership map, rendered on the Map via
+    // encounterZoneKeys in map.js) AND flips the table-wide t.inEncounter
+    // on, same as manually pressing Start Encounter — Resolve (main.js)
+    // dispatches Combat vs Non-Combat purely off that flag, so without this
+    // a staged Attack would silently vanish into resolveNonCombatRound()
+    // instead of actually landing. Matches dDd's own framing: "Attacking a
+    // Character will cause both to enter into an Encounter."
+    if(entry.kind === 'attack' && entry.targetId){
+      if(!t.encounterZoneIds) t.encounterZoneIds = {};
+      t.encounterZoneIds[id] = true;
+      t.encounterZoneIds[entry.targetId] = true;
+      if(!t.inEncounter){
+        t.inEncounter = true;
+        t.log.push({ type: 'system', text: 'An Encounter begins', time: timeNow() });
+      }
+    }
     // Message/Channel's actual effects don't land here — this only stages
     // the entry, same as every other technique. Resolution happens in
     // combat.js's resolveRound() (Encounter running) or noncombat.js's
-    // resolveNonCombatRound() (this staging tool has no Encounter gate at
-    // all) — both walk this same `sequence` array.
+    // resolveNonCombatRound() (Block/Essence can still be staged with no
+    // Encounter running — an Attack now always starts one, above) — both
+    // walk this same `sequence` array.
     t.log.push({ type: 'system', text: a.name + ' stages ' + describeAction(entry) + (entry.targetName ? (' on ' + entry.targetName) : ''), time: timeNow() });
   });
+  updateEncounterUI();
 }
 
 export async function dmUndoAction(){
-  if(!AppState.actingEnemyId) return;
-  const actor = AppState.table.enemies[AppState.actingEnemyId];
+  const id = activeActorId();
+  if(!id) return;
+  const actor = resolveEntityRef(AppState.table, id);
   if(!actor || !actor.sequence || !actor.sequence.length) return;
   await mutateTable(t => {
-    const a = t.enemies[AppState.actingEnemyId];
+    const a = resolveEntityRef(t, id);
     const removed = a.sequence.pop();
     a.apSpent = Math.max(0, (a.apSpent || 0) - removed.apCost);
     a.focusSpent = Math.max(0, (a.focusSpent || 0) - (removed.focusCost || 0));
@@ -543,14 +533,15 @@ export async function dmUndoAction(){
 }
 
 // Companion to dmUndoAction above, mirroring removeStagedAction in combat.js —
-// lets the DM staged-actions list remove any one entry directly, not just the
+// lets the staged-actions list remove any one entry directly, not just the
 // most recently staged one.
 export async function dmRemoveStagedAction(index){
-  if(!AppState.actingEnemyId) return;
-  const actor = AppState.table.enemies[AppState.actingEnemyId];
+  const id = activeActorId();
+  if(!id) return;
+  const actor = resolveEntityRef(AppState.table, id);
   if(!actor || !actor.sequence || !actor.sequence[index]) return;
   await mutateTable(t => {
-    const a = t.enemies[AppState.actingEnemyId];
+    const a = resolveEntityRef(t, id);
     const removed = a.sequence.splice(index, 1)[0];
     a.apSpent = Math.max(0, (a.apSpent || 0) - removed.apCost);
     a.focusSpent = Math.max(0, (a.focusSpent || 0) - (removed.focusCost || 0));
@@ -561,7 +552,7 @@ export async function dmRemoveStagedAction(index){
 }
 
 export function renderDMStagedActions(){
-  const actor = AppState.actingEnemyId && AppState.table && AppState.table.enemies[AppState.actingEnemyId];
+  const actor = resolveEntityRef(AppState.table, activeActorId());
   const el = document.getElementById('dm-staged-list');
   if(!el) return;
   const seq = (actor && actor.sequence) || [];
@@ -585,5 +576,11 @@ export async function clearDead(){
     deadIds.forEach(id => { delete t.enemies[id]; });
     t.log.push({ type: 'system', text: 'Cleared ' + deadIds.length + ' defeated ' + (deadIds.length === 1 ? 'enemy' : 'enemies') + ' from the field', time: timeNow() });
   });
-  if(deadIds.includes(AppState.actingEnemyId)) AppState.actingEnemyId = null;
+  if(deadIds.includes(AppState.activeCharacterId)) AppState.activeCharacterId = null;
 }
+
+// Wires the Map's occupant-popup clicks to dmStageOnCharacter above — a
+// registration call rather than map.js importing this file directly, since
+// this file already imports map.js (isMeleeArc/renderMap etc.) and a
+// straight two-way import would cycle.
+registerStageOnCharacterHandler(dmStageOnCharacter);

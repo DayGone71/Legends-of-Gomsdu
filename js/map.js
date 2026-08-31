@@ -2,7 +2,7 @@ import { AppState } from './state.js';
 import { mutateTable, triggerRender } from './sync.js';
 import { escapeHtml, isDeathWounded, isDown, alliedActorIds, resolvePositionRef, resolveEntityRef, genId, timeNow, showBannerError } from './utils.js';
 import { showCharacterView } from './characterView.js';
-import { toggleActiveCharacter } from './activeCharacter.js';
+import { toggleActiveCharacter, activeActorId } from './activeCharacter.js';
 
 const DEFAULT_WIDTH = 14;
 const DEFAULT_HEIGHT = 14;
@@ -137,6 +137,25 @@ export function tileKey(map, x, y){
 export function getDistance(posA, posB){
   if(!posA || !posB) return null;
   return Math.abs(posA.x - posB.x) + Math.abs(posA.y - posB.y);
+}
+
+// Melee reach, 2026-08-30 per dDd: same Tile always reaches (no Mini-Tiles
+// yet to need Facing there — that's the 2nd Era refinement), an adjacent
+// Tile only within the front 5 of its 8 neighbors — front, both
+// front-diagonals, and both flanks. The 3 directly-behind neighbors (back,
+// back-left, back-right) are out of melee reach regardless of range.
+// Bearing math: 0deg=North(-y)/matches FACING_DEGREES' own convention
+// (clockwise from North) — atan2(dx, -dy) lands exactly on that scale.
+export function isMeleeArc(attackerPos, attackerFacing, targetPos){
+  if(!attackerPos || !targetPos) return false;
+  const dx = targetPos.x - attackerPos.x, dy = targetPos.y - attackerPos.y;
+  if(dx === 0 && dy === 0) return true;
+  if(Math.max(Math.abs(dx), Math.abs(dy)) > 1) return false;
+  const facingDeg = FACING_DEGREES[attackerFacing] ?? FACING_DEGREES[FACING_DEFAULT];
+  const targetDeg = (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360;
+  let diff = Math.abs(facingDeg - targetDeg);
+  if(diff > 180) diff = 360 - diff;
+  return diff <= 90;
 }
 
 // Occupancy at a single Tile: "down" is anyone not Active (Down or Death-
@@ -412,6 +431,29 @@ export async function handleTileClick(x, y){
     return;
   }
 
+  // Attack/Block/Essence targeting (js/dm.js) — a direct click on a
+  // Character's own Tile stages the action immediately, no popup round-trip
+  // required. Only a Tile with more than one Character still falls through
+  // to the occupant-list popup below, since a pick is genuinely needed there
+  // (its own click handler already re-checks dmPendingType and routes the
+  // same way).
+  if(AppState.dmPendingType && stageOnCharacterHandler){
+    const occupants = buildOccupantList(table, x, y);
+    if(occupants.length === 1){
+      closeOccupantPopup();
+      AppState.moveClickTile = null;
+      await stageOnCharacterHandler(occupants[0].id);
+      renderMap();
+      return;
+    }
+    if(!occupants.length){
+      closeOccupantPopup();
+      AppState.moveClickTile = null;
+      renderMap();
+      return;
+    }
+  }
+
   // A plain Tile click — set (or move) the occupancy-popup target and
   // re-render; buildTilePopups works out what actually shows. The
   // occupant-list popup is separate and always considered — opened fresh off
@@ -438,7 +480,7 @@ export function toggleTata(){
   // Entering always starts fresh at the default, not wherever a previous
   // session left off; leaving doesn't need a reset since
   // resolveActiveCharacter() (activeCharacter.js) only reads this while active.
-  if(AppState.tataActive){ AppState.activeCharacterId = null; AppState.actingEnemyId = null; }
+  if(AppState.tataActive){ AppState.activeCharacterId = null; }
   const btn = document.getElementById('tata-toggle');
   if(btn) btn.classList.toggle('toggled', AppState.tataActive);
   // Full renderAll(), not just renderMap() — this also swaps View 2
@@ -476,12 +518,12 @@ function buildTilePopups(table, x, y){
   }
 
   // Craft popup: gated on there being a real Crafter to act as — the Player
-  // outside Tata, or a real Active Character inside it (activeCharacterId is
-  // null both outside Tata and while the no-Stats default is active, so this
-  // naturally covers both cases). What actually shows once clicked lives in
-  // craftPopup.js, deliberately not imported here — techniques.js already
-  // imports map.js, so importing back would cycle.
-  const crafterId = AppState.tataActive ? AppState.activeCharacterId : AppState.playerId;
+  // outside Yom Mode, or a real Active Character inside it (activeActorId(),
+  // js/activeCharacter.js — null both outside Yom Mode with no Player set up
+  // yet, and while the no-Stats default is active). What actually shows once
+  // clicked lives in craftPopup.js, deliberately not imported here —
+  // techniques.js already imports map.js, so importing back would cycle.
+  const crafterId = activeActorId();
   if(crafterId){
     const craftOccupant = Object.entries(table.positions || {}).find(([id, pos]) =>
       pos.x === x && pos.y === y && ((table.players && table.players[id]) || (table.enemies && table.enemies[id]))
@@ -533,6 +575,15 @@ export function closeMapPopups(){
 // side keeps it closer to the center of the map, compared against the
 // current viewport window (not total map width — every rendered Tile is on
 // screen, since renderMap only ever renders the visible slice).
+// Set by js/dm.js at load time (registerStageOnCharacterHandler below) —
+// dependency injection instead of a direct import, since js/dm.js already
+// imports this file (isMeleeArc, FACING_DEFAULT, renderMap) and a straight
+// two-way import would cycle. Same pattern as sync.js's registerRenderCallback.
+let stageOnCharacterHandler = null;
+export function registerStageOnCharacterHandler(fn){
+  stageOnCharacterHandler = fn;
+}
+
 function openOccupantPopup(table, x, y, anchorEl){
   const popup = document.getElementById('occupant-list-popup');
   if(!popup) return;
@@ -559,9 +610,17 @@ function openOccupantPopup(table, x, y, anchorEl){
   popup.classList.remove('hidden');
 
   popup.querySelectorAll('.occupant-list-item').forEach(btn => {
-    btn.onclick = (ev) => {
+    btn.onclick = async (ev) => {
       ev.stopPropagation();
       const id = btn.dataset.occupantId;
+      // Attack/Block/Essence targeting mode (js/dm.js) takes over the click
+      // entirely when active — stages the action instead of the normal
+      // Make-Active/view-sheet behavior below.
+      if(AppState.dmPendingType && stageOnCharacterHandler){
+        await stageOnCharacterHandler(id);
+        closeOccupantPopup();
+        return;
+      }
       if(AppState.tataActive && btn.dataset.occupantKind === 'enemy'){
         toggleActiveCharacter(id);
         triggerRender();
@@ -616,6 +675,39 @@ export function renderMap(){
     const moveActor = resolveEntityRef(table, moveActorId);
     const moveOrigin = positions[moveActorId] || { x: 0, y: 0 };
     moveReach = computeReachable(table, moveOrigin, (moveActor && moveActor.ap) || 0);
+  }
+
+  // Attack targeting (js/dm.js's dmSelectAttack) highlights real melee reach
+  // directly on the Map instead of listing targets in a panel — computed
+  // once here, checked per-Tile below via the same isMeleeArc() the Attack
+  // Targeting pass already built.
+  let meleeOrigin = null, meleeFacing = null;
+  if(AppState.dmPendingType === 'attack'){
+    const attackerId = activeActorId();
+    const attacker = attackerId && resolveEntityRef(table, attackerId);
+    meleeOrigin = attackerId && positions[attackerId];
+    meleeFacing = attacker && (attacker.facing || FACING_DEFAULT);
+  }
+
+  // Locality-based Encounters (Combat item K), first pass — a Character's
+  // own Tile plus its 8 neighbors joins the Encounter Zone whenever they're
+  // a member of table.encounterZoneIds (populated in js/dm.js's
+  // dmCommitAction when an Attack lands). Computed live off current
+  // positions every render rather than stored as a frozen tile list, so the
+  // Zone reshapes for free as its participants move.
+  let encounterZoneKeys = null;
+  const zoneIds = table.encounterZoneIds && Object.keys(table.encounterZoneIds);
+  if(zoneIds && zoneIds.length){
+    encounterZoneKeys = new Set();
+    zoneIds.forEach(zid => {
+      const pos = positions[zid];
+      if(!pos) return;
+      for(let dy = -1; dy <= 1; dy++){
+        for(let dx = -1; dx <= 1; dx++){
+          encounterZoneKeys.add((pos.x + dx) + ',' + (pos.y + dy));
+        }
+      }
+    });
   }
 
   // Build a lookup: tile index -> array of short labels occupying it.
@@ -718,8 +810,10 @@ export function renderMap(){
             ? '<span class="move-badge move-badge-orb" title="Reachable this Round"></span>'
             : '<span class="move-badge move-badge-num" title="' + moveInfo.extraRounds + ' more Round' + (moveInfo.extraRounds === 1 ? '' : 's') + ' needed">' + moveInfo.extraRounds + '</span>')
         : '';
+      const meleeCls = (meleeOrigin && isMeleeArc(meleeOrigin, meleeFacing, { x, y })) ? ' melee-reach' : '';
+      const zoneCls = (encounterZoneKeys && encounterZoneKeys.has(x + ',' + y)) ? ' encounter-zone' : '';
       const cls = 'map-tile' + (blocked ? ' blocked' : '') + (here.length ? ' occupied' : '') +
-        (crowdBlocked ? ' crowd-blocked' : '') + edgeCls + (chunkCount >= 30 ? ' chunk-spill' : '') + moveCls;
+        (crowdBlocked ? ' crowd-blocked' : '') + edgeCls + (chunkCount >= 30 ? ' chunk-spill' : '') + moveCls + meleeCls + zoneCls;
 
       const dTier = downTier(occ.down);
       const cTier = chunkTier(chunkCount);
@@ -779,6 +873,10 @@ export function renderMap(){
     '</div>';
 
   el.innerHTML = html;
+  // Essence targeting (js/dm.js's dmToggleEssenceMode) — cursor glows once a
+  // Craft's actually picked (any Character is a valid target, unlike
+  // Attack's fixed melee arc, so there's nothing Tile-specific to highlight).
+  el.classList.toggle('essence-targeting', AppState.dmPendingType === 'essence' && !!AppState.dmPendingCraftKey);
 
   document.getElementById('map-pan-back').onclick = (ev) => { ev.stopPropagation(); panMapBack(); };
   document.getElementById('map-pan-rest').onclick = (ev) => { ev.stopPropagation(); panMapRest(); };
